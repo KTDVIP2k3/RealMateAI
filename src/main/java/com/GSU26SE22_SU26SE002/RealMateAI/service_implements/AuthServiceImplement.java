@@ -2,12 +2,19 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.LoginRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.RegisterRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AuthServiceInterface;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +24,12 @@ import java.time.LocalDateTime;
 public class AuthServiceImplement implements AuthServiceInterface {
     @Autowired
     AccountRepository accountRepository;
+
+    @Autowired
+    AuthenticationManager authenticationManager;
+
+    @Autowired
+    JwtServiceImplement jwtServiceImplement;
 
 
     @Override
@@ -37,11 +50,41 @@ public class AuthServiceImplement implements AuthServiceInterface {
             account.setIsActive(true);
             account.setCreateAt(LocalDateTime.now());
             accountRepository.save(account);
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success("Dang ky tai khoan thanh cong!!!"));
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null,"Dang ky tai khoan thanh cong!!!"));
         }catch (Exception e){
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("SERVER_ERROR", "Lỗi hệ thống: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> login(LoginRequest loginRequest) {
+        try{
+            if(loginRequest.getUserName().isEmpty()){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "UserName should not be blank"));
+            }
+
+            if(loginRequest.getPassword().isEmpty()){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Password should not be blank"));
+            }
+
+            Account account = accountRepository.findByUserName(loginRequest.getUserName()).orElse(null);
+
+            Authentication authentication = new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword());
+
+            Authentication authenticationResult = authenticationManager.authenticate(authentication);
+            String jwt = "";
+            if(account != null){
+                 jwt = jwtServiceImplement.generateToken(account.getUsername(), account.getRole().name(), account.getEmail());
+            }
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(jwt, "Login succesfully"));
+        }catch (UsernameNotFoundException usernameNotFoundException){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", usernameNotFoundException.getMessage()));
+        }catch (BadCredentialsException badCredentialsException){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "password does not match"));
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Sever_Error", e.getMessage().toString()));
         }
     }
 }

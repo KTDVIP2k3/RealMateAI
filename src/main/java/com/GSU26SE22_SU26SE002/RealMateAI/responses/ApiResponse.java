@@ -14,14 +14,16 @@ import java.time.Instant;
 public class ApiResponse {
     private boolean success;
     private Object data;
+    private String message;
     private ErrorDetails errorDetails;
 
     @Builder.Default
     private String timestamp = Instant.now().toString();
 
-    public static ApiResponse success(Object data) {
+    public static ApiResponse success(Object data, String message) {
         ApiResponse response = new ApiResponse();
         response.setSuccess(true);
+        response.setMessage(message);
         response.setData(data);
         return response;
     }

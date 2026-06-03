@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.config;
 
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,16 +12,25 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
-//    @Autowired
-//    UserDetailsService userDetailsService;
-//
-//    @Bean
-//    public PasswordEncoder passwordEncoder(){
-//        return  new BCryptPasswordEncoder(12);
-//    }
+    @Autowired
+    UserDetailsService userDetailsService;
+
+    @Autowired
+    JwtFilterConfig jwtFilter;
+
+    @Bean
+    public ModelMapper modelMapper(){
+        return new ModelMapper();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder(){
+        return  new BCryptPasswordEncoder(12);
+    }
 //
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
@@ -29,22 +39,25 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/v3/api-docs/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html").permitAll()
-                        .anyRequest().permitAll())
-                .formLogin(customizer -> customizer.disable());
+                        .requestMatchers("/auth/login").permitAll()
+                        .anyRequest().authenticated())
+                .formLogin(customizer -> customizer.disable())
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
         return  httpSecurity.build();
 
     }
-//
-//    @Bean
-//    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception{
-//        return authenticationConfiguration.getAuthenticationManager();
-//    }
-//
-//    @Bean
-//    public DaoAuthenticationProvider daoAuthenticationProvider(){
-//        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
-//        daoAuthenticationProvider.setUserDetailsService(userDetailsService);
-//        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
-//        return daoAuthenticationProvider;
-//    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception{
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider(){
+        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
+        daoAuthenticationProvider.setUserDetailsService(userDetailsService);
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
+        daoAuthenticationProvider.setHideUserNotFoundExceptions(false);
+        return daoAuthenticationProvider;
+    }
 }

@@ -7,5 +7,5 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 public interface AccountServiceInterface {
-
+    ResponseEntity<ApiResponse> getAccountProfile();
 }
