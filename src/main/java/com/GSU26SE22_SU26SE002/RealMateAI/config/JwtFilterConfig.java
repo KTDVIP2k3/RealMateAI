@@ -41,8 +41,12 @@ public class JwtFilterConfig extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String requestURI = request.getRequestURI();
-
         if (requestURI.equals("/auth/login")
+                || requestURI.equals("/auth/register")
+                || requestURI.equals("/auth/verify-register")
+                || requestURI.equals("/auth/verify-login")
+                || requestURI.equals("/auth/send-otp")
+                || requestURI.equals("/auth/activate-account")
                 || requestURI.startsWith("/swagger-ui")
                 || requestURI.startsWith("/v3/api-docs")) {
             filterChain.doFilter(request, response);
