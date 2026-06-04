@@ -40,6 +40,9 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/swagger-ui.html").permitAll()
                         .requestMatchers("/auth/login").permitAll()
+                        .requestMatchers("/auth/register").permitAll()
+                        .requestMatchers("/auth/login", "/auth/verify-login","/auth/activate-account").permitAll()
+                        .requestMatchers("/auth/register", "/auth/verify-register", "/auth/send-otp").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
