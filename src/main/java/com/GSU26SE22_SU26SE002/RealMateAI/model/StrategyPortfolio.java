@@ -1,0 +1,31 @@
+package com.GSU26SE22_SU26SE002.RealMateAI.model;
+
+import com.GSU26SE22_SU26SE002.RealMateAI.model.Portfolio;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@NoArgsConstructor @AllArgsConstructor @Data @Builder
+@Entity @Table(name = "strategy_portfolio")
+public class StrategyPortfolio {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "strategy_portfolio_id")
+    private Integer strategyPortfolioId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "strategy_id", nullable = false)
+    private Strategy strategy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "portfolio_id", nullable = false)
+    private Portfolio portfolio;
+
+    private Boolean isActive;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}
