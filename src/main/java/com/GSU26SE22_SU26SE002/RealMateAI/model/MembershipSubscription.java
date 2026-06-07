@@ -1,0 +1,33 @@
+package com.GSU26SE22_SU26SE002.RealMateAI.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@NoArgsConstructor @AllArgsConstructor @Data @Builder
+@Entity @Table(name = "membership_subscription")
+public class MembershipSubscription {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "membership_subscription_id")
+    private Integer membershipSubscriptionId;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "investor_id")
+    private Investor investor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "membership_plan_id", nullable = false)
+    private MembershipPlan membershipPlan;
+
+    private LocalDateTime startDate;
+    private LocalDateTime endDate;
+    private String status;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}
