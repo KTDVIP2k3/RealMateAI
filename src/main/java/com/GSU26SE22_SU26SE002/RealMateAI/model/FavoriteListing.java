@@ -27,6 +27,8 @@ public class FavoriteListing {
     @JoinColumn(name = "listing_id", nullable = false)
     private Listing listing;
 
-    /** true = liked / false = disliked */
+    /** true = liked / false = disliked
+     */
+    @Column(name = "is_Liked")
     private Boolean like;
 }
