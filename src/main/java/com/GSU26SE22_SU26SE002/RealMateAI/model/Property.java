@@ -39,6 +39,7 @@ public class Property {
     private Location location;
 
     private String title;
+    @Column(columnDefinition = "Text")
     private String description;
     private Long price;
     private Double area;
