@@ -32,9 +32,19 @@ public class AuthController {
     }
 
 
-    @PostMapping(value = "verify-register")
-    public ResponseEntity<ApiResponse> verifyRegister(@RequestParam String otp, HttpSession httpSession) {
-        return authServiceInterface.verifyRegister(otp, httpSession);
+    @PostMapping(value = "verify-otp")
+    public ResponseEntity<ApiResponse> verifyOtp(@RequestParam String otp, HttpSession httpSession) {
+        return authServiceInterface.verifyOtp(otp, httpSession);
+    }
+
+    @PostMapping(value = "forgot-password", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse> forgotPassword(@RequestPart String email, HttpSession httpSession){
+        return authServiceInterface.forgotPassword(email, httpSession);
+    }
+
+    @PostMapping(value = "reset-password", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse> resetPassword(@RequestPart String newPassword, HttpSession session){
+        return authServiceInterface.resetPassword(newPassword, session);
     }
 //
 //    @PostMapping(value = "verify-login")
