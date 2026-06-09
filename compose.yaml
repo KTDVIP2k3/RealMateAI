@@ -6,11 +6,11 @@ services:
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB: RealmateAi            # <-- Điền thẳng tên DB của bạn vào đây
     ports:
       - "5433:5432"
     healthcheck:
-      test:
+      test: ["CMD-SHELL", "pg_isready -U postgres"] # <-- Đã sửa lỗi ngắt dòng chặn GitHub Actions ban nãy
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     build:
       context: .
     environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
+      - DB_URL=jdbc:postgresql://postgres:5432/RealmateAi # <-- Điền thẳng tên DB vào chuỗi kết nối
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
