@@ -1,7 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.AccountVerification;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

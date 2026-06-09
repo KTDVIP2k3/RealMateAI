@@ -7,7 +7,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.OtpRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
