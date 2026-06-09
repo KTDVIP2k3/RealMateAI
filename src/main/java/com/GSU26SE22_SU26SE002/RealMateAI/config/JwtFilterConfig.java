@@ -43,10 +43,12 @@ public class JwtFilterConfig extends OncePerRequestFilter {
         String requestURI = request.getRequestURI();
         if (requestURI.equals("/auth/login")
                 || requestURI.equals("/auth/register")
-                || requestURI.equals("/auth/verify-register")
+                || requestURI.equals("/auth/verify-otp")
                 || requestURI.equals("/auth/verify-login")
                 || requestURI.equals("/auth/send-otp")
                 || requestURI.equals("/auth/activate-account")
+                || requestURI.equals("/auth/forgot-password")
+                || requestURI.equals("/auth/reset-password")
                 || requestURI.startsWith("/swagger-ui")
                 || requestURI.startsWith("/v3/api-docs")) {
             filterChain.doFilter(request, response);
