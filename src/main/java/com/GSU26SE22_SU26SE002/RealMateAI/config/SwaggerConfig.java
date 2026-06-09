@@ -20,8 +20,9 @@ public class SwaggerConfig {
                         .version("1.0"))
                 .servers(Arrays.asList(
 
-                        new Server().url("http://localhost:8080").description("Local Server URL")
+                        new Server().url("http://103.161.180.17:8081").description("Production Server URL"),
 
+                        new Server().url("http://localhost:8080").description("Local Server URL")
 
                 ))
                 .components(new io.swagger.v3.oas.models.Components()
