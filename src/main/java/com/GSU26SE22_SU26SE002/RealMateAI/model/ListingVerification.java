@@ -1,7 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,7 +26,7 @@ public class ListingVerification {
     private Account account;
 
     @Enumerated(EnumType.STRING)
-    private ListingStatusEnum lstatus;
+    private ListingStatusEnum status;
 
     private String reviewerNote;
 

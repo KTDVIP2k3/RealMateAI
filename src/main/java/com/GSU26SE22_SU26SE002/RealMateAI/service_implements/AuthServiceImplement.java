@@ -8,7 +8,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.LoginRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.RegisterRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AuthServiceInterface;
-import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthCacheComponent;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
