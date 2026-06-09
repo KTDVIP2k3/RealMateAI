@@ -78,7 +78,16 @@ public class AuthServiceImplement implements AuthServiceInterface {
             if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Information cannot be empty"));
             }
+            Account accountExistByEmail = accountRepository.findByEmail(registerRequest.getEmail()).orElse(null);
+            if(accountExistByEmail != null){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email: " + registerRequest.getEmail() + "is existed"));
+            }
 
+            Account accountExistByName = accountRepository.findByUserName(registerRequest.getUserName()).orElse(null);
+            boolean existByName = accountRepository.findAll().stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(registerRequest.getUserName()));
+            if(existByName){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "UserName: " + registerRequest.getUserName() + " is existed"));
+            }
             Account account = new Account();
             account.setUserName(registerRequest.getUserName());
             account.setPassword(new BCryptPasswordEncoder(12).encode(registerRequest.getPassword()));
@@ -165,10 +174,12 @@ public class AuthServiceImplement implements AuthServiceInterface {
 
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword()));
             emailServiceVerificationImplement.sendVerificationEmail(account);
-            httpSession.setAttribute("accountId", account.getAccountId());
+//            httpSession.setAttribute("accountId", account.getAccountId());
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Password correct. Please check your email for the OTP to complete login."));
-        } catch (UsernameNotFoundException e) {
+            String jwt = jwtServiceImplement.generateToken(account.getUsername(), account.getRole().name(), account.getEmail());
+
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(jwt, "Login successful"));
+        }catch (UsernameNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", e.getMessage()));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Password does not match"));
