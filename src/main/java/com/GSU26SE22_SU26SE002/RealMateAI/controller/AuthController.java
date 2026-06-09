@@ -36,11 +36,11 @@ public class AuthController {
     public ResponseEntity<ApiResponse> verifyRegister(@RequestParam String otp, HttpSession httpSession) {
         return authServiceInterface.verifyRegister(otp, httpSession);
     }
-
-    @PostMapping(value = "verify-login")
-    public ResponseEntity<ApiResponse> verifyLogin(@RequestParam String otp, HttpSession httpSession) {
-        return authServiceInterface.verifyLogin(otp, httpSession);
-    }
+//
+//    @PostMapping(value = "verify-login")
+//    public ResponseEntity<ApiResponse> verifyLogin(@RequestParam String otp, HttpSession httpSession) {
+//        return authServiceInterface.verifyLogin(otp, httpSession);
+//    }
 
     @PostMapping(value = "activate-account")
     public ResponseEntity<ApiResponse> activateAccount(@RequestParam String otp, HttpSession httpSession) {

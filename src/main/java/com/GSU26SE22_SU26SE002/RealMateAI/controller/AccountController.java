@@ -15,7 +15,7 @@ public class AccountController {
     @Autowired
     AccountServiceInterface accountServiceInterface;
 
-    @GetMapping("/account-profile")
+    @GetMapping("/me")
     public ResponseEntity<ApiResponse> getAccountProfile(){
         return accountServiceInterface.getAccountProfile();
     }
