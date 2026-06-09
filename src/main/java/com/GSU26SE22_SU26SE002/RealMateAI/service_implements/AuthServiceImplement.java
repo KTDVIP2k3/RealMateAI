@@ -79,9 +79,10 @@ public class AuthServiceImplement implements AuthServiceInterface {
             if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Information cannot be empty"));
             }
+            boolean existEmail = accountRepository.findAll().stream().anyMatch(account -> account.getEmail().toLowerCase().equalsIgnoreCase(registerRequest.getEmail()));
             Account accountExistByEmail = accountRepository.findByEmail(registerRequest.getEmail()).orElse(null);
-            if(accountExistByEmail != null){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email: " + registerRequest.getEmail() + "is existed"));
+            if(existEmail){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email: " + registerRequest.getEmail() + " is existed"));
             }
 
             Account accountExistByName = accountRepository.findByUserName(registerRequest.getUserName()).orElse(null);
@@ -115,8 +116,9 @@ public class AuthServiceImplement implements AuthServiceInterface {
     public ResponseEntity<ApiResponse> forgotPassword(String email, HttpSession httpSession){
         try{
             Account account = accountRepository.findByEmail(email).orElse(null);
+            boolean existEmail = accountRepository.findAll().stream().anyMatch(account1 -> account1.getEmail().toLowerCase().equalsIgnoreCase(email.toLowerCase()));
 
-            if(account == null){
+            if(!existEmail){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_found", "Email: " + email + " does not exist"));
             }
 
