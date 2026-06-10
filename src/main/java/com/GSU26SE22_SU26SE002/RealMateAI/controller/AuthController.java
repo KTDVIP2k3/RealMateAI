@@ -1,7 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.LoginRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.RegisterRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AuthServiceInterface;
 import jakarta.servlet.http.HttpSession;
@@ -27,24 +26,24 @@ public class AuthController {
     }
 
     @PostMapping(value = "send-otp")
-    public ResponseEntity<ApiResponse> sendOtp(HttpSession httpSession) {
-        return authServiceInterface.resendOtpUnified(httpSession);
+    public ResponseEntity<ApiResponse> sendOtp(HttpSession httpSession,@RequestBody SendOtpRequest sendOtpRequest) {
+        return authServiceInterface.resendOtpUnified(httpSession, sendOtpRequest);
     }
 
 
     @PostMapping(value = "verify-otp")
-    public ResponseEntity<ApiResponse> verifyOtp(@RequestParam String otp, HttpSession httpSession) {
-        return authServiceInterface.verifyOtp(otp, httpSession);
+    public ResponseEntity<ApiResponse> verifyOtp(@RequestBody OtpRequest otpRequest, HttpSession httpSession) {
+        return authServiceInterface.verifyOtp(otpRequest, httpSession);
     }
 
-    @PostMapping(value = "forgot-password", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse> forgotPassword(@RequestPart String email, HttpSession httpSession){
-        return authServiceInterface.forgotPassword(email, httpSession);
+    @PostMapping(value = "forgot-password")
+    public ResponseEntity<ApiResponse> forgotPassword(@RequestBody ForgotPasswordRequest forgotPasswordRequest, HttpSession httpSession){
+        return authServiceInterface.forgotPassword(forgotPasswordRequest, httpSession);
     }
 
-    @PostMapping(value = "reset-password", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse> resetPassword(@RequestPart String newPassword, HttpSession session){
-        return authServiceInterface.resetPassword(newPassword, session);
+    @PostMapping(value = "reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(@RequestPart ResetPasswordRequest resetPasswordRequest, HttpSession session){
+        return authServiceInterface.resetPassword(resetPasswordRequest, session);
     }
 //
 //    @PostMapping(value = "verify-login")
@@ -53,7 +52,7 @@ public class AuthController {
 //    }
 
     @PostMapping(value = "activate-account")
-    public ResponseEntity<ApiResponse> activateAccount(@RequestParam String otp, HttpSession httpSession) {
-        return authServiceInterface.activateAccount(otp, httpSession);
+    public ResponseEntity<ApiResponse> activateAccount(@RequestBody OtpRequest otpRequest, HttpSession httpSession) {
+        return authServiceInterface.activateAccount(otpRequest, httpSession);
     }
 }

@@ -4,8 +4,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.OTP;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.OtpRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.LoginRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.RegisterRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AuthServiceInterface;
 import jakarta.mail.MessagingException;
@@ -36,22 +35,22 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Autowired
     JwtServiceImplement jwtServiceImplement;
 
-    public ResponseEntity<ApiResponse> resendOtpUnified(HttpSession httpSession) {
+    public ResponseEntity<ApiResponse> resendOtpUnified(HttpSession httpSession, SendOtpRequest sendOtpRequest) {
         try {
-            Integer accountId = (Integer) httpSession.getAttribute("accountId");
-            if (accountId == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Invalid session"));
-            }
+//            Integer accountId = (Integer) httpSession.getAttribute("accountId");
+//            if (accountId == null) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Invalid session"));
+//            }
 
-            Account account = accountRepository.findById(accountId).orElse(null);
+            Account account = accountRepository.findByEmail(sendOtpRequest.getEmail()).orElse(null);
             if (account == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Account does not exist"));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("RESOURCE_NOT_FOUND", "Email does not exist"));
             }
 
             emailServiceVerificationImplement.sendVerificationEmail(account);
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "A new OTP has been sent successfully!"));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("SERVER_ERROR", e.getMessage()));
         }
     }
 
@@ -113,19 +112,19 @@ public class AuthServiceImplement implements AuthServiceInterface {
         }
     }
 
-    public ResponseEntity<ApiResponse> forgotPassword(String email, HttpSession httpSession){
+    public ResponseEntity<ApiResponse> forgotPassword(ForgotPasswordRequest forgotPasswordRequest, HttpSession httpSession){
         try{
-            Account account = accountRepository.findByEmail(email).orElse(null);
-            boolean existEmail = accountRepository.findAll().stream().anyMatch(account1 -> account1.getEmail().toLowerCase().equalsIgnoreCase(email.toLowerCase()));
+            Account account = accountRepository.findByEmail(forgotPasswordRequest.getEmail()).orElse(null);
+            boolean existEmail = accountRepository.findAll().stream().anyMatch(account1 -> account1.getEmail().toLowerCase().equalsIgnoreCase(forgotPasswordRequest.getEmail().toLowerCase()));
 
             if(!existEmail){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_found", "Email: " + email + " does not exist"));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_found", "Email: " + forgotPasswordRequest.getEmail() + " does not exist"));
             }
 
             httpSession.setAttribute("accountId", account.getAccountId());
             emailServiceVerificationImplement.sendVerificationEmail(account);
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Success" + "\n" + "OTP will sent from" + email + " to verify"));
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Success" + "\n" + "OTP will sent from" + forgotPasswordRequest.getEmail() + " to verify"));
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
@@ -133,7 +132,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> resetPassword(String newPassword, HttpSession httpSession) {
+    public ResponseEntity<ApiResponse> resetPassword(ResetPasswordRequest resetPasswordRequest, HttpSession httpSession) {
         try{
             Integer accountId = (Integer) httpSession.getAttribute("accountId");
 
@@ -150,7 +149,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
                         ApiResponse.fail("NOT_FOUND", "Account not found or no longer exists in the system.")
                 );
             }
-            account.setPassword(new BCryptPasswordEncoder(12).encode(newPassword));
+            account.setPassword(new BCryptPasswordEncoder(12).encode(resetPasswordRequest.getNewPassword()));
             account.setUpdateAt(LocalDateTime.now());
             accountRepository.save(account);
 
@@ -162,7 +161,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
     }
 
     @Transactional
-    public ResponseEntity<ApiResponse> verifyOtp(String otp, HttpSession httpSession) {
+    public ResponseEntity<ApiResponse> verifyOtp(OtpRequest otpRequest, HttpSession httpSession) {
         try {
             Integer accountId = (Integer) httpSession.getAttribute("accountId");
             if (accountId == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Invalid session"));
@@ -172,7 +171,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
             OTP otpEntity = account.getOtp();
             if (otpEntity == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "OTP not found"));
             if (otpEntity.getExpiredAt().isBefore(LocalDateTime.now())) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "OTP has expired"));
-            if (!otpEntity.getCode().equals(otp)) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Incorrect OTP"));
+            if (!otpEntity.getCode().equals(otpRequest.getOtp())) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Incorrect OTP"));
 
             account.setIsActive(true);
             account.setCreateAt(LocalDateTime.now());
@@ -241,7 +240,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
     }
 
     @Transactional
-    public ResponseEntity<ApiResponse> activateAccount(String otp, HttpSession httpSession) {
+    public ResponseEntity<ApiResponse> activateAccount(OtpRequest otpRequest, HttpSession httpSession) {
         try {
             Integer accountId = (Integer) httpSession.getAttribute("accountId");
             if (accountId == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Invalid session"));
@@ -252,7 +251,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
             OTP otpEntity = account.getOtp();
             if (otpEntity == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "OTP not found"));
             if (otpEntity.getExpiredAt().isBefore(LocalDateTime.now())) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "OTP has expired"));
-            if (!otpEntity.getCode().equals(otp)) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Incorrect OTP"));
+            if (!otpEntity.getCode().equals(otpRequest.getOtp())) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Incorrect OTP"));
 
             account.setIsActive(true);
             accountRepository.save(account);
