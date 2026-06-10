@@ -12,29 +12,32 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApiResponse {
-    private boolean success;
-    private Object data;
-    private String message;
-    private ErrorDetails errorDetails;
 
-    @Builder.Default
-    private String timestamp = Instant.now().toString();
+    private Boolean success;
+    private String code;
+    private String message;
+    private Object data;
+    private String timestamp;
+
 
     public static ApiResponse success(Object data, String message) {
-        ApiResponse response = new ApiResponse();
-        response.setSuccess(true);
-        response.setMessage(message);
-        response.setData(data);
-        return response;
+        return ApiResponse.builder()
+                .success(true)
+                .data(data)
+                .message(message)
+                .code(null)
+                .timestamp(null)
+                .build();
     }
 
+
     public static ApiResponse fail(String code, String message) {
-        ApiResponse response = new ApiResponse();
-        response.setSuccess(false);
-        response.setErrorDetails(ErrorDetails.builder()
+        return ApiResponse.builder()
+                .success(null)
+                .data(null)
                 .code(code)
                 .message(message)
-                .build());
-        return response;
+                .timestamp(null)
+                .build();
     }
 }
