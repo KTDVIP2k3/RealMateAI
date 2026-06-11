@@ -15,10 +15,6 @@ public class FavoriteListing {
     private Integer favoriteListingId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investor_id")
     private Investor investor;
 
@@ -27,6 +23,8 @@ public class FavoriteListing {
     @JoinColumn(name = "listing_id", nullable = false)
     private Listing listing;
 
-    /** true = liked / false = disliked */
+    /** true = liked / false = disliked
+     */
+    @Column(name = "is_Liked")
     private Boolean like;
 }

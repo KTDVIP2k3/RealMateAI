@@ -1,22 +1,22 @@
+version: '3.8'
+
 services:
   postgres:
     container_name: postgres_container
     image: postgres:17
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 12345
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: RealmateAi
-
     ports:
       - "5433:5432"
-
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # Thay "postgres" bằng biến ${DB_USERNAME} để đồng bộ với user khởi tạo
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d RealmateAi"]
       interval: 10s
       timeout: 5s
       retries: 5
-
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -27,10 +27,14 @@ services:
     build:
       context: .
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/RealmateAi
+      DB_URL: jdbc:postgresql://postgres:5432/RealmateAi
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
     ports:
       - "8081:8080"
-
     depends_on:
       postgres:
         condition: service_healthy

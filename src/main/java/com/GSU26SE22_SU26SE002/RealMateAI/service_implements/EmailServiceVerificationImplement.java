@@ -7,7 +7,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.OtpRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -58,6 +57,22 @@ public class EmailServiceVerificationImplement {
             helper.setText("Mã OTP của bạn là: " + otpCode, true);
             mailSender.send(message);
         }
+    }
+
+    public void sendInfoAccountStaff(String email, String userName, String password) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+        helper.setTo(email);
+        helper.setSubject("Thông tin tài khoản nhân viên RealMateAI");
+        String htmlContent = "<h3>Chào mừng bạn đến với hệ thống RealMateAI!</h3>"
+                + "<p>Dưới đây là thông tin đăng nhập của bạn:</p>"
+                + "<p><b>Tài khoản:</b> " + userName + "</p>"
+                + "<p><b>Mật khẩu:</b> " + password + "</p>"
+                + "<p><i>Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu tiên.</i></p>";
+
+        helper.setText(htmlContent, true);
+        mailSender.send(message);
     }
 
 }
