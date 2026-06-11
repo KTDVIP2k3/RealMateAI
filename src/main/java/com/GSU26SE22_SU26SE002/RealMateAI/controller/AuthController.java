@@ -42,7 +42,7 @@ public class AuthController {
     }
 
     @PostMapping(value = "reset-password")
-    public ResponseEntity<ApiResponse> resetPassword(@RequestPart ResetPasswordRequest resetPasswordRequest, HttpSession session){
+    public ResponseEntity<ApiResponse> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest, HttpSession session){
         return authServiceInterface.resetPassword(resetPasswordRequest, session);
     }
 //
