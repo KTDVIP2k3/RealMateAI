@@ -9,4 +9,5 @@ import lombok.NoArgsConstructor;
 @Data
 public class OtpRequest {
     private String otp;
+    private String email;
 }

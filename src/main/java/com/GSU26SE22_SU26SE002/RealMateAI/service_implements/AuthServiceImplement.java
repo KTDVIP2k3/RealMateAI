@@ -101,7 +101,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
 
             accountRepository.saveAndFlush(account);
             int savedAccountId = account.getAccountId();
-            session.setAttribute("accountId", savedAccountId);
+//            session.setAttribute("accountId", savedAccountId);
             emailServiceVerificationImplement.sendVerificationEmail(account);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Information valid. Please enter the OTP sent via Email to complete."));
@@ -134,15 +134,15 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Override
     public ResponseEntity<ApiResponse> resetPassword(ResetPasswordRequest resetPasswordRequest, HttpSession httpSession) {
         try{
-            Integer accountId = (Integer) httpSession.getAttribute("accountId");
-
-            if(accountId == null){
+//            Integer accountId = (Integer) httpSession.getAttribute("accountId");
+            boolean existEmail = accountRepository.findAll().stream().anyMatch(account ->  account.getEmail().toLowerCase().equalsIgnoreCase(resetPasswordRequest.getEmail().toLowerCase()));
+            if(!existEmail){
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                        ApiResponse.fail("INVALID_FLOW", "Invalid flow! You must request an OTP first or your session has expired.")
+                        ApiResponse.fail("Bad_Request", "Email does not exist")
                 );
             }
 
-            Account account = accountRepository.findById(accountId).orElse(null);
+            Account account = accountRepository.findByEmail(resetPasswordRequest.getEmail()).orElse(null);
 
             if(account == null){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
@@ -163,10 +163,9 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> verifyOtp(OtpRequest otpRequest, HttpSession httpSession) {
         try {
-            Integer accountId = (Integer) httpSession.getAttribute("accountId");
-            if (accountId == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Invalid session"));
-            Account account = accountRepository.findById(accountId).orElse(null);
-            if (account == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Account does not exist"));
+//            Integer accountId = (Integer) httpSession.getAttribute("accountId");
+            Account account = accountRepository.findByEmail(otpRequest.getEmail()).orElse(null);
+            if (account == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email does not exist"));
 
             OTP otpEntity = account.getOtp();
             if (otpEntity == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "OTP not found"));
