@@ -14,6 +14,8 @@ public interface AuthServiceInterface {
 
     ResponseEntity<ApiResponse> resetPassword(ResetPasswordRequest resetPasswordRequest, HttpSession httpSession);
 
+    ResponseEntity<ApiResponse> newPassword(NewPasswordRequest newPasswordRequest, HttpSession httpSession);
+
     ResponseEntity<ApiResponse> sendOtp(HttpSession httpSession);
 
     ResponseEntity<ApiResponse> resendOtpUnified(HttpSession httpSession, SendOtpRequest sendOtpRequest);

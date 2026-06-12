@@ -41,7 +41,12 @@ public class AuthController {
         return authServiceInterface.forgotPassword(forgotPasswordRequest, httpSession);
     }
 
-    @PostMapping(value = "reset-password")
+    @PutMapping(value = "new-password")
+    public ResponseEntity<ApiResponse> newPassword(@RequestBody NewPasswordRequest newPasswordRequest, HttpSession httpSession){
+        return authServiceInterface.newPassword(newPasswordRequest, httpSession);
+    }
+
+    @PutMapping(value = "reset-password")
     public ResponseEntity<ApiResponse> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest, HttpSession session){
         return authServiceInterface.resetPassword(resetPasswordRequest, session);
     }
@@ -51,8 +56,8 @@ public class AuthController {
 //        return authServiceInterface.verifyLogin(otp, httpSession);
 //    }
 
-    @PostMapping(value = "activate-account")
-    public ResponseEntity<ApiResponse> activateAccount(@RequestBody OtpRequest otpRequest, HttpSession httpSession) {
-        return authServiceInterface.activateAccount(otpRequest, httpSession);
-    }
+//    @PostMapping(value = "activate-account")
+//    public ResponseEntity<ApiResponse> activateAccount(@RequestBody OtpRequest otpRequest, HttpSession httpSession) {
+//        return authServiceInterface.activateAccount(otpRequest, httpSession);
+//    }
 }
