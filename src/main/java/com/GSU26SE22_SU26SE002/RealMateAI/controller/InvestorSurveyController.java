@@ -14,6 +14,7 @@ public class InvestorSurveyController {
     @Autowired
     private InvestorServiceInterface investorServiceInterface;
 
+
     @GetMapping(value = "survey/me")
     @PreAuthorize("hasAnyRole('Investor')")
     public ResponseEntity<ApiResponse> getInvestorSurvey(){
