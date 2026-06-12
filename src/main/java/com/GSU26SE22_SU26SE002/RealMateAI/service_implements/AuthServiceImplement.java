@@ -7,6 +7,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.OtpRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AuthServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
@@ -27,13 +28,15 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Autowired
     AccountRepository accountRepository;
     @Autowired
-    OtpRepository otpRepository;
+    private OtpRepository otpRepository;
     @Autowired
-    EmailServiceVerificationImplement emailServiceVerificationImplement;
+    private  EmailServiceVerificationImplement emailServiceVerificationImplement;
     @Autowired
-    AuthenticationManager authenticationManager;
+    private AuthenticationManager authenticationManager;
     @Autowired
-    JwtServiceImplement jwtServiceImplement;
+    private JwtServiceImplement jwtServiceImplement;
+    @Autowired
+    private AuthenUntil authenUntil;
 
     public ResponseEntity<ApiResponse> resendOtpUnified(HttpSession httpSession, SendOtpRequest sendOtpRequest) {
         try {
@@ -121,7 +124,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_found", "Email: " + forgotPasswordRequest.getEmail() + " does not exist"));
             }
 
-            httpSession.setAttribute("accountId", account.getAccountId());
+//            httpSession.setAttribute("accountId", account.getAccountId());
             emailServiceVerificationImplement.sendVerificationEmail(account);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Success" + "\n" + "OTP will sent from" + forgotPasswordRequest.getEmail() + " to verify"));
@@ -134,24 +137,24 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Override
     public ResponseEntity<ApiResponse> resetPassword(ResetPasswordRequest resetPasswordRequest, HttpSession httpSession) {
         try{
-//            Integer accountId = (Integer) httpSession.getAttribute("accountId");
-            boolean existEmail = accountRepository.findAll().stream().anyMatch(account ->  account.getEmail().toLowerCase().equalsIgnoreCase(resetPasswordRequest.getEmail().toLowerCase()));
-            if(!existEmail){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                        ApiResponse.fail("Bad_Request", "Email does not exist")
-                );
+            Account account = authenUntil.getCurrentUSer();
+
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Unauthorized", "User session missing or token expired"));
             }
 
-            Account account = accountRepository.findByEmail(resetPasswordRequest.getEmail()).orElse(null);
+            BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-            if(account == null){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                        ApiResponse.fail("NOT_FOUND", "Account not found or no longer exists in the system.")
-                );
+
+            if (!passwordEncoder.matches(resetPasswordRequest.getOldPassword(), account.getPassword())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Old password is wrong"));
             }
             account.setPassword(new BCryptPasswordEncoder(12).encode(resetPasswordRequest.getNewPassword()));
             account.setUpdateAt(LocalDateTime.now());
             accountRepository.save(account);
+            httpSession.removeAttribute("accountId");
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Password reset successfully! You can now log in with new password."));
         }catch (Exception e){
@@ -159,6 +162,24 @@ public class AuthServiceImplement implements AuthServiceInterface {
         }
 
     }
+
+    @Override
+    public ResponseEntity<ApiResponse> newPassword(NewPasswordRequest newPasswordRequest, HttpSession httpSession) {
+        try {
+//            Integer accountId = (Integer) httpSession.getAttribute("accountId");
+            Account account = accountRepository.findByEmail(newPasswordRequest.getEmail()).orElse(null);
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Email does not exists"));
+            }
+            account.setPassword(new BCryptPasswordEncoder(12).encode(newPasswordRequest.getNewPassword()));
+            accountRepository.save(account);
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Change password successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
 
     @Transactional
     public ResponseEntity<ApiResponse> verifyOtp(OtpRequest otpRequest, HttpSession httpSession) {
