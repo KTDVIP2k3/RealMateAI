@@ -49,6 +49,11 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/auth/activate-account")
                 || requestURI.equals("/auth/forgot-password")
                 || requestURI.equals("/auth/new-password")
+                || requestURI.equals("/province")
+                || requestURI.equals("/ward")
+                || requestURI.equals("/property-type")
+                || requestURI.equals("/property-condition")
+                || requestURI.equals("/strategy")
                 || requestURI.startsWith("/swagger-ui")
                 || requestURI.startsWith("/v3/api-docs")) {
             filterChain.doFilter(request, response);
