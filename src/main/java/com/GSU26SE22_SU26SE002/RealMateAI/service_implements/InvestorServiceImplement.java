@@ -59,8 +59,8 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
 
            Investor investor = new Investor();
            investor.setAccount(account);
-           investor.setLinkSocial(investorSurveyRequest.getLinkSocial());
-           investor.setAddress(investorSurveyRequest.getAddress());
+//           investor.setLinkSocial(investorSurveyRequest.getLinkSocial());
+//           investor.setAddress(investorSurveyRequest.getAddress());
            investor.setInvestmentStyle(investorSurveyRequest.getInvestmentStyle());
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
            investor.setProfitTarget(investorSurveyRequest.getProfitTarget());
@@ -86,8 +86,8 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
            if(investor == null){
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Investor does not exist"));
            }
-           investor.setLinkSocial(investorSurveyRequest.getLinkSocial());
-           investor.setAddress(investorSurveyRequest.getAddress());
+//           investor.setLinkSocial(investorSurveyRequest.getLinkSocial());
+//           investor.setAddress(investorSurveyRequest.getAddress());
            investor.setInvestmentStyle(investorSurveyRequest.getInvestmentStyle());
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
            investor.setProfitTarget(investorSurveyRequest.getProfitTarget());
@@ -99,6 +99,7 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
            investor.setStableIncome(investorSurveyRequest.getStableIncome());
            investor.setUpdatedAt(LocalDateTime.now());
            investor.setIsActive(true);
+           investorRepository.save(investor);
            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Update investor survey successfully"));
        } catch (Exception e) {
            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Sever_Erorr", e.getMessage()));

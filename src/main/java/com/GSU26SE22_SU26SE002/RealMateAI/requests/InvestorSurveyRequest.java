@@ -8,8 +8,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Data
 public class InvestorSurveyRequest {
-    private String linkSocial;
-    private String address;
     private String investmentStyle;
     private String investmentExperience;
     private String profitTarget;
@@ -18,5 +16,5 @@ public class InvestorSurveyRequest {
     private String capitalUtilizationMindset;
     private String positionalPriority;
     private String investmentMethod;
-    private String stableIncome;
+    private Boolean stableIncome;
 }
