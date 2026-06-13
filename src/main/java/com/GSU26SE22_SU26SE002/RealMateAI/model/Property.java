@@ -48,6 +48,9 @@ public class Property {
     private Integer bathroom;
     private String direction;
     private Boolean isActive;
+    @Column(columnDefinition = "Text")
+    private String propertyAttribute;
+    private String addressParticular;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
