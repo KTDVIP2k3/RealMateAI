@@ -24,5 +24,8 @@ public class PropertyType {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "propertyType", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<PropertyCondition> propertyConditions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "propertyType", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Property> properties = new ArrayList<>();
 }
