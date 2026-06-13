@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class InvestorDTO {
     private Integer investorId;
-    private String linkSocial;
-    private String address;
+//    private String linkSocial;
+//    private String address;
     private String investmentStyle;
     private String investmentExperience;
     private String profitTarget;
@@ -19,5 +19,5 @@ public class InvestorDTO {
     private String capitalUtilizationMindset;
     private String positionalPriority;
     private String investmentMethod;
-    private String stableIncome;
+    private Boolean stableIncome;
 }
