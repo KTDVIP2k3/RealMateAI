@@ -45,6 +45,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     private ListingRepository listingRepository;
 
     @Autowired
+    private PropertyConditionRepository propertyConditionRepository;
+
+    @Autowired
     private InvestmentProfileRepository investmentProfileRepository;
 
     @Autowired
@@ -765,19 +768,26 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         if (request.getCriteriaList() != null && !request.getCriteriaList().isEmpty()) {
             for (CriteriaRequest critRequest : request.getCriteriaList()) {
-                if (critRequest.getPropertyTypeId() != null) {
-                    PropertyType pType = propertyTypeRepository.findById(critRequest.getPropertyTypeId()).orElse(null);
-                    if (pType != null) {
-                        InvestmentCriteria criteriaEntity = InvestmentCriteria.builder()
-                                .investmentProfile(savedProfile)
-                                .propertyType(pType)
-                                .build();
-                        investmentCriteriaRepository.save(criteriaEntity);
+                if (critRequest.getPropertyTypeId() != null || critRequest.getPropertyConditionId() != null) {
+                    PropertyType pType = null;
+                    if (critRequest.getPropertyTypeId() != null) {
+                        pType = propertyTypeRepository.findById(critRequest.getPropertyTypeId()).orElse(null);
                     }
+
+                    PropertyCondition pCondition = null;
+                    if (critRequest.getPropertyConditionId() != null) {
+                        pCondition = propertyConditionRepository.findById(critRequest.getPropertyConditionId()).orElse(null);
+                    }
+
+                    InvestmentCriteria criteriaEntity = InvestmentCriteria.builder()
+                            .investmentProfile(savedProfile)
+                            .propertyType(pType)
+                            .propertyCondition(pCondition)
+                            .build();
+                    investmentCriteriaRepository.save(criteriaEntity);
                 }
             }
         }
-
         if (output != null && output.getScenarios() != null) {
             for (var scenarioDTO : output.getScenarios()) {
                 InvestmentScenario scenarioEntity = InvestmentScenario.builder()
