@@ -370,6 +370,11 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.fail("Strategy_Not_Found", "Investment strategy not found."));
             }
 
+            Account account = authenUntil.getCurrentUSer();
+            if(account.getInvestor() == null){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(null, "Investor survey does not exist. Please create to use this function"));
+            }
+
             List<InvestmentPortfolioDTO> portfolios = processStage1Portfolios(request, strategy);
             processStage2EnrichProperties(request, portfolios);
             InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(request, portfolios);
