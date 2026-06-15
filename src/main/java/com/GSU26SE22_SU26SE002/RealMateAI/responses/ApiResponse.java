@@ -14,7 +14,6 @@ import java.time.Instant;
 public class ApiResponse {
 
     private Boolean success;
-    private String code;
     private String message;
     private Object data;
 
