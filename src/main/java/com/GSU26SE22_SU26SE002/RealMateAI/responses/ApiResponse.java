@@ -30,7 +30,6 @@ public class ApiResponse {
 
     public static ApiResponse fail(String code, String message) {
         return ApiResponse.builder()
-                .code(code)
                 .message(message)
                 .build();
     }
