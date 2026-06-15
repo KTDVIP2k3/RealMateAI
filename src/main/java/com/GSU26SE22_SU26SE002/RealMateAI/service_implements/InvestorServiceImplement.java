@@ -80,9 +80,11 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> updateInvestorSurvey(Integer investorId, InvestorSurveyRequest investorSurveyRequest) {
+    public ResponseEntity<ApiResponse> updateInvestorSurvey(InvestorSurveyRequest investorSurveyRequest) {
        try{
-           Investor investor = investorRepository.findById(investorId).orElse(null);
+           Account account = authenUntil.getCurrentUSer();
+
+           Investor investor = account.getInvestor();
            if(investor == null){
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Investor does not exist"));
            }

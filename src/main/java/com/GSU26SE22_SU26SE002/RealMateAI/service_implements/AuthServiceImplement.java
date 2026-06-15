@@ -88,7 +88,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
             }
 
             Account accountExistByName = accountRepository.findByUserName(registerRequest.getUserName()).orElse(null);
-            boolean existByName = accountRepository.findAll().stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(registerRequest.getUserName()));
+            boolean existByName = accountRepository.findAll().stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(registerRequest.getUserName().toLowerCase()));
             if(existByName){
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "UserName: " + registerRequest.getUserName() + " is existed"));
             }

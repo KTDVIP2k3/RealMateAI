@@ -10,5 +10,5 @@ public interface InvestorServiceInterface {
 
     public ResponseEntity<ApiResponse> createInvestorSurvey(InvestorSurveyRequest investorSurveyRequest);
 
-    public ResponseEntity<ApiResponse> updateInvestorSurvey(Integer investorId, InvestorSurveyRequest investorSurveyRequest);
+    public ResponseEntity<ApiResponse> updateInvestorSurvey(InvestorSurveyRequest investorSurveyRequest);
 }

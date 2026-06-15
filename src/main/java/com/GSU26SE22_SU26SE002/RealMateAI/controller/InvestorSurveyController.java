@@ -26,9 +26,9 @@ public class InvestorSurveyController {
         return investorServiceInterface.createInvestorSurvey(investorSurveyRequest);
     }
 
-    @PutMapping(value = "survey/{surveyId}")
+    @PutMapping(value = "survey/me")
     @PreAuthorize("hasAnyRole('Investor')")
-    public ResponseEntity<ApiResponse> updateInvestorSurvey(@PathVariable Integer surveyId, @RequestBody InvestorSurveyRequest investorSurveyRequest){
-        return investorServiceInterface.updateInvestorSurvey(surveyId, investorSurveyRequest);
+    public ResponseEntity<ApiResponse> updateInvestorSurvey(@RequestBody InvestorSurveyRequest investorSurveyRequest){
+        return investorServiceInterface.updateInvestorSurvey( investorSurveyRequest);
     }
 }

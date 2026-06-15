@@ -25,4 +25,7 @@ public class Strategy {
 
     @OneToMany(mappedBy = "strategy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<StrategyPortfolio> strategyPortfolios = new ArrayList<>();
+
+    @OneToMany(mappedBy = "strategy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<InvestmentProfile> investmentProfiles = new ArrayList<>();
 }

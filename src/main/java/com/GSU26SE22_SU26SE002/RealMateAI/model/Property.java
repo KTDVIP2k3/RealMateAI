@@ -9,10 +9,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @NoArgsConstructor @AllArgsConstructor @Data @Builder
 @Entity @Table(name = "property")
@@ -47,10 +50,17 @@ public class Property {
     private Integer bedroom;
     private Integer bathroom;
     private String direction;
-    private Boolean isActive;
-    @Column(columnDefinition = "Text")
-    private String propertyAttribute;
+    private String legalStatus;
     private String addressParticular;
+    private String projectName;
+    private Boolean isActive;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "property_attribute", columnDefinition = "json")
+    private Map<String, Object> propertyAttribute;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "property_purpose", columnDefinition = "json")
+    private Map<String, Object> propertyPurpose;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
