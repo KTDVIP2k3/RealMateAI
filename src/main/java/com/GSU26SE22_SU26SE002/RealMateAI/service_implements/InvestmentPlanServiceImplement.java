@@ -707,9 +707,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             throw new IllegalArgumentException("Strategy ID must not be null");
         }
 
-        Map<String, Object> strategyDetailMap = new HashMap<>();
-        if (output != null) {
-            strategyDetailMap = objectMapper.convertValue(output, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> strategyDetailMap = request.getInvestmentStrategyDetail();
+
+        if (strategyDetailMap == null) {
+            strategyDetailMap = new HashMap<>();
         }
 
         String legalStatusJson = null;
