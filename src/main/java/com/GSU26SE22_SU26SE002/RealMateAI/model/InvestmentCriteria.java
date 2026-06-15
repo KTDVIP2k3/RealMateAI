@@ -29,12 +29,12 @@ public class InvestmentCriteria {
     @JoinColumn(name = "property_condition_id")
     private PropertyCondition propertyCondition;
 
-    private Long minPrice;
-    private Long maxPrice;
-    private Double minArea;
-    private Double maxArea;
-    private String location;
-    private Boolean isActive;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+////    private Long minPrice;
+////    private Long maxPrice;
+////    private Double minArea;
+////    private Double maxArea;
+////    private String location;
+////    private Boolean isActive;
+//    private LocalDateTime createdAt;
+//    private LocalDateTime updatedAt;
 }

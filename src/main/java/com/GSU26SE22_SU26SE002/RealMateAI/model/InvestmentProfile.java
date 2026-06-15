@@ -5,11 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @NoArgsConstructor @AllArgsConstructor @Data @Builder
 @Entity @Table(name = "investment_profile")
@@ -41,7 +44,9 @@ public class InvestmentProfile {
     private Long durationYear;
     private LocalDate startDate;
     private String investmentType;
-    private String investmentStrategyDetail;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "investment_strategy_detail", columnDefinition = "json")
+    private Map<String, Object> investmentStrategyDetail;
     private String legalStatus;
     private String version;
     private Boolean isActive;
