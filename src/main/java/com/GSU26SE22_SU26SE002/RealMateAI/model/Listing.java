@@ -53,8 +53,5 @@ public class Listing {
     private List<ListingVerification> listingVerifications = new ArrayList<>();
 
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<ImageListing> imageListings = new ArrayList<>();
-
-    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<PostingPackageOrder> postingPackageOrders = new ArrayList<>();
 }

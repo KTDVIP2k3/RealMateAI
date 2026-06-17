@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @NoArgsConstructor @AllArgsConstructor @Data @Builder
 @Entity @Table(name = "favorite_listing")
 public class FavoriteListing {
@@ -22,9 +24,13 @@ public class FavoriteListing {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false)
     private Listing listing;
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 
-    /** true = liked / false = disliked
-     */
-    @Column(name = "is_Liked")
-    private Boolean like;
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
 }
