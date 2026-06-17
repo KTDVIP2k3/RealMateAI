@@ -24,8 +24,7 @@ public class Investor {
     @JoinColumn(name = "account_id", nullable = false, unique = true)
     private Account account;
 
-     private String linkSocial;
-    private String address;
+
     private String investmentStyle;
     private String investmentExperience;
     private String profitTarget;
@@ -34,7 +33,7 @@ public class Investor {
     private String capitalUtilizationMindset;
     private String positionalPriority;
     private String investmentMethod;
-    private String stableIncome;
+    private Boolean stableIncome;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

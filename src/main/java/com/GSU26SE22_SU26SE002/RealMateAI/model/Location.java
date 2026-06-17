@@ -25,7 +25,9 @@ public class Location {
 
     private String postalCode;
 
-    private Integer wardCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ward_code")
+    private Ward ward;
 
     @OneToOne(mappedBy = "location", fetch = FetchType.LAZY)
     private Property property;

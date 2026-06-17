@@ -25,6 +25,9 @@ public class InvestmentPortfolio {
     @JoinColumn(name = "portfolio_id", nullable = false)
     private Portfolio portfolio;
 
+    private int percentage;
+    private double capital;
+
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

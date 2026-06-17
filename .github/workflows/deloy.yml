@@ -26,9 +26,6 @@ jobs:
       - name: Stop old containers
         run: docker compose down
 
-      - name: Build images
-        run: docker compose build --no-cache
-
       - name: Start containers
         env:
           DB_URL: ${{ secrets.DB_URL }}
@@ -37,4 +34,5 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
-        run: docker compose up -d
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: docker compose up -d --build

@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
 @Repository
@@ -72,4 +71,21 @@ public interface ListingRepository extends JpaRepository<Listing, Integer> {
             WHERE l.listingId = :listingId
             """)
     Optional<Listing> findByIdWithDetails(@Param("listingId") Integer listingId);
+    @Query("SELECT l FROM Listing l " +
+            "JOIN l.property p " +
+            "JOIN p.propertyCondition pc " +
+            "JOIN pc.propertyType pt " +
+            "JOIN p.location loc " +
+            "JOIN loc.ward w " +
+            "WHERE (w.name = :ward OR :ward IS NULL) " +
+            "AND pt.propertyTypeId = :propertyTypeId " +
+            "AND l.price <= :maxPrice " +
+            "AND l.isActive = true " +
+            "AND p.isActive = true " +
+            "ORDER BY l.price DESC")
+    List<Listing> findRealPropertiesByAiStrategy(
+            @Param("ward") String ward,
+            @Param("propertyTypeId") Integer propertyTypeId,
+            @Param("maxPrice") Long maxPrice
+    );
 }

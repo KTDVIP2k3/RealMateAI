@@ -24,6 +24,10 @@ public class PropertyCondition {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "property_type_id")
+    private PropertyType propertyType;
+
     @OneToMany(mappedBy = "propertyCondition", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Property> properties = new ArrayList<>();
 }

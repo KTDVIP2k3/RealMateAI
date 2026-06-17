@@ -29,7 +29,6 @@ public class PortfolioAllocation {
     @JoinColumn(name = "investment_portfolio_id")
     private InvestmentPortfolio investmentPortfolio;
 
-    private Double allocationPercentage;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

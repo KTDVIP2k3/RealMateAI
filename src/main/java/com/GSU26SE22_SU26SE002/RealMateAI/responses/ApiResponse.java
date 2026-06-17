@@ -14,10 +14,8 @@ import java.time.Instant;
 public class ApiResponse {
 
     private Boolean success;
-    private String code;
     private String message;
     private Object data;
-    private String timestamp;
 
 
     public static ApiResponse success(Object data, String message) {
@@ -25,19 +23,13 @@ public class ApiResponse {
                 .success(true)
                 .data(data)
                 .message(message)
-                .code(null)
-                .timestamp(null)
                 .build();
     }
 
 
     public static ApiResponse fail(String code, String message) {
         return ApiResponse.builder()
-                .success(null)
-                .data(null)
-                .code(code)
                 .message(message)
-                .timestamp(null)
                 .build();
     }
 }
