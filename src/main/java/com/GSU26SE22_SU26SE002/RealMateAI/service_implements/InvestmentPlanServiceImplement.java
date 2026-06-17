@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateInvestmentPlanRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.InvestmentPlanServiceInterface;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,62 +94,77 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 return ResponseEntity.status(HttpStatus.OK)
                         .body(ApiResponse.success(Collections.emptyList(), "Danh sách profile trống."));
             }
-
-            List<InvestmentProfileDTO> dtoList = profiles.stream().map(profile -> {
-                List<InvestmentCriteriaDTO> criteriaDTOList = Collections.emptyList();
-                if (profile.getInvestmentCriterias() != null) {
-                    criteriaDTOList = profile.getInvestmentCriterias().stream()
-                            .map(criteria -> {
-                                String typeName = (criteria.getPropertyType() != null)
-                                        ? criteria.getPropertyType().getName() : null;
-                                String conditionName = (criteria.getPropertyCondition() != null)
-                                        ? criteria.getPropertyCondition().getName() : null;
-
-                                return InvestmentCriteriaDTO.builder()
-                                        .propertyTypeName(typeName)
-                                        .propertyConditionName(conditionName)
-                                        .build();
-                            })
-                            .collect(Collectors.toList());
-                }
-
-                List<String> legalStatusList = Collections.emptyList();
-                if (profile.getLegalStatus() != null && !profile.getLegalStatus().isEmpty()) {
-                    try {
-                        legalStatusList = objectMapper.readValue(profile.getLegalStatus(), new TypeReference<List<String>>() {});
-                    } catch (Exception e) {
-                        log.error("Lỗi khi giải mã chuỗi legalStatus JSON ở danh sách", e);
-                    }
-                }
-
-                return InvestmentProfileDTO.builder()
-                        .investmentProfileId(profile.getInvestmentProfileId())
-                        .investorId(investor.getInvestorId())
-                        .strategyId(profile.getStrategy() != null ? profile.getStrategy().getStrategyId() : null)
-                        .name(profile.getName())
-                        .equity(profile.getEquity())
-                        .loanCapital(profile.getLoanCapital())
-                        .reserveFund(profile.getReserveFund())
-                        .conscious(profile.getConscious())
-                        .ward(profile.getWard())
-                        .expectedRoi(profile.getExpectedRoi())
-                        .minProfit(profile.getMinProfit())
-                        .riskToleranceLevel(profile.getRiskToleranceLevel())
-                        .durationYear(profile.getDurationYear())
-                        .startDate(profile.getStartDate())
-                        .investmentType(profile.getInvestmentType())
-                        .investmentStrategyDetail(profile.getInvestmentStrategyDetail())
-                        .legalStatus(legalStatusList)
-                        .version(profile.getVersion())
-                        .isActive(profile.getIsActive())
-                        .createdAt(profile.getCreatedAt())
-                        .updatedAt(profile.getUpdatedAt())
-                        .investmentCriterias(criteriaDTOList)
-                        .build();
-            }).collect(Collectors.toList());
+            List<ProfileSimpleDTO> simpleProfiles = profiles.stream()
+                    .map(profile -> ProfileSimpleDTO.builder()
+                            .investmentProfileId(profile.getInvestmentProfileId())
+                            .name(profile.getName())
+                            .conscious(profile.getConscious())
+                            .ward(profile.getWard())
+                            .isActive(profile.getIsActive())
+                            .equity(profile.getEquity())
+                            .expectedRoi(profile.getExpectedRoi())
+                            .durationYear(profile.getDurationYear())
+                            .strategyName(profile.getStrategy().getName())
+                            .createdAt(profile.getCreatedAt())
+                            .build())
+                    .collect(Collectors.toList());
+//            List<InvestmentProfile> allProfiles = investmentProfileRepository.findAll(); // Hoặc hàm lấy danh sách hiện tại của bạn
+//
+//            List<InvestmentProfileDTO> dtoList = profiles.stream().map(profile -> {
+//                List<InvestmentCriteriaDTO> criteriaDTOList = Collections.emptyList();
+//                if (profile.getInvestmentCriterias() != null) {
+//                    criteriaDTOList = profile.getInvestmentCriterias().stream()
+//                            .map(criteria -> {
+//                                String typeName = (criteria.getPropertyType() != null)
+//                                        ? criteria.getPropertyType().getName() : null;
+//                                String conditionName = (criteria.getPropertyCondition() != null)
+//                                        ? criteria.getPropertyCondition().getName() : null;
+//
+//                                return InvestmentCriteriaDTO.builder()
+//                                        .propertyTypeName(typeName)
+//                                        .propertyConditionName(conditionName)
+//                                        .build();
+//                            })
+//                            .collect(Collectors.toList());
+//                }
+//
+//                List<String> legalStatusList = Collections.emptyList();
+//                if (profile.getLegalStatus() != null && !profile.getLegalStatus().isEmpty()) {
+//                    try {
+//                        legalStatusList = objectMapper.readValue(profile.getLegalStatus(), new TypeReference<List<String>>() {});
+//                    } catch (Exception e) {
+//                        log.error("Lỗi khi giải mã chuỗi legalStatus JSON ở danh sách", e);
+//                    }
+//                }
+//
+//                return InvestmentProfileDTO.builder()
+//                        .investmentProfileId(profile.getInvestmentProfileId())
+//                        .investorId(investor.getInvestorId())
+//                        .strategyId(profile.getStrategy() != null ? profile.getStrategy().getStrategyId() : null)
+//                        .name(profile.getName())
+//                        .equity(profile.getEquity())
+//                        .loanCapital(profile.getLoanCapital())
+//                        .reserveFund(profile.getReserveFund())
+//                        .conscious(profile.getConscious())
+//                        .ward(profile.getWard())
+//                        .expectedRoi(profile.getExpectedRoi())
+//                        .minProfit(profile.getMinProfit())
+//                        .riskToleranceLevel(profile.getRiskToleranceLevel())
+//                        .durationYear(profile.getDurationYear())
+//                        .startDate(profile.getStartDate())
+//                        .investmentType(profile.getInvestmentType())
+//                        .investmentStrategyDetail(profile.getInvestmentStrategyDetail())
+//                        .legalStatus(legalStatusList)
+//                        .version(profile.getVersion())
+//                        .isActive(profile.getIsActive())
+//                        .createdAt(profile.getCreatedAt())
+//                        .updatedAt(profile.getUpdatedAt())
+//                        .investmentCriterias(criteriaDTOList)
+//                        .build();
+//            }).collect(Collectors.toList());
 
             return ResponseEntity.status(HttpStatus.OK)
-                    .body(ApiResponse.success(dtoList, "Lấy danh sách kế hoạch đầu tư thành công"));
+                    .body(ApiResponse.success(simpleProfiles, "Lấy danh sách kế hoạch đầu tư thành công"));
 
         } catch (Exception e) {
             log.error("Lỗi khi lấy danh sách profile của Investor", e);
@@ -376,6 +392,22 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             Account account = authenUntil.getCurrentUSer();
             if(account.getInvestor() == null){
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(null, "Investor survey does not exist. Please create to use this function"));
+            }
+
+            final String inputName = request.getName() != null ? request.getName().trim() : "";
+            if (!inputName.isEmpty()) {
+                final Integer currentInvestorId = account.getInvestor().getInvestorId();
+
+                boolean isNameExists = investmentProfileRepository.findAll().stream()
+                        .anyMatch(p -> p.getInvestor() != null
+                                && p.getInvestor().getInvestorId().equals(currentInvestorId)
+                                && p.getName() != null
+                                && p.getName().equalsIgnoreCase(inputName));
+
+                if (isNameExists) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail("Name_Already_Exists", "The investment plan name '" + inputName + "' already exists. Please choose another name."));
+                }
             }
 
             List<InvestmentPortfolioDTO> portfolios = processStage1Portfolios(request, strategy);
@@ -697,6 +729,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         }
     }
 
+
+
     private void saveInvestmentPlanToDatabase(InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
@@ -721,7 +755,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             legalStatusJson = objectMapper.writeValueAsString(request.getLegalStatus());
         }
 
-        String finalVersion = "V1";
+        String finalVersion = "1";
 //        if (request.getInvestmentProfileId() != null) {
 //            InvestmentProfile oldProfile = investmentProfileRepository.findById(request.getInvestmentProfileId()).orElse(null);
 //            if (oldProfile != null && oldProfile.getVersion() != null) {
@@ -843,6 +877,261 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 final String targetName = portDTO.getPortfolioName().trim();
                 Portfolio dbPortfolio = allowedPortfolios.stream()
                         .filter(p -> p.getName() != null && p.getName().equalsIgnoreCase(targetName))
+                        .findFirst()
+                        .orElse(null);
+
+                if (dbPortfolio == null) {
+                    continue;
+                }
+
+                InvestmentPortfolio portEntity = InvestmentPortfolio.builder()
+                        .investmentProfile(savedProfile)
+                        .portfolio(dbPortfolio)
+                        .percentage(portDTO.getPercentage())
+                        .capital(portDTO.getCapital())
+                        .isActive(true)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+
+                InvestmentPortfolio savedPortEntity = investmentPortfolioRepository.save(portEntity);
+
+                if (portDTO.getAllocations() != null) {
+                    for (var allocDTO : portDTO.getAllocations()) {
+                        PortfolioAllocation allocEntity = PortfolioAllocation.builder()
+                                .portfolio(dbPortfolio)
+                                .investmentPortfolio(savedPortEntity)
+                                .isActive(true)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+
+                        PortfolioAllocation savedAllocEntity = portfolioAllocationRepository.save(allocEntity);
+
+                        if (allocDTO.getProperties() != null) {
+                            for (var propDTO : allocDTO.getProperties()) {
+                                if (propDTO.getPortfolioAllocationPropertyId() != null) {
+                                    Listing listing = listingRepository.findById(propDTO.getPortfolioAllocationPropertyId()).orElse(null);
+                                    Property propertyRelation = (listing != null) ? listing.getProperty() : null;
+
+                                    PortfolioAllocationProperty propEntity = PortfolioAllocationProperty.builder()
+                                            .portfolioAllocation(savedAllocEntity)
+                                            .property(propertyRelation)
+                                            .weight(1.0)
+                                            .isActive(true)
+                                            .createdAt(now)
+                                            .updatedAt(now)
+                                            .build();
+                                    portfolioAllocationPropertyRepository.save(propEntity);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) {
+        try {
+            InvestmentProfile oldProfile = investmentProfileRepository.findById(currentProfileId).orElse(null);
+            if (oldProfile == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Profile_Not_Found", "The investment profile you want to update does not exist."));
+            }
+
+            Strategy strategy = strategyRepository.findById(request.getStrategy_id()).orElse(null);
+            if (strategy == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Strategy_Not_Found", "Investment strategy not found."));
+            }
+
+            InvestmentPlanRequest internalRequest = new InvestmentPlanRequest();
+            internalRequest.setStrategy_id(request.getStrategy_id());
+            internalRequest.setName(oldProfile.getName());
+            internalRequest.setEquity(request.getEquity());
+            internalRequest.setLoanCapital(request.getLoanCapital());
+            internalRequest.setReserveFund(request.getReserveFund());
+            internalRequest.setConscious(request.getConscious());
+            internalRequest.setWard(request.getWard());
+            internalRequest.setExpectedRoi(request.getExpectedRoi());
+            internalRequest.setMinProfit(request.getMinProfit());
+            internalRequest.setRiskToleranceLevel(request.getRiskToleranceLevel());
+            internalRequest.setDurationYear(request.getDurationYear());
+            internalRequest.setStartDate(request.getStartDate());
+            internalRequest.setInvestmentType(request.getInvestmentType());
+            internalRequest.setInvestmentStrategyDetail(request.getInvestmentStrategyDetail());
+            internalRequest.setLegalStatus(request.getLegalStatus());
+            internalRequest.setCriteriaList(request.getCriteriaList());
+
+            List<InvestmentPortfolioDTO> portfolios = processStage1Portfolios(internalRequest, strategy);
+            processStage2EnrichProperties(internalRequest, portfolios);
+            InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(internalRequest, portfolios);
+
+            saveUpdatePlanToDatabase(oldProfile, internalRequest, finalOutput, strategy);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(finalOutput, "Updated and saved new version of investment plan successfully"));
+        } catch (Exception e) {
+            log.error("Error in updateExistingInvestmentPlan", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    private void saveUpdatePlanToDatabase(InvestmentProfile oldProfile, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
+        LocalDateTime now = LocalDateTime.now();
+
+        String currentVersionStr = oldProfile.getVersion();
+        String nextVersionStr = "1";
+        try {
+            int currentVersionNum = Integer.parseInt(currentVersionStr.replaceAll("[^0-9]", ""));
+            nextVersionStr = String.valueOf(currentVersionNum + 1);
+        } catch (Exception e) {
+            nextVersionStr = "2";
+        }
+
+        oldProfile.setIsActive(false);
+        oldProfile.setUpdatedAt(now);
+        investmentProfileRepository.save(oldProfile);
+
+        final Integer currentInvestorId = oldProfile.getInvestor() != null ? oldProfile.getInvestor().getInvestorId() : null;
+        final String targetName = oldProfile.getName();
+
+        if (currentInvestorId != null) {
+            List<InvestmentProfile> activeProfiles = investmentProfileRepository.findAll().stream()
+                    .filter(p -> p.getInvestor() != null
+                            && p.getInvestor().getInvestorId().equals(currentInvestorId)
+                            && p.getName() != null
+                            && p.getName().equalsIgnoreCase(targetName)
+                            && Boolean.TRUE.equals(p.getIsActive()))
+                    .collect(Collectors.toList());
+
+            for (InvestmentProfile p : activeProfiles) {
+                p.setIsActive(false);
+                p.setUpdatedAt(now);
+                investmentProfileRepository.save(p);
+            }
+        }
+
+        String legalStatusJson = null;
+        if (request.getLegalStatus() != null && !request.getLegalStatus().isEmpty()) {
+            legalStatusJson = objectMapper.writeValueAsString(request.getLegalStatus());
+        }
+
+        Map<String, Object> strategyDetailMap = request.getInvestmentStrategyDetail();
+        if (strategyDetailMap == null) {
+            strategyDetailMap = new HashMap<>();
+        }
+
+        InvestmentProfile newProfile = InvestmentProfile.builder()
+                .strategy(strategy)
+                .investor(oldProfile.getInvestor())
+                .name(targetName)
+                .equity(request.getEquity())
+                .loanCapital(request.getLoanCapital())
+                .reserveFund(request.getReserveFund())
+                .conscious(request.getConscious())
+                .ward(request.getWard())
+                .expectedRoi(request.getExpectedRoi())
+                .minProfit(request.getMinProfit())
+                .riskToleranceLevel(request.getRiskToleranceLevel())
+                .durationYear(request.getDurationYear())
+                .startDate(request.getStartDate())
+                .version(nextVersionStr)
+                .legalStatus(legalStatusJson)
+                .investmentType(request.getInvestmentType())
+                .investmentStrategyDetail(strategyDetailMap)
+                .isActive(true)
+                .createdAt(now)
+                .updatedAt(now)
+                .investmentCriterias(new ArrayList<>())
+                .investmentScenarios(new ArrayList<>())
+                .investmentPortfolios(new ArrayList<>())
+                .executionPlans(new ArrayList<>())
+                .build();
+
+        InvestmentProfile savedProfile = investmentProfileRepository.save(newProfile);
+
+        if (request.getCriteriaList() != null && !request.getCriteriaList().isEmpty()) {
+            for (CriteriaRequest critRequest : request.getCriteriaList()) {
+                if (critRequest.getPropertyTypeId() != null || critRequest.getPropertyConditionId() != null) {
+                    PropertyType pType = null;
+                    if (critRequest.getPropertyTypeId() != null) {
+                        pType = propertyTypeRepository.findById(critRequest.getPropertyTypeId()).orElse(null);
+                    }
+
+                    PropertyCondition pCondition = null;
+                    if (critRequest.getPropertyConditionId() != null) {
+                        pCondition = propertyConditionRepository.findById(critRequest.getPropertyConditionId()).orElse(null);
+                    }
+
+                    InvestmentCriteria criteriaEntity = InvestmentCriteria.builder()
+                            .investmentProfile(savedProfile)
+                            .propertyType(pType)
+                            .propertyCondition(pCondition)
+                            .build();
+                    investmentCriteriaRepository.save(criteriaEntity);
+                }
+            }
+        }
+
+        if (output != null && output.getScenarios() != null) {
+            for (var scenarioDTO : output.getScenarios()) {
+                InvestmentScenario scenarioEntity = InvestmentScenario.builder()
+                        .investmentProfile(savedProfile)
+                        .name(scenarioDTO.getEnumScenarioType())
+                        .scenarioType(scenarioDTO.getEnumScenarioType())
+                        .expectedReturnRate(scenarioDTO.getDecimprofitYield())
+                        .description(scenarioDTO.getTextMarketNote())
+                        .isActive(true)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+
+                investmentScenarioRepository.save(scenarioEntity);
+            }
+        }
+
+        if (output != null && output.getExecutionPlan() != null) {
+            var planDTO = output.getExecutionPlan();
+            String descJson = objectMapper.writeValueAsString(planDTO);
+
+            ExecutionPlan planEntity = ExecutionPlan.builder()
+                    .investmentProfile(savedProfile)
+                    .name("AI Execution Plan Details")
+                    .description(descJson)
+                    .status("ACTIVE")
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            executionPlanRepository.save(planEntity);
+        }
+
+        if (output != null && output.getInvestmentPortfolios() != null) {
+            List<Portfolio> allowedPortfolios = new ArrayList<>();
+            if (strategy.getStrategyPortfolios() != null) {
+                for (StrategyPortfolio sp : strategy.getStrategyPortfolios()) {
+                    if (sp.getPortfolio() != null) {
+                        allowedPortfolios.add(sp.getPortfolio());
+                    }
+                }
+            }
+
+            if (allowedPortfolios.isEmpty()) {
+                allowedPortfolios = portfolioRepository.findAll();
+            }
+
+            for (var portDTO : output.getInvestmentPortfolios()) {
+                if (portDTO.getPortfolioName() == null) {
+                    continue;
+                }
+
+                final String targetNamePort = portDTO.getPortfolioName().trim();
+                Portfolio dbPortfolio = allowedPortfolios.stream()
+                        .filter(p -> p.getName() != null && p.getName().equalsIgnoreCase(targetNamePort))
                         .findFirst()
                         .orElse(null);
 

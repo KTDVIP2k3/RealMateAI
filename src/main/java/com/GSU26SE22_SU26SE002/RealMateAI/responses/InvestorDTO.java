@@ -8,9 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestorDTO {
-    private Integer investorId;
-//    private String linkSocial;
-//    private String address;
+    private Integer surveyId;
     private String investmentStyle;
     private String investmentExperience;
     private String profitTarget;

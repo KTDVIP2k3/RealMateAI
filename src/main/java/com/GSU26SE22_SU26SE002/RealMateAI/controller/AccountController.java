@@ -11,7 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/account")
+@RequestMapping("/accounts")
 public class AccountController {
     @Autowired
     AccountServiceInterface accountServiceInterface;
@@ -22,7 +22,7 @@ public class AccountController {
     }
 
 
-    @PostMapping(value = "/admin/account", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('Admin')")
     public ResponseEntity<ApiResponse> createAccount(@ModelAttribute CreateAccountRequest createAccountRequest) {
         return accountServiceInterface.createAccountByAdmin(createAccountRequest);
