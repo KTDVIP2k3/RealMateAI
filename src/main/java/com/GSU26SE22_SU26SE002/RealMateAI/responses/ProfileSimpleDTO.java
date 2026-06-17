@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -12,4 +14,12 @@ import lombok.NoArgsConstructor;
 public class ProfileSimpleDTO {
     private Integer investmentProfileId;
     private String name;
+    private String conscious;
+    private String ward;
+    private Boolean isActive;
+    private Long equity;
+    private Long expectedRoi;
+    private Long durationYear;
+    private String strategyName;
+    private LocalDateTime createdAt;
 }
