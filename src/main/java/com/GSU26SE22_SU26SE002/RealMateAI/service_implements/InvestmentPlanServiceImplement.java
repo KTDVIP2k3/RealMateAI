@@ -95,10 +95,18 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.success(Collections.emptyList(), "Danh sách profile trống."));
             }
             List<ProfileSimpleDTO> simpleProfiles = profiles.stream()
-                    .map(profile -> new ProfileSimpleDTO(
-                            profile.getInvestmentProfileId(),
-                            profile.getName()
-                    ))
+                    .map(profile -> ProfileSimpleDTO.builder()
+                            .investmentProfileId(profile.getInvestmentProfileId())
+                            .name(profile.getName())
+                            .conscious(profile.getConscious())
+                            .ward(profile.getWard())
+                            .isActive(profile.getIsActive())
+                            .equity(profile.getEquity())
+                            .expectedRoi(profile.getExpectedRoi())
+                            .durationYear(profile.getDurationYear())
+                            .strategyName(profile.getStrategy().getName())
+                            .createdAt(profile.getCreatedAt())
+                            .build())
                     .collect(Collectors.toList());
 //            List<InvestmentProfile> allProfiles = investmentProfileRepository.findAll(); // Hoặc hàm lấy danh sách hiện tại của bạn
 //
