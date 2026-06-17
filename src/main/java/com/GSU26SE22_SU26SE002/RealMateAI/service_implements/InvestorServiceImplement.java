@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class InvestorServiceImplement implements InvestorServiceInterface {
@@ -39,7 +40,18 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Investor does not exist"));
             }
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(modelMapper.map(investor, InvestorDTO.class), "Investor Survey"));
+            InvestorDTO investorDTO = new InvestorDTO();
+            investorDTO.setSurveyId(investor.getInvestorId());
+            investorDTO.setInvestmentStyle(investor.getInvestmentStyle());
+            investorDTO.setInvestmentExperience(investor.getInvestmentExperience());
+            investorDTO.setProfitTarget(investor.getProfitTarget());
+            investorDTO.setManagementAbility(investor.getManagementAbility());
+            investorDTO.setLevelOfVolatility(investor.getLevelOfVolatility());
+            investorDTO.setCapitalUtilizationMindset(investor.getCapitalUtilizationMindset());
+            investorDTO.setPositionalPriority(investor.getPositionalPriority());
+            investorDTO.setInvestmentMethod(investor.getInvestmentMethod());
+            investorDTO.setStableIncome(investor.getStableIncome());
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(investorDTO, "Investor Survey"));
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Sever_Error", e.getMessage()));
         }
