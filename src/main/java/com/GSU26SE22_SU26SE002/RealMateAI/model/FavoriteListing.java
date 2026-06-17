@@ -1,18 +1,21 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
-@NoArgsConstructor @AllArgsConstructor @Data @Builder
-@Entity @Table(name = "favorite_listing")
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
+@Builder
+@Entity
+@Table(name = "favorite_listing")
 public class FavoriteListing {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "favorite_listing_id")
     private Integer favoriteListingId;
 

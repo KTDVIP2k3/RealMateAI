@@ -37,10 +37,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final PropertyConditionRepository propertyConditionRepository;
     private final InvestorRepository investorRepository;
     private final FavoriteListingRepository favoriteListingRepository;
+    private final WardRepository wardRepository;
     private final CloudinaryMediaServiceInterface cloudinaryMediaService;
     private final AuthenUntil authenUntil;
 
-    private static final int MAX_PAGE_SIZE = 50;
+    // Mỗi trang luôn cố định 10 bản ghi (trang 0: 1-10, trang 1: 11-20, ...).
+    // Tham số "size" từ client KHÔNG còn được dùng để thay đổi kích thước trang.
+    private static final int PAGE_SIZE = 10;
 
     // ════════════════════════════════════════════════════
     //  POST /listings — Tạo bài đăng mới
@@ -112,12 +115,21 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     }
                 }
 
-                // Tạo Location
+                // Tạo Location — Location liên kết tới Ward qua quan hệ @ManyToOne (không có field wardCode trực tiếp)
+                Ward ward = null;
+                if (request.getWardCode() != null && !request.getWardCode().isBlank()) {
+                    ward = wardRepository.findById(request.getWardCode()).orElse(null);
+                    if (ward == null) {
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(ApiResponse.fail("Bad_Request", "Mã phường/xã không hợp lệ: " + request.getWardCode()));
+                    }
+                }
+
                 Location location = Location.builder()
                         .latitude(request.getLatitude())
                         .longitude(request.getLongitude())
                         .postalCode(request.getPostalCode())
-                        .wardCode(request.getWardCode())
+                        .ward(ward)
                         .build();
                 Location savedLocation = locationRepository.save(location);
 
@@ -271,9 +283,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> getMarketListings(int page, int size) {
         try {
+            // Theo yêu cầu nghiệp vụ: mỗi trang LUÔN cố định 10 bản ghi.
+            // Tham số "size" do client gửi lên bị bỏ qua để đảm bảo tính nhất quán
+            // (trang 0: bản ghi 1-10, trang 1: bản ghi 11-20, ...).
             int safePage = Math.max(page, 0);
-            int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-            Pageable pageable = (Pageable) PageRequest.of(safePage, safeSize);
+            Pageable pageable = PageRequest.of(safePage, PAGE_SIZE);
 
             Page<Listing> listingPage = listingRepository.findAllActiveWithDetails(pageable);
 
@@ -453,7 +467,14 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     if (request.getLatitude() != null) location.setLatitude(request.getLatitude());
                     if (request.getLongitude() != null) location.setLongitude(request.getLongitude());
                     if (request.getPostalCode() != null) location.setPostalCode(request.getPostalCode());
-                    if (request.getWardCode() != null) location.setWardCode(request.getWardCode());
+                    if (request.getWardCode() != null) {
+                        Ward ward = wardRepository.findById(request.getWardCode()).orElse(null);
+                        if (ward == null) {
+                            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                    .body(ApiResponse.fail("Bad_Request", "Mã phường/xã không hợp lệ: " + request.getWardCode()));
+                        }
+                        location.setWard(ward);
+                    }
                     locationRepository.save(location);
                 }
 
@@ -506,7 +527,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .latitude(loc != null ? loc.getLatitude() : null)
                     .longitude(loc != null ? loc.getLongitude() : null)
                     .postalCode(loc != null ? loc.getPostalCode() : null)
-                    .wardCode(loc != null ? loc.getWardCode() : null)
+                    .wardCode(loc != null && loc.getWard() != null ? loc.getWard().getWard_code() : null)
                     .images(propertyImages)
                     .createdAt(p.getCreatedAt())
                     .updatedAt(p.getUpdatedAt())

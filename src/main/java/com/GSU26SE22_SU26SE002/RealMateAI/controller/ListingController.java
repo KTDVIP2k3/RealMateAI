@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,7 +24,7 @@ public class ListingController {
 
     // ─────────────────────────────────────────────────────
     // POST /api/v1/listings
-    // Seller: Form Tạo bài đăng mới (khởi tạo Property + Listing)
+    // Seller: Form Tạo bài đăng mớ i (khởi tạo Property + Listing)
     // ─────────────────────────────────────────────────────
     @PostMapping("/api/v1/listings")
     @PreAuthorize("hasRole('Seller')")
@@ -52,7 +53,7 @@ public class ListingController {
     // Màn hình Chợ BĐS: danh sách tin đăng đã duyệt, phân trang
     // ─────────────────────────────────────────────────────
     @GetMapping("/api/v1/listings")
-    @Operation(summary = "Chợ BĐS: Lấy danh sách tin đăng")
+    @Operation(summary = " Lấy danh sách tin đăng")
     public ResponseEntity<ApiResponse> getListings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -81,17 +82,17 @@ public class ListingController {
         return listingService.getMyListings();
     }
 
-    // ─────────────────────────────────────────────────────
-    // PUT /api/v1/listings/{id}
-    // Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS
-    // ─────────────────────────────────────────────────────
-//    @PutMapping("/api/v1/listings/{id}")
-//    @PreAuthorize("hasAnyRole('Seller','Admin','Staff')")
-//    @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS")
-//    public ResponseEntity<ApiResponse> updateListing(
-//            @PathVariable("id") Integer listingId,
-//            @RequestBody UpdateListingRequest request) {
-//
-//        return listingService.updateListing(listingId, request);
-//    }
+//     ─────────────────────────────────────────────────────
+//     PUT /api/v1/listings/{id}
+//     Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS
+//     ─────────────────────────────────────────────────────
+    @PutMapping("/api/v1/listings/{id}")
+    @PreAuthorize("hasAnyRole('Seller','Admin','Staff')")
+    @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS")
+    public ResponseEntity<ApiResponse> updateListing(
+            @PathVariable("id") Integer listingId,
+            @RequestBody UpdateListingRequest request) {
+
+        return listingService.updateListing(listingId, request);
+    }
 }

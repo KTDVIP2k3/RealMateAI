@@ -2,20 +2,22 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.HeatmapZone;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@NoArgsConstructor @AllArgsConstructor @Data @Builder
-@Entity @Table(name = "craw_property_listing")
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter // @Builder
+@Entity
+@Table(name = "craw_property_listing")
 public class CrawPropertyListing {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "craw_property_listing_id")
     private Integer crawPropertyListingId;
 

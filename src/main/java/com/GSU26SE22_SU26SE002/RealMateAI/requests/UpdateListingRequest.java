@@ -1,10 +1,13 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.requests;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
-
+@NoArgsConstructor
+@AllArgsConstructor
 @Data
 public class UpdateListingRequest {
 
@@ -36,5 +39,5 @@ public class UpdateListingRequest {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String postalCode;
-    private Integer wardCode;
+    private String wardCode;
 }

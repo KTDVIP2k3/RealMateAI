@@ -33,7 +33,7 @@ public class PropertyDetailResponse {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String postalCode;
-    private Integer wardCode;
+    private String wardCode;
 
     // Ảnh thực tế tài sản
     private List<PropertyImageResponse> images;

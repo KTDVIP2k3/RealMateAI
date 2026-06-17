@@ -5,19 +5,15 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyCondition;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyImage;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyValuation;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-@NoArgsConstructor @AllArgsConstructor @Data @Builder
+@NoArgsConstructor @AllArgsConstructor @Getter
+@Setter  @Builder
 @Entity @Table(name = "property")
 public class Property {
 
@@ -60,12 +56,12 @@ public class Property {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "property_purpose", columnDefinition = "json")
-    private Map<String, Object> propertyPurpose;
+    private List<String> propertyPurpose;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<PropertyImage> propertyImages = new ArrayList<>();
+    private Set<PropertyImage> propertyImages = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<PropertyValuation> propertyValuations = new ArrayList<>();

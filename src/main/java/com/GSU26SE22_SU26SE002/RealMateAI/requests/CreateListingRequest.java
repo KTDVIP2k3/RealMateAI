@@ -3,11 +3,14 @@ package com.GSU26SE22_SU26SE002.RealMateAI.requests;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
-
+@NoArgsConstructor
+@AllArgsConstructor
 @Data
 public class CreateListingRequest {
     // ── Thông tin Listing (bài đăng) ──────────────────────
@@ -62,7 +65,7 @@ public class CreateListingRequest {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String postalCode;
-    private Integer wardCode;
+    private String wardCode;
 
     /**
      * Validation group — dùng nếu muốn enforce @NotNull/@NotBlank các field Property

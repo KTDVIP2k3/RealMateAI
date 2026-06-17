@@ -2,9 +2,13 @@ package com.GSU26SE22_SU26SE002.RealMateAI.requests;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class MediaUploadRequest {
     /** File cần upload – bắt buộc */
     @NotNull(message = "File không được để trống")
