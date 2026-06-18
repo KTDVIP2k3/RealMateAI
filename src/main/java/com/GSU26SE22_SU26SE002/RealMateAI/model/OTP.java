@@ -2,11 +2,15 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "otps")
-@Data
+@Getter
+@Setter
 public class OTP {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

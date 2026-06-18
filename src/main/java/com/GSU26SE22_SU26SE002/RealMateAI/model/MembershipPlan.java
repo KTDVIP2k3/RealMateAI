@@ -3,17 +3,15 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.MembershipSubscription;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@NoArgsConstructor @AllArgsConstructor @Data @Builder
+@NoArgsConstructor @AllArgsConstructor @Getter
+@Setter  @Builder
 @Entity @Table(name = "membership_plan")
 public class MembershipPlan {
 

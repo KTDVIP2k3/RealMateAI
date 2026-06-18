@@ -3,16 +3,14 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PortfolioAllocation;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.StrategyPortfolio;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@NoArgsConstructor @AllArgsConstructor @Data @Builder
+@NoArgsConstructor @AllArgsConstructor @Getter
+@Setter  @Builder
 @Entity @Table(name = "portfolio")
 public class Portfolio {
 

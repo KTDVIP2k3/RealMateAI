@@ -3,9 +3,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.GenderEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,7 +17,8 @@ import java.util.List;
 
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
+@Getter
+@Setter
 @Entity
 public class Account implements UserDetails{
     @Id

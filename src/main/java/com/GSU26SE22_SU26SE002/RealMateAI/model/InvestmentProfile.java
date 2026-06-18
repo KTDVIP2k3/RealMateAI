@@ -1,10 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -14,7 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@NoArgsConstructor @AllArgsConstructor @Data @Builder
+@NoArgsConstructor @AllArgsConstructor @Getter
+@Setter  @Builder
 @Entity @Table(name = "investment_profile")
 public class InvestmentProfile {
 
