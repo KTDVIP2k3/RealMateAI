@@ -24,36 +24,22 @@ public class ListingController {
 
     // ─────────────────────────────────────────────────────
     // POST /api/v1/listings
-    // Seller: Form Tạo bài đăng mớ i (khởi tạo Property + Listing)
+    // Seller: Tạo bài đăng mới — ảnh đi kèm ngay trong request này
+    // (xem draftImagePublicIds trong CreateListingRequest)
     // ─────────────────────────────────────────────────────
-    @PostMapping("/api/v1/listings")
+    @PostMapping("/listings")
     @PreAuthorize("hasRole('Seller')")
-    @Operation(summary = "Seller: Tạo bài đăng mới (khởi tạo thực thể tài sản)")
+    @Operation(summary = "Seller: Tạo bài đăng mới (Property mới hoặc đăng lại tài sản cũ, kèm ảnh)")
     public ResponseEntity<ApiResponse> createListing(@Valid @RequestBody CreateListingRequest request) {
         return listingService.createListing(request);
-    }
-
-    // ─────────────────────────────────────────────────────
-    // POST /api/v1/listings/{id}/images
-    // Seller: Upload ảnh thực tế gắn vào bài đăng (qua Cloudinary)
-    // ─────────────────────────────────────────────────────
-    @PostMapping(value = "/api/v1/listings/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('Seller','Admin','Staff')")
-    @Operation(summary = "Seller: Tải và gán hình ảnh thực tế vào bài đăng")
-    public ResponseEntity<ApiResponse> uploadImages(
-            @PathVariable("id") Integer listingId,
-            @RequestPart("files") List<MultipartFile> files,
-            @RequestParam(value = "mainImageIndex", required = false, defaultValue = "0") Integer mainImageIndex) {
-
-        return listingService.uploadListingImages(listingId, files, mainImageIndex);
     }
 
     // ─────────────────────────────────────────────────────
     // GET /api/v1/listings
     // Màn hình Chợ BĐS: danh sách tin đăng đã duyệt, phân trang
     // ─────────────────────────────────────────────────────
-    @GetMapping("/api/v1/listings")
-    @Operation(summary = " Lấy danh sách tin đăng")
+    @GetMapping("/listings")
+    @Operation(summary = "Lấy danh sách tin đăng")
     public ResponseEntity<ApiResponse> getListings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -65,7 +51,7 @@ public class ListingController {
     // GET /api/v1/listings/{id}
     // Chi tiết tin đăng công khai: Property & Image
     // ─────────────────────────────────────────────────────
-    @GetMapping("/api/v1/listings/{id}")
+    @GetMapping("/listings/{id}")
     @Operation(summary = "Chi tiết tin đăng công khai: liên kết thông số Property & Image")
     public ResponseEntity<ApiResponse> getListingDetail(@PathVariable("id") Integer listingId) {
         return listingService.getListingDetail(listingId);
@@ -75,18 +61,31 @@ public class ListingController {
     // GET /api/v1/seller/listings
     // Seller: Xem danh sách tin đăng cá nhân của mình
     // ─────────────────────────────────────────────────────
-    @GetMapping("/api/v1/seller/listings")
+    @GetMapping("/seller/listings")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Xem danh sách tin đăng cá nhân")
     public ResponseEntity<ApiResponse> getMyListings() {
         return listingService.getMyListings();
     }
 
-//     ─────────────────────────────────────────────────────
-//     PUT /api/v1/listings/{id}
-//     Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS
-//     ─────────────────────────────────────────────────────
-    @PutMapping("/api/v1/listings/{id}")
+    // ─────────────────────────────────────────────────────
+    // GET /api/v1/seller/properties
+    // [MỚI] Seller: Xem danh sách TÀI SẢN mình đang sở hữu
+    // → dùng existingPropertyId lấy từ đây để "đăng lại" trong POST /listings
+    // ─────────────────────────────────────────────────────
+    @GetMapping("/seller/properties")
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Xem danh sách tài sản (Property) đang sở hữu, dùng để đăng lại")
+    public ResponseEntity<ApiResponse> getMyProperties() {
+        return listingService.getMyProperties();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // PUT /api/v1/listings/{id}
+    // Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS
+    // (Sửa bài → reset chờ duyệt lại; có thể bổ sung thêm ảnh qua draftImagePublicIds)
+    // ─────────────────────────────────────────────────────
+    @PutMapping("/listings/{id}")
     @PreAuthorize("hasAnyRole('Seller','Admin','Staff')")
     @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS")
     public ResponseEntity<ApiResponse> updateListing(

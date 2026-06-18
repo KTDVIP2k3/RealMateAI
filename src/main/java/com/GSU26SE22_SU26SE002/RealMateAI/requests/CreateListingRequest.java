@@ -9,11 +9,14 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
+
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
 public class CreateListingRequest {
-    // ── Thông tin Listing (bài đăng) ──────────────────────
+
+    // ── Thông tin Listing (bài đăng thương mại) ───────────────
     @NotBlank(message = "Tiêu đề bài đăng không được để trống")
     private String title;
 
@@ -32,45 +35,39 @@ public class CreateListingRequest {
     private LocalTime startTime;
     private LocalTime endTime;
 
-    // ── Chế độ "đăng lại tài sản đã có" ────────────────────
-    /**
-     * Nếu khác null: Listing mới sẽ liên kết tới Property này
-     * (phải thuộc Seller hiện tại). Toàn bộ field Property/Location dưới đây bị bỏ qua.
-     */
-    private Integer propertyId;
-
-    // ── Thông số Property (chỉ dùng khi propertyId == null) ──
-    @NotBlank(message = "Tiêu đề tài sản không được để trống", groups = NewProperty.class)
-    private String propertyTitle;
-
-    private String propertyDescription;
-
-    @NotNull(message = "Giá tài sản không được để trống", groups = NewProperty.class)
-    private Long propertyPrice;
-
-    @NotNull(message = "Diện tích không được để trống", groups = NewProperty.class)
-    private Double area;
-
-    private Integer floor;
-    private Integer bedroom;
-    private Integer bathroom;
-    private String direction;
-
-    @NotNull(message = "Loại bất động sản không được để trống", groups = NewProperty.class)
-    private Integer propertyTypeId;
-
-    private Integer propertyConditionId;
-
-    // ── Location (chỉ dùng khi propertyId == null) ────────
-    private BigDecimal latitude;
-    private BigDecimal longitude;
-    private String postalCode;
-    private String wardCode;
+    // ════════════════════════════════════════════════════════
+    //  CHỌN 1 TRONG 2 — xem javadoc class phía trên
+    // ════════════════════════════════════════════════════════
 
     /**
-     * Validation group — dùng nếu muốn enforce @NotNull/@NotBlank các field Property
-     * chỉ khi propertyId == null. Hiện service tự kiểm tra thủ công nên group này
-     * chỉ mang tính khai báo, không bắt buộc cấu hình @Validated(NewProperty.class).
+     * ① ĐĂNG LẠI tài sản đã có. Phải thuộc sở hữu Seller hiện tại.
+     * Lấy danh sách tài sản qua GET /api/v1/seller/properties.
      */
-    public interface NewProperty {}
+    private Integer existingPropertyId;
+
+    /**
+     * ② TẠO TÀI SẢN MỚI. Object lồng chứa toàn bộ thông số BĐS + Location.
+     */
+    private CreatePropertyRequest newProperty;
+
+    // ════════════════════════════════════════════════════════
+    //  ẢNH — BẮT BUỘC, gửi kèm publicId của ảnh đã upload draft
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * Danh sách publicId (Cloudinary) của ảnh đã upload ở bước trước qua
+     * POST /api/v1/media/upload/multiple?entityType=ACCOUNT&entityId={accountId}.
+     *
+     * BẮT BUỘC có ít nhất 1 ảnh nếu tạo Property MỚI (newProperty != null).
+     * Nếu đăng lại tài sản đã có (existingPropertyId != null) và tài sản đó
+     * đã có ảnh từ trước, field này CÓ THỂ để rỗng — ảnh cũ vẫn được giữ lại.
+     * Nếu vẫn gửi kèm, ảnh mới sẽ được nối thêm (append) vào bộ ảnh hiện có.
+     */
+    private List<String> draftImagePublicIds;
+
+    /**
+     * Index trong draftImagePublicIds nào sẽ là ảnh đại diện (is_main=true).
+     * Chỉ áp dụng nếu đây là lần đầu Property có ảnh; mặc định = 0.
+     */
+    private Integer mainImageIndex;
 }

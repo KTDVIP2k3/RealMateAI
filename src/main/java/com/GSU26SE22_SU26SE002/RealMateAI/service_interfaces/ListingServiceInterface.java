@@ -10,11 +10,12 @@ import java.util.List;
 
 public interface ListingServiceInterface {
 
-    /** Seller: tạo bài đăng mới — khởi tạo Property + Listing + Location */
+    /**
+     * Seller: tạo bài đăng mới.
+     * Tạo (hoặc tái sử dụng) Property + tạo Listing + gắn ảnh (re-parent từ
+     * draft MediaAsset) — TẤT CẢ trong 1 transaction duy nhất.
+     */
     ResponseEntity<ApiResponse> createListing(CreateListingRequest request);
-
-    /** Seller: upload ảnh minh hoạ cho bài đăng (Cloudinary) */
-    ResponseEntity<ApiResponse> uploadListingImages(Integer listingId, List<MultipartFile> files, Integer mainImageIndex);
 
     /** Public: Chợ BĐS — danh sách bài đăng đã duyệt, có phân trang */
     ResponseEntity<ApiResponse> getMarketListings(int page, int size);
@@ -24,6 +25,13 @@ public interface ListingServiceInterface {
 
     /** Seller: danh sách bài đăng cá nhân (cả chưa duyệt) */
     ResponseEntity<ApiResponse> getMyListings();
+
+    /**
+     * Seller: danh sách TÀI SẢN (Property) mà Seller hiện tại đang sở hữu.
+     * Dùng để FE hiển thị danh sách cho Seller chọn khi muốn "đăng lại"
+     * (gửi existingPropertyId trong CreateListingRequest) thay vì tạo mới.
+     */
+    ResponseEntity<ApiResponse> getMyProperties();
 
     /** Seller/Admin: chỉnh sửa nội dung bài đăng + thông số BĐS */
     ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request);

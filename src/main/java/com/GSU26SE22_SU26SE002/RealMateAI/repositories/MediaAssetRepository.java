@@ -28,4 +28,42 @@ public interface MediaAssetRepository extends JpaRepository<MediaAsset, Long> {
     List<MediaAsset> findActiveByEntity(
             @Param("type") EntityType type,
             @Param("id")   Long id);
+
+    /**
+     * ATOMIC CLAIM — giải quyết race condition khi Seller mở nhiều tab /
+     * gửi nhiều request POST /listings gần như đồng thời, mỗi request đều
+     * cố gắng re-parent CÙNG 1 publicId draft vào Property khác nhau.
+     *
+     * Đây là 1 câu UPDATE có điều kiện ngay trong WHERE — khác với cách
+     * "đọc rồi ghi" (findByPublicId() rồi set field rồi save()) ở tầng
+     * application, kiểu đó luôn có khoảng hở giữa đọc và ghi: 2 transaction
+     * có thể cùng đọc thấy "còn là draft" trước khi cả 2 kịp ghi, dẫn tới
+     * 1 trong 2 tin đăng bị "cướp mất" ảnh mà không có lỗi nào báo ra.
+     *
+     * Với UPDATE trực tiếp ở DB, PostgreSQL tự đảm bảo tính nguyên tử ở
+     * mức row-lock: chỉ DUY NHẤT 1 transaction được phép cập nhật thành công
+     * (khớp điều kiện entity_type='ACCOUNT' AND entity_id=:accountId), giao
+     * dịch thứ 2 chạy ngay sau đó sẽ thấy điều kiện đã không còn đúng
+     * (entity_type đã đổi thành 'PROPERTY' bởi giao dịch đầu tiên) và trả
+     * về 0 dòng bị ảnh hưởng — Service dựa vào số này để biết ảnh đã bị
+     * tin đăng khác "giành" trước.
+     *
+     * @return số dòng được cập nhật — 1 nếu claim thành công, 0 nếu ảnh đã
+     *         bị claim trước đó (bởi tin đăng khác) hoặc không thuộc account này.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE MediaAsset m
+            SET m.entityType = :newEntityType, m.entityId = :newEntityId
+            WHERE m.publicId = :publicId
+              AND m.account.accountId = :accountId
+              AND m.entityType = com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType.ACCOUNT
+              AND m.entityId = :accountIdAsLong
+              AND m.isActive = true
+            """)
+    int claimDraftAsset(@Param("publicId") String publicId,
+                        @Param("accountId") Integer accountId,
+                        @Param("accountIdAsLong") Long accountIdAsLong,
+                        @Param("newEntityType") EntityType newEntityType,
+                        @Param("newEntityId") Long newEntityId);
 }

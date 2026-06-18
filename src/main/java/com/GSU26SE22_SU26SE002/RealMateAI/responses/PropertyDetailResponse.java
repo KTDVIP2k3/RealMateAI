@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -25,6 +26,12 @@ public class PropertyDetailResponse {
     private Integer bathroom;
     private String direction;
 
+    private String legalStatus;
+    private String addressParticular;
+    private String projectName;
+    private Map<String, Object> propertyAttribute;
+    private List<String> propertyPurpose;
+
     // Loại & tình trạng
     private String propertyTypeName;
     private String propertyConditionName;
@@ -34,9 +41,19 @@ public class PropertyDetailResponse {
     private BigDecimal longitude;
     private String postalCode;
     private String wardCode;
+    private String wardName;
 
     // Ảnh thực tế tài sản
     private List<PropertyImageResponse> images;
+
+    private Boolean isActive;
+
+    /**
+     * Số lượng Listing (cả đang active và đang chờ duyệt) hiện đang
+     * tham chiếu tới Property này — giúp Seller biết tài sản này
+     * đã/đang được đăng bao nhiêu lần khi xem GET /seller/properties.
+     */
+    private Integer activeListingCount;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

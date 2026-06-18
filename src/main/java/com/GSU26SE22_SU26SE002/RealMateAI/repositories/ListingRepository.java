@@ -73,6 +73,11 @@ public interface ListingRepository extends JpaRepository<Listing, Integer> {
             WHERE l.listingId = :listingId
             """)
     Optional<Listing> findByIdWithDetails(@Param("listingId") Integer listingId);
+    /**
+     * Đếm số Listing (mọi trạng thái) hiện đang tham chiếu tới 1 Property.
+     * Dùng để hiển thị "tài sản này đã được đăng N lần" trong GET /seller/properties.
+     */
+    long countByProperty_PropertyId(Integer propertyId);
     @Query("SELECT l FROM Listing l " +
             "JOIN l.property p " +
             "JOIN p.propertyCondition pc " +

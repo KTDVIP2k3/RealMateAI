@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
+
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -40,4 +42,15 @@ public class UpdateListingRequest {
     private BigDecimal longitude;
     private String postalCode;
     private String wardCode;
+
+    // ── Ảnh bổ sung (tuỳ chọn) ──────────────────────────────
+    /**
+     * Nếu Seller muốn bổ sung thêm ảnh khi sửa bài đăng, upload trước qua
+     * POST /api/v1/media/upload/multiple?entityType=ACCOUNT&entityId={accountId}
+     * rồi gửi publicId vào đây — ảnh sẽ được NỐI THÊM vào bộ ảnh hiện có
+     * của Property (không xóa ảnh cũ). Có thể để trống nếu không đổi ảnh.
+     */
+    private List<String> draftImagePublicIds;
+
+    private Integer mainImageIndex;
 }
