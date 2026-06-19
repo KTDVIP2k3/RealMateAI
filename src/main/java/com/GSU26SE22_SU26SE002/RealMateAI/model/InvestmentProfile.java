@@ -31,35 +31,12 @@ public class InvestmentProfile {
     private Strategy strategy;
 
     private String name;
-    private Long equity;
-    private Long loanCapital;
-    private Long reserveFund;
-    private String conscious;
-    private String ward;
-    private Long expectedRoi;
-    private Long minProfit;
-    private String riskToleranceLevel;
-    private Long durationYear;
-    private LocalDate startDate;
-    private String investmentType;
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "investment_strategy_detail", columnDefinition = "json")
-    private Map<String, Object> investmentStrategyDetail;
-    private String legalStatus;
-    private String version;
-    private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "investmentProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InvestmentCriteria> investmentCriterias = new ArrayList<>();
+    private Boolean isActive;
 
     @OneToMany(mappedBy = "investmentProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InvestmentScenario> investmentScenarios = new ArrayList<>();
-
-    @OneToMany(mappedBy = "investmentProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InvestmentPortfolio> investmentPortfolios = new ArrayList<>();
-
-    @OneToMany(mappedBy = "investmentProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<ExecutionPlan> executionPlans = new ArrayList<>();
+    @Builder.Default
+    private List<InvestmentProfileVersion> profileVersions = new ArrayList<>();
 }

@@ -23,16 +23,22 @@ public class InvestmentPlanController {
         return investmentPlanServiceInterface.getListProfileByInvestor();
     }
 
-    @GetMapping("/{id}/input")
+    @GetMapping("/version/inputs/{profileId}")
     @PreAuthorize("hasAnyRole('Investor')")
-    public ResponseEntity<ApiResponse> getProfileDetailById(@PathVariable Integer id) {
-        return investmentPlanServiceInterface.getProfileDetailById(id);
+    public ResponseEntity<ApiResponse> getProfilesByInvest(Integer profileId){
+        return investmentPlanServiceInterface.getListViewsByProfileId(profileId);
     }
 
-    @GetMapping("/{id}/result")
+    @GetMapping("/input/{versionId}")
     @PreAuthorize("hasAnyRole('Investor')")
-    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(@PathVariable Integer id) {
-        return investmentPlanServiceInterface.getInvestmentPlanDetailByProfileId(id);
+    public ResponseEntity<ApiResponse> getProfileDetailById(@PathVariable Integer versionId) {
+        return investmentPlanServiceInterface.getProfileVersionDetailById(versionId);
+    }
+
+    @GetMapping("/result/{versionId}")
+    @PreAuthorize("hasAnyRole('Investor')")
+    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(@PathVariable Integer versionId) {
+        return investmentPlanServiceInterface.getInvestmentPlanDetailByVersionId(versionId);
     }
 
     @PostMapping
@@ -41,12 +47,18 @@ public class InvestmentPlanController {
         return investmentPlanServiceInterface.generateCompleteInvestmentPlan(request);
     }
 
-    @PutMapping("/update/{profileId}")
+    @PutMapping("/{versionId}")
     @PreAuthorize("hasAnyRole('Investor')")
     public ResponseEntity<ApiResponse> updateInvestmentPlan(
-            @PathVariable Integer profileId,
+            @PathVariable Integer versionId,
             @RequestBody UpdateInvestmentPlanRequest request) {
-        return investmentPlanServiceInterface.updateExistingInvestmentPlan(profileId, request);
+        return investmentPlanServiceInterface.updateExistingInvestmentPlan(versionId, request);
+    }
+
+    @DeleteMapping("/{versionId}")
+    @PreAuthorize("hasAnyRole('Investor')")
+    public ResponseEntity<ApiResponse> deleteInvestmentProfileVersion(@PathVariable Integer versionId){
+        return investmentPlanServiceInterface.deleteInvestmentPlanVersion(versionId);
     }
 
 //    @PostMapping("/save")

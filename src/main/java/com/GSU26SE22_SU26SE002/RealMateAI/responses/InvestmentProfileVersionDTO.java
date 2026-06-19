@@ -13,10 +13,9 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InvestmentProfileDTO {
-    private Integer investmentProfileId;
-    private Integer investorId;
-    private Integer strategyId;
+public class InvestmentProfileVersionDTO {
+    private Integer investmentProfileVersionId;
+    private String strategyName;
     private String name;
     private Long equity;
     private Long loanCapital;

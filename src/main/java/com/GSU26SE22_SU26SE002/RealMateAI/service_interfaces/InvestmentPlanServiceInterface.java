@@ -8,9 +8,11 @@ import org.springframework.http.ResponseEntity;
 
 public interface InvestmentPlanServiceInterface {
     ResponseEntity<ApiResponse> getListProfileByInvestor();
-    public ResponseEntity<ApiResponse> getProfileDetailById(Integer profileId);
-    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(Integer profileId);
+     ResponseEntity<ApiResponse> getListViewsByProfileId(Integer profileId);
+     ResponseEntity<ApiResponse> getProfileVersionDetailById(Integer profileVersionId);
+     ResponseEntity<ApiResponse> getInvestmentPlanDetailByVersionId(Integer profileVersionId);
     ResponseEntity<ApiResponse> generateCompleteInvestmentPlan(InvestmentPlanRequest request);
-    public ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) ;
+     ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) ;
     ResponseEntity<ApiResponse> savePlanToDatabaseDirectly(SaveInvestmentPlanRequest saveRequest);
+     ResponseEntity<ApiResponse> deleteInvestmentPlanVersion(Integer versionId);
 }

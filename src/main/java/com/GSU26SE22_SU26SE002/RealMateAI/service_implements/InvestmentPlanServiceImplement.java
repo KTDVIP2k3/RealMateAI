@@ -2,6 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateInvestmentPlanRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.InvestmentPlanServiceInterface;
+import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
@@ -78,6 +79,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     @Autowired
     private InvestorRepository investorRepository;
 
+    @Autowired
+    private InvestmentProfileVersionRepository investmentProfileVersionRepository;
+
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse> getListProfileByInvestor() {
@@ -94,74 +98,42 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 return ResponseEntity.status(HttpStatus.OK)
                         .body(ApiResponse.success(Collections.emptyList(), "Danh sách profile trống."));
             }
-            List<ProfileSimpleDTO> simpleProfiles = profiles.stream()
-                    .map(profile -> ProfileSimpleDTO.builder()
-                            .investmentProfileId(profile.getInvestmentProfileId())
-                            .name(profile.getName())
-                            .conscious(profile.getConscious())
-                            .ward(profile.getWard())
-                            .isActive(profile.getIsActive())
-                            .equity(profile.getEquity())
-                            .expectedRoi(profile.getExpectedRoi())
-                            .durationYear(profile.getDurationYear())
-                            .strategyName(profile.getStrategy().getName())
-                            .createdAt(profile.getCreatedAt())
-                            .build())
-                    .collect(Collectors.toList());
-//            List<InvestmentProfile> allProfiles = investmentProfileRepository.findAll(); // Hoặc hàm lấy danh sách hiện tại của bạn
-//
-//            List<InvestmentProfileDTO> dtoList = profiles.stream().map(profile -> {
-//                List<InvestmentCriteriaDTO> criteriaDTOList = Collections.emptyList();
-//                if (profile.getInvestmentCriterias() != null) {
-//                    criteriaDTOList = profile.getInvestmentCriterias().stream()
-//                            .map(criteria -> {
-//                                String typeName = (criteria.getPropertyType() != null)
-//                                        ? criteria.getPropertyType().getName() : null;
-//                                String conditionName = (criteria.getPropertyCondition() != null)
-//                                        ? criteria.getPropertyCondition().getName() : null;
-//
-//                                return InvestmentCriteriaDTO.builder()
-//                                        .propertyTypeName(typeName)
-//                                        .propertyConditionName(conditionName)
-//                                        .build();
-//                            })
-//                            .collect(Collectors.toList());
-//                }
-//
-//                List<String> legalStatusList = Collections.emptyList();
-//                if (profile.getLegalStatus() != null && !profile.getLegalStatus().isEmpty()) {
-//                    try {
-//                        legalStatusList = objectMapper.readValue(profile.getLegalStatus(), new TypeReference<List<String>>() {});
-//                    } catch (Exception e) {
-//                        log.error("Lỗi khi giải mã chuỗi legalStatus JSON ở danh sách", e);
-//                    }
-//                }
-//
-//                return InvestmentProfileDTO.builder()
-//                        .investmentProfileId(profile.getInvestmentProfileId())
-//                        .investorId(investor.getInvestorId())
-//                        .strategyId(profile.getStrategy() != null ? profile.getStrategy().getStrategyId() : null)
-//                        .name(profile.getName())
-//                        .equity(profile.getEquity())
-//                        .loanCapital(profile.getLoanCapital())
-//                        .reserveFund(profile.getReserveFund())
-//                        .conscious(profile.getConscious())
-//                        .ward(profile.getWard())
-//                        .expectedRoi(profile.getExpectedRoi())
-//                        .minProfit(profile.getMinProfit())
-//                        .riskToleranceLevel(profile.getRiskToleranceLevel())
-//                        .durationYear(profile.getDurationYear())
-//                        .startDate(profile.getStartDate())
-//                        .investmentType(profile.getInvestmentType())
-//                        .investmentStrategyDetail(profile.getInvestmentStrategyDetail())
-//                        .legalStatus(legalStatusList)
-//                        .version(profile.getVersion())
-//                        .isActive(profile.getIsActive())
-//                        .createdAt(profile.getCreatedAt())
-//                        .updatedAt(profile.getUpdatedAt())
-//                        .investmentCriterias(criteriaDTOList)
-//                        .build();
-//            }).collect(Collectors.toList());
+            List<ProfileSimpleDTO> simpleProfiles = new ArrayList<>();
+            for (InvestmentProfile profile : profiles) {
+                if (profile.getProfileVersions() == null) {
+                    continue;
+                }
+
+
+                InvestmentProfileVersion latestVersion = profile.getProfileVersions().stream()
+                        .filter(v -> v.getCreatedAt() != null)
+                        .filter(v -> Boolean.TRUE.equals(v.getIsActive()))
+                        .max(Comparator.comparing(InvestmentProfileVersion::getCreatedAt))
+                        .orElse(null);
+
+                if (latestVersion == null) {
+                    continue;
+                }
+
+                Long equity = (latestVersion != null) ? latestVersion.getEquity() : 0L;
+                Long expectedRoi = (latestVersion != null) ? latestVersion.getExpectedRoi() : 0L;
+                Long durationYear = (latestVersion != null) ? latestVersion.getDurationYear() : 0L;
+                String conscious = (latestVersion != null) ? latestVersion.getConscious() : null;
+                String ward = (latestVersion != null) ? latestVersion.getWard() : null;
+
+                simpleProfiles.add(ProfileSimpleDTO.builder()
+                        .investmentProfileId(profile.getInvestmentProfileId())
+                        .name(profile.getName())
+                        .conscious(conscious)
+                        .ward(ward)
+                        .isActive(latestVersion.getIsActive())
+                        .equity(equity)
+                        .expectedRoi(expectedRoi)
+                        .durationYear(durationYear)
+                        .strategyName(profile.getStrategy() != null ? profile.getStrategy().getName() : "N/A")
+                        .createdAt(latestVersion.getCreatedAt())
+                        .build());
+            }
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(simpleProfiles, "Lấy danh sách kế hoạch đầu tư thành công"));
@@ -175,17 +147,70 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
     @Override
     @Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse> getProfileDetailById(Integer profileId) {
+    public ResponseEntity<ApiResponse> getListViewsByProfileId(Integer profileId) {
         try {
             InvestmentProfile profile = investmentProfileRepository.findById(profileId).orElse(null);
             if (profile == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.fail("Profile_Not_Found", "Investment profile không tồn tại với ID: " + profileId));
+                        .body(ApiResponse.fail("Profile_Not_Found", "Không tìm thấy kế hoạch đầu tư với ID: " + profileId));
             }
 
+            List<InvestmentProfileVersion> versions = profile.getProfileVersions();
+            if (versions == null || versions.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(Collections.emptyList(), "Kế hoạch này chưa có phiên bản lịch sử nào."));
+            }
+
+            List<ProfileVersionDTO> versionHistoryList = versions.stream()
+                    .sorted(Comparator.comparing(InvestmentProfileVersion::getProfileVersionId).reversed())
+                    .map(version -> {
+                        String strategyName = (version.getStrategy() != null) ? version.getStrategy().getName() : "N/A";
+
+                        return ProfileVersionDTO.builder()
+                                .investmentProfileVersionId(version.getProfileVersionId())
+                                .name(profile.getName() + " (Bản " + (version.getVersion() != null ? version.getVersion() : ("ID-" + version.getProfileVersionId())) + ")")
+                                .conscious(version.getConscious())
+                                .ward(version.getWard())
+                                .isActive(version.getIsActive())
+                                .equity(version.getEquity() != null ? version.getEquity() : 0L)
+                                .expectedRoi(version.getExpectedRoi() != null ? version.getExpectedRoi() : 0L)
+                                .durationYear(version.getDurationYear() != null ? version.getDurationYear() : 0L)
+                                .strategyName(strategyName)
+                                .createdAt(version.getCreatedAt())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(versionHistoryList, "Lấy danh sách lịch sử phiên bản thành công"));
+
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy danh sách lịch sử phiên bản của profile ID: {}", profileId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", "Đã xảy ra lỗi: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse> getProfileVersionDetailById(Integer profileVersionId) {
+        try {
+            InvestmentProfileVersion profileVersion = investmentProfileVersionRepository.findById(profileVersionId).orElse(null);
+            if (profileVersion == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Profile_Not_Found", "Investment profile version không tồn tại với ID: " + profileVersion));
+            }
+
+            InvestmentProfile profile = profileVersion.getInvestmentProfile();
+            if (profile == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Profile_Not_Found", "Không tìm thấy thông tin kế hoạch cha gốc của phiên bản này."));
+            }
+
+
             List<InvestmentCriteriaDTO> criteriaDTOList = Collections.emptyList();
-            if (profile.getInvestmentCriterias() != null) {
-                criteriaDTOList = profile.getInvestmentCriterias().stream()
+            if (profileVersion.getInvestmentCriterias() != null) {
+                criteriaDTOList = profileVersion.getInvestmentCriterias().stream()
                         .map(criteria -> {
                             String typeName = (criteria.getPropertyType() != null)
                                     ? criteria.getPropertyType().getName() : null;
@@ -200,66 +225,66 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .collect(Collectors.toList());
             }
 
+
             List<String> legalStatusList = Collections.emptyList();
-            if (profile.getLegalStatus() != null && !profile.getLegalStatus().isEmpty()) {
+            if (profileVersion.getLegalStatus() != null && !profileVersion.getLegalStatus().isEmpty()) {
                 try {
-                    legalStatusList = objectMapper.readValue(profile.getLegalStatus(), new TypeReference<List<String>>() {});
+                    legalStatusList = objectMapper.readValue(profileVersion.getLegalStatus(), new TypeReference<List<String>>() {});
                 } catch (Exception e) {
                     log.error("Lỗi khi giải mã chuỗi legalStatus JSON ở chi tiết", e);
                 }
             }
 
-            InvestmentProfileDTO profileDTO = InvestmentProfileDTO.builder()
-                    .investmentProfileId(profile.getInvestmentProfileId())
-                    .investorId(profile.getInvestor() != null ? profile.getInvestor().getInvestorId() : null)
-                    .strategyId(profile.getStrategy() != null ? profile.getStrategy().getStrategyId() : null)
-                    .name(profile.getName())
-                    .equity(profile.getEquity())
-                    .loanCapital(profile.getLoanCapital())
-                    .reserveFund(profile.getReserveFund())
-                    .conscious(profile.getConscious())
-                    .ward(profile.getWard())
-                    .expectedRoi(profile.getExpectedRoi())
-                    .minProfit(profile.getMinProfit())
-                    .riskToleranceLevel(profile.getRiskToleranceLevel())
-                    .durationYear(profile.getDurationYear())
-                    .startDate(profile.getStartDate())
-                    .investmentType(profile.getInvestmentType())
-                    .investmentStrategyDetail(profile.getInvestmentStrategyDetail())
+            InvestmentProfileVersionDTO profileDTO = InvestmentProfileVersionDTO.builder()
+                    .investmentProfileVersionId(profileVersion.getProfileVersionId())
+                    .strategyName(profileVersion.getStrategy() != null ? profileVersion.getStrategy().getName() : null)
+                    .name(profile.getName()) // Lấy tên từ profile cha
+                    .equity(profileVersion.getEquity())
+                    .loanCapital(profileVersion.getLoanCapital())
+                    .reserveFund(profileVersion.getReserveFund())
+                    .conscious(profileVersion.getConscious())
+                    .ward(profileVersion.getWard())
+                    .expectedRoi(profileVersion.getExpectedRoi())
+                    .minProfit(profileVersion.getMinProfit())
+                    .riskToleranceLevel(profileVersion.getRiskToleranceLevel())
+                    .durationYear(profileVersion.getDurationYear())
+                    .startDate(profileVersion.getStartDate())
+                    .investmentType(profileVersion.getInvestmentType())
+                    .investmentStrategyDetail(profileVersion.getInvestmentStrategyDetail())
                     .legalStatus(legalStatusList)
-                    .version(profile.getVersion())
-                    .isActive(profile.getIsActive())
-                    .createdAt(profile.getCreatedAt())
-                    .updatedAt(profile.getUpdatedAt())
+                    .version(null)
+                    .isActive(profileVersion.getIsActive())
+                    .createdAt(profileVersion.getCreatedAt())
+                    .updatedAt(profileVersion.getUpdatedAt())
                     .investmentCriterias(criteriaDTOList)
                     .build();
 
             return ResponseEntity.status(HttpStatus.OK)
-                    .body(ApiResponse.success(profileDTO, "Lấy thông tin chi tiết profile và tiêu chí thành công"));
+                    .body(ApiResponse.success(profileDTO, "Lấy thông tin chi tiết profile version và tiêu chí thành công"));
 
         } catch (Exception e) {
-            log.error("Lỗi khi lấy chi tiết profile ID: {}", profileId, e);
+            log.error("Lỗi khi lấy chi tiết profile ID: {}", profileVersionId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", "Đã xảy ra lỗi: " + e.getMessage()));
         }
     }
     @Override
     @Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(Integer profileId) {
+    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByVersionId(Integer profileVersionId){
         try {
-            InvestmentProfile profile = investmentProfileRepository.findById(profileId).orElse(null);
-            if (profile == null) {
+            InvestmentProfileVersion profileVersion = investmentProfileVersionRepository.findById(profileVersionId).orElse(null);
+            if (profileVersion == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.fail("Profile_Not_Found", "Investment profile không tồn tại với ID: " + profileId));
+                        .body(ApiResponse.fail("Version_Not_Found", "Không tìm thấy phiên bản kế hoạch với ID: " + profileVersionId));
             }
 
             List<InvestmentScenarioDTO> scenarioDTOList = new ArrayList<>();
-            if (profile.getInvestmentScenarios() != null) {
-                scenarioDTOList = profile.getInvestmentScenarios().stream()
+            if (profileVersion.getInvestmentScenarios() != null) {
+                scenarioDTOList = profileVersion.getInvestmentScenarios().stream()
                         .map(scenario -> {
                             int totalMonths = 0;
-                            if (profile.getDurationYear() != null) {
-                                totalMonths = (int) (profile.getDurationYear() * 12);
+                            if (profileVersion.getDurationYear() != null) {
+                                totalMonths = (int) (profileVersion.getDurationYear() * 12);
                             }
                             return InvestmentScenarioDTO.builder()
                                     .pkInvestmentScenarioId(scenario.getInvestmentScenarioId())
@@ -276,22 +301,23 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .collect(Collectors.toList());
             }
 
+
             ExecutionPlanDTO executionPlanDTO = null;
-            if (profile.getExecutionPlans() != null && !profile.getExecutionPlans().isEmpty()) {
-                ExecutionPlan activePlan = profile.getExecutionPlans().get(0);
+            if (profileVersion.getExecutionPlans() != null && !profileVersion.getExecutionPlans().isEmpty()) {
+                ExecutionPlan activePlan = profileVersion.getExecutionPlans().get(0);
                 if (activePlan.getDescription() != null && !activePlan.getDescription().isEmpty()) {
                     try {
                         executionPlanDTO = objectMapper.readValue(activePlan.getDescription(), ExecutionPlanDTO.class);
                     } catch (Exception jsonEx) {
-                        log.error("Error parsing ExecutionPlan JSON for profile ID: {}", profileId, jsonEx);
+                        log.error("Error parsing ExecutionPlan JSON for version ID: {}", profileVersionId, jsonEx);
                     }
                 }
             }
 
             List<InvestmentPortfolioDTO> portfolioDTOList = new ArrayList<>();
-            if (profile.getInvestmentPortfolios() != null) {
+            if (profileVersion.getInvestmentPortfolios() != null) {
                 int portfolioSeq = 1;
-                for (InvestmentPortfolio ip : profile.getInvestmentPortfolios()) {
+                for (InvestmentPortfolio ip : profileVersion.getInvestmentPortfolios()) {
 
                     List<PortfolioAllocationDTO> allocationDTOList = new ArrayList<>();
 
@@ -373,7 +399,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .body(ApiResponse.success(finalOutput, "Lấy chi tiết kế hoạch đầu tư thành công"));
 
         } catch (Exception e) {
-            log.error("Error in getInvestmentPlanDetailByProfileId for profile ID: {}", profileId, e);
+            log.error("Error in getInvestmentPlanDetailByProfileVersionId for profile version ID: {}", profileVersionId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", "Đã xảy ra lỗi: " + e.getMessage()));
         }
@@ -755,26 +781,22 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             legalStatusJson = objectMapper.writeValueAsString(request.getLegalStatus());
         }
 
-        String finalVersion = "1";
-//        if (request.getInvestmentProfileId() != null) {
-//            InvestmentProfile oldProfile = investmentProfileRepository.findById(request.getInvestmentProfileId()).orElse(null);
-//            if (oldProfile != null && oldProfile.getVersion() != null) {
-//                try {
-//                    String oldVerStr = oldProfile.getVersion().replaceAll("[^0-9]", "");
-//                    int oldVerNum = Integer.parseInt(oldVerStr);
-//                    finalVersion = "V" + (oldVerNum + 1);
-//                } catch (NumberFormatException e) {
-//                    finalVersion = "V2";
-//                }
-//            } else if (oldProfile != null) {
-//                finalVersion = "V2";
-//            }
-//        }
 
         InvestmentProfile profile = InvestmentProfile.builder()
                 .strategy(strategy)
                 .investor(dbInvestor)
                 .name(request.getName() != null ? request.getName() : "AI Investment Plan - " + now)
+                .createdAt(now)
+                .isActive(true)
+                .updatedAt(now)
+                .profileVersions(new ArrayList<>())
+                .build();
+
+        InvestmentProfile savedProfile = investmentProfileRepository.save(profile);
+
+        InvestmentProfileVersion versionEntity = InvestmentProfileVersion.builder()
+                .investmentProfile(savedProfile)
+                .strategy(strategy)
                 .equity(request.getEquity())
                 .loanCapital(request.getLoanCapital())
                 .reserveFund(request.getReserveFund())
@@ -785,10 +807,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .riskToleranceLevel(request.getRiskToleranceLevel())
                 .durationYear(request.getDurationYear())
                 .startDate(request.getStartDate())
-                .version(finalVersion)
-                .legalStatus(legalStatusJson)
                 .investmentType(request.getInvestmentType())
                 .investmentStrategyDetail(strategyDetailMap)
+                .legalStatus(legalStatusJson)
                 .isActive(true)
                 .createdAt(now)
                 .updatedAt(now)
@@ -798,7 +819,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .executionPlans(new ArrayList<>())
                 .build();
 
-        InvestmentProfile savedProfile = investmentProfileRepository.save(profile);
+
+        InvestmentProfileVersion savedVersion = investmentProfileVersionRepository.save(versionEntity);
 
         if (request.getCriteriaList() != null && !request.getCriteriaList().isEmpty()) {
             for (CriteriaRequest critRequest : request.getCriteriaList()) {
@@ -814,7 +836,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     }
 
                     InvestmentCriteria criteriaEntity = InvestmentCriteria.builder()
-                            .investmentProfile(savedProfile)
+                            .investmentProfileVersion(savedVersion)
                             .propertyType(pType)
                             .propertyCondition(pCondition)
                             .build();
@@ -825,7 +847,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         if (output != null && output.getScenarios() != null) {
             for (var scenarioDTO : output.getScenarios()) {
                 InvestmentScenario scenarioEntity = InvestmentScenario.builder()
-                        .investmentProfile(savedProfile)
+                        .investmentProfileVersion(savedVersion)
                         .name(scenarioDTO.getEnumScenarioType())
                         .scenarioType(scenarioDTO.getEnumScenarioType())
                         .expectedReturnRate(scenarioDTO.getDecimprofitYield())
@@ -844,7 +866,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             String descJson = objectMapper.writeValueAsString(planDTO);
 
             ExecutionPlan planEntity = ExecutionPlan.builder()
-                    .investmentProfile(savedProfile)
+                    .investmentProfileVersion(savedVersion)
                     .name("AI Execution Plan Details")
                     .description(descJson)
                     .status("ACTIVE")
@@ -885,7 +907,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 }
 
                 InvestmentPortfolio portEntity = InvestmentPortfolio.builder()
-                        .investmentProfile(savedProfile)
+                        .investmentProfileVersion(savedVersion)
                         .portfolio(dbPortfolio)
                         .percentage(portDTO.getPercentage())
                         .capital(portDTO.getCapital())
@@ -983,37 +1005,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     private void saveUpdatePlanToDatabase(InvestmentProfile oldProfile, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
-        String currentVersionStr = oldProfile.getVersion();
-        String nextVersionStr = "1";
-        try {
-            int currentVersionNum = Integer.parseInt(currentVersionStr.replaceAll("[^0-9]", ""));
-            nextVersionStr = String.valueOf(currentVersionNum + 1);
-        } catch (Exception e) {
-            nextVersionStr = "2";
-        }
 
-        oldProfile.setIsActive(false);
         oldProfile.setUpdatedAt(now);
-        investmentProfileRepository.save(oldProfile);
+        InvestmentProfile savedProfile = investmentProfileRepository.save(oldProfile);
 
         final Integer currentInvestorId = oldProfile.getInvestor() != null ? oldProfile.getInvestor().getInvestorId() : null;
         final String targetName = oldProfile.getName();
 
-        if (currentInvestorId != null) {
-            List<InvestmentProfile> activeProfiles = investmentProfileRepository.findAll().stream()
-                    .filter(p -> p.getInvestor() != null
-                            && p.getInvestor().getInvestorId().equals(currentInvestorId)
-                            && p.getName() != null
-                            && p.getName().equalsIgnoreCase(targetName)
-                            && Boolean.TRUE.equals(p.getIsActive()))
-                    .collect(Collectors.toList());
-
-            for (InvestmentProfile p : activeProfiles) {
-                p.setIsActive(false);
-                p.setUpdatedAt(now);
-                investmentProfileRepository.save(p);
-            }
-        }
 
         String legalStatusJson = null;
         if (request.getLegalStatus() != null && !request.getLegalStatus().isEmpty()) {
@@ -1025,10 +1023,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             strategyDetailMap = new HashMap<>();
         }
 
-        InvestmentProfile newProfile = InvestmentProfile.builder()
+        InvestmentProfileVersion versionEntity = InvestmentProfileVersion.builder()
+                .investmentProfile(savedProfile)
                 .strategy(strategy)
-                .investor(oldProfile.getInvestor())
-                .name(targetName)
                 .equity(request.getEquity())
                 .loanCapital(request.getLoanCapital())
                 .reserveFund(request.getReserveFund())
@@ -1039,7 +1036,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .riskToleranceLevel(request.getRiskToleranceLevel())
                 .durationYear(request.getDurationYear())
                 .startDate(request.getStartDate())
-                .version(nextVersionStr)
                 .legalStatus(legalStatusJson)
                 .investmentType(request.getInvestmentType())
                 .investmentStrategyDetail(strategyDetailMap)
@@ -1052,8 +1048,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .executionPlans(new ArrayList<>())
                 .build();
 
-        InvestmentProfile savedProfile = investmentProfileRepository.save(newProfile);
-
+        InvestmentProfileVersion savedVersion = investmentProfileVersionRepository.save(versionEntity);
         if (request.getCriteriaList() != null && !request.getCriteriaList().isEmpty()) {
             for (CriteriaRequest critRequest : request.getCriteriaList()) {
                 if (critRequest.getPropertyTypeId() != null || critRequest.getPropertyConditionId() != null) {
@@ -1068,7 +1063,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     }
 
                     InvestmentCriteria criteriaEntity = InvestmentCriteria.builder()
-                            .investmentProfile(savedProfile)
+                            .investmentProfileVersion(savedVersion)
                             .propertyType(pType)
                             .propertyCondition(pCondition)
                             .build();
@@ -1080,7 +1075,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         if (output != null && output.getScenarios() != null) {
             for (var scenarioDTO : output.getScenarios()) {
                 InvestmentScenario scenarioEntity = InvestmentScenario.builder()
-                        .investmentProfile(savedProfile)
+                        .investmentProfileVersion(savedVersion)
                         .name(scenarioDTO.getEnumScenarioType())
                         .scenarioType(scenarioDTO.getEnumScenarioType())
                         .expectedReturnRate(scenarioDTO.getDecimprofitYield())
@@ -1099,7 +1094,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             String descJson = objectMapper.writeValueAsString(planDTO);
 
             ExecutionPlan planEntity = ExecutionPlan.builder()
-                    .investmentProfile(savedProfile)
+                    .investmentProfileVersion(savedVersion)
                     .name("AI Execution Plan Details")
                     .description(descJson)
                     .status("ACTIVE")
@@ -1140,7 +1135,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 }
 
                 InvestmentPortfolio portEntity = InvestmentPortfolio.builder()
-                        .investmentProfile(savedProfile)
+                        .investmentProfileVersion(savedVersion)
                         .portfolio(dbPortfolio)
                         .percentage(portDTO.getPercentage())
                         .capital(portDTO.getCapital())
@@ -1186,4 +1181,34 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             }
         }
     }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> deleteInvestmentPlanVersion(Integer versionId) {
+        try {
+            InvestmentProfileVersion version = investmentProfileVersionRepository.findById(versionId).orElse(null);
+            if (version == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Version_Not_Found", "Không tìm thấy phiên bản kế hoạch với ID: " + versionId));
+            }
+
+            if (Boolean.FALSE.equals(version.getIsActive())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Already_Deleted", "Phiên bản này đã được xóa từ trước."));
+            }
+
+            version.setIsActive(false);
+            version.setUpdatedAt(LocalDateTime.now());
+            investmentProfileVersionRepository.save(version);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Xóa phiên bản kế hoạch đầu tư thành công"));
+
+        } catch (Exception e) {
+            log.error("Lỗi khi xóa phiên bản với versionId: {}", versionId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", "Đã xảy ra lỗi: " + e.getMessage()));
+        }
+    }
+
 }
