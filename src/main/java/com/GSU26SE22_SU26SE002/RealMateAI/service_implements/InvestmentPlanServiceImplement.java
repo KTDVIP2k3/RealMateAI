@@ -130,7 +130,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .equity(equity)
                         .expectedRoi(expectedRoi)
                         .durationYear(durationYear)
-                        .strategyName(profile.getStrategy() != null ? profile.getStrategy().getName() : "N/A")
+                        .strategyName(latestVersion.getStrategy() != null ? latestVersion.getStrategy().getName() : "N/A")
                         .createdAt(latestVersion.getCreatedAt())
                         .build());
             }
@@ -783,7 +783,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
 
         InvestmentProfile profile = InvestmentProfile.builder()
-                .strategy(strategy)
                 .investor(dbInvestor)
                 .name(request.getName() != null ? request.getName() : "AI Investment Plan - " + now)
                 .createdAt(now)

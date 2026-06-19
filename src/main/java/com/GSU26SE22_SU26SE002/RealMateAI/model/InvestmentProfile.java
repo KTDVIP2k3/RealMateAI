@@ -24,12 +24,6 @@ public class InvestmentProfile {
     @JoinColumn(name = "investor_id")
     private Investor investor;
 
-
-    /** Strategy -> InvestmentProfile (one-to-many in ERD) */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "strategy_id")
-    private Strategy strategy;
-
     private String name;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
