@@ -24,7 +24,12 @@ public class AccountController {
 
     @PostMapping(value = "/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('Admin')")
-    public ResponseEntity<ApiResponse> createAccount(@ModelAttribute CreateAccountRequest createAccountRequest) {
+    public ResponseEntity<ApiResponse> createAccountStaff(@ModelAttribute CreateAccountRequest createAccountRequest) {
         return accountServiceInterface.createAccountByAdmin(createAccountRequest);
+    }
+
+    @PostMapping(value = "/admin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse> createAccountAdmin(@ModelAttribute CreateAccountRequest createAccountRequest) {
+        return accountServiceInterface.createAccountAdmin(createAccountRequest);
     }
 }

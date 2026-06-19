@@ -11,4 +11,6 @@ public interface AccountServiceInterface {
     ResponseEntity<ApiResponse> getAccountProfile();
 
     ResponseEntity<ApiResponse> createAccountByAdmin(CreateAccountRequest createAccountRequest);
+
+    public ResponseEntity<ApiResponse> createAccountAdmin(CreateAccountRequest createAccountRequest);
 }

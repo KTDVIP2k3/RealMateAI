@@ -16,8 +16,8 @@ public class InvestmentPortfolio {
     private Integer investmentPortfolioId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "investment_profile_id", nullable = false)
-    private InvestmentProfile investmentProfile;
+    @JoinColumn(name = "profile_version_id", nullable = false)
+    private InvestmentProfileVersion investmentProfileVersion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "portfolio_id", nullable = false)

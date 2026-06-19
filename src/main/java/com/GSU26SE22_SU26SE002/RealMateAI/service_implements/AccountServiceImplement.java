@@ -78,5 +78,39 @@ public class AccountServiceImplement implements AccountServiceInterface {
         }
     }
 
+    @Override
+    public ResponseEntity<ApiResponse> createAccountAdmin(CreateAccountRequest createAccountRequest) {
+        try{
+            List<Account> accounts = accountRepository.findAll().stream().toList();
+            boolean existName = accounts.stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(createAccountRequest.getUserName()));
+            boolean existEmail = accounts.stream().anyMatch(account -> account.getEmail().toLowerCase().
+                    equalsIgnoreCase(createAccountRequest.getEmail().toLowerCase()));
+            if(existName){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "User Name exists"));
+            }
+
+            if(existEmail){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email exists"));
+            }
+
+            Account account = new Account();
+            account.setUserName(createAccountRequest.getUserName());
+            account.setPassword(new BCryptPasswordEncoder(12).encode(createAccountRequest.getPassword()));
+            account.setEmail(createAccountRequest.getEmail());
+            account.setFull_name(createAccountRequest.getFullName());
+            account.setGender(createAccountRequest.getGender());
+            account.setPhone(createAccountRequest.getPhone());
+            account.setRole(RoleEnum.Admin);
+            account.setBirth_date(createAccountRequest.getBirthDate());
+            account.setIsActive(true);
+            account.setCreateAt(LocalDateTime.now());
+            accountRepository.save(account);
+            emailServiceVerificationImplement.sendInfoAccountStaff(createAccountRequest.getEmail(), createAccountRequest.getUserName(), createAccountRequest.getPassword());
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create account successfully"));
+        }catch (Exception e)    {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
 
 }

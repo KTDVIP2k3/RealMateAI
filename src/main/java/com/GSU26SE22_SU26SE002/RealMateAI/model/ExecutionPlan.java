@@ -21,8 +21,8 @@ public class ExecutionPlan {
     private Integer executionPlanId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "investment_profile_id", nullable = false)
-    private InvestmentProfile investmentProfile;
+    @JoinColumn(name = "profile_version_id", nullable = false)
+    private InvestmentProfileVersion investmentProfileVersion;
 
     private String name;
 
