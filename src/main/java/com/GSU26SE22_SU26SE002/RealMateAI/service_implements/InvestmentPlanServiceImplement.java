@@ -123,6 +123,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                 simpleProfiles.add(ProfileSimpleDTO.builder()
                         .investmentProfileId(profile.getInvestmentProfileId())
+                        .latestVersionId(latestVersion.getProfileVersionId())
                         .name(profile.getName())
                         .conscious(conscious)
                         .ward(ward)
@@ -168,7 +169,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                         return ProfileVersionDTO.builder()
                                 .investmentProfileVersionId(version.getProfileVersionId())
-                                .name(profile.getName() + " (Bản " + (version.getVersion() != null ? version.getVersion() : ("ID-" + version.getProfileVersionId())) + ")")
+                                .name(version.getProfileVersionName())
                                 .conscious(version.getConscious())
                                 .ward(version.getWard())
                                 .isActive(version.getIsActive())
@@ -238,7 +239,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             InvestmentProfileVersionDTO profileDTO = InvestmentProfileVersionDTO.builder()
                     .investmentProfileVersionId(profileVersion.getProfileVersionId())
                     .strategyName(profileVersion.getStrategy() != null ? profileVersion.getStrategy().getName() : null)
-                    .name(profile.getName()) // Lấy tên từ profile cha
+                    .name(profileVersion.getProfileVersionName())
                     .equity(profileVersion.getEquity())
                     .loanCapital(profileVersion.getLoanCapital())
                     .reserveFund(profileVersion.getReserveFund())
