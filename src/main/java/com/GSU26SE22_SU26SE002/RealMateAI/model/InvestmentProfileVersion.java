@@ -27,6 +27,8 @@ public class InvestmentProfileVersion {
     @Column(name = "profile_version_id")
     private Integer profileVersionId;
 
+    private String profileVersionName;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investment_profile_id")
     private InvestmentProfile investmentProfile;

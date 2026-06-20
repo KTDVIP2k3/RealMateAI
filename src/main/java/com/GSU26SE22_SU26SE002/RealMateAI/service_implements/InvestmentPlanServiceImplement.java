@@ -428,7 +428,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .anyMatch(p -> p.getInvestor() != null
                                 && p.getInvestor().getInvestorId().equals(currentInvestorId)
                                 && p.getName() != null
-                                && p.getName().equalsIgnoreCase(inputName));
+                                && p.getName().equalsIgnoreCase(inputName)
+                                && p.getIsActive() == true);
 
                 if (isNameExists) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -800,9 +801,15 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .build();
 
         InvestmentProfile savedProfile = investmentProfileRepository.save(profile);
+        int currentVersionsCount = 0;
+        int nextVersionNumber = currentVersionsCount + 1;
+        String autoVersionName = savedProfile.getName() + " - Version " + nextVersionNumber;
+        String autoVersionCode = "V" + nextVersionNumber;
+
 
         InvestmentProfileVersion versionEntity = InvestmentProfileVersion.builder()
                 .investmentProfile(savedProfile)
+                .profileVersionName(autoVersionName)
                 .strategy(strategy)
                 .equity(request.getEquity())
                 .loanCapital(request.getLoanCapital())
@@ -1016,6 +1023,21 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         oldProfile.setUpdatedAt(now);
         InvestmentProfile savedProfile = investmentProfileRepository.save(oldProfile);
 
+        if (savedProfile.getProfileVersions() != null) {
+            for (InvestmentProfileVersion oldVersion : savedProfile.getProfileVersions()) {
+                if (Boolean.TRUE.equals(oldVersion.getIsActive())) {
+                    oldVersion.setIsActive(false);
+                    oldVersion.setUpdatedAt(now);
+                    investmentProfileVersionRepository.save(oldVersion);
+                }
+            }
+        }
+
+        int currentVersionsCount = (savedProfile.getProfileVersions() != null) ? savedProfile.getProfileVersions().size() : 0;
+        int nextVersionNumber = currentVersionsCount + 1;
+        String autoVersionName = savedProfile.getName() + " - Version " + nextVersionNumber;
+        String autoVersionCode = "V" + nextVersionNumber;
+
         final Integer currentInvestorId = oldProfile.getInvestor() != null ? oldProfile.getInvestor().getInvestorId() : null;
         final String targetName = oldProfile.getName();
 
@@ -1032,6 +1054,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         InvestmentProfileVersion versionEntity = InvestmentProfileVersion.builder()
                 .investmentProfile(savedProfile)
+                .profileVersionName(autoVersionName)
                 .strategy(strategy)
                 .equity(request.getEquity())
                 .loanCapital(request.getLoanCapital())
@@ -1215,6 +1238,86 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             log.error("Lỗi khi xóa phiên bản với versionId: {}", versionId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", "Đã xảy ra lỗi: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> deleteInvestmentPlan(Integer profileId) {
+        try{
+            InvestmentProfile investmentProfile = investmentProfileRepository.findById(profileId).orElse(null);
+            if(investmentProfile == null){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.success(null, "Id does not exist"));
+            }
+            for(InvestmentProfileVersion investmentProfileVersion : investmentProfile.getProfileVersions()){
+                investmentProfileVersion.setIsActive(false);
+                investmentProfileVersionRepository.save(investmentProfileVersion);
+            }
+            investmentProfile.setIsActive(false);
+            investmentProfileRepository.save(investmentProfile);
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Deleted investment plan and all its versions successfully"));
+        }catch (Exception e) {
+            log.error("Error in deleteInvestmentPlan", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> updateProfileName(Integer profileId, String newName) {
+        try {
+            if (newName == null || newName.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Invalid_Name", "Name must not be empty"));
+            }
+
+            InvestmentProfile investmentProfile = investmentProfileRepository.findById(profileId).orElse(null);
+            if (investmentProfile == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Profile_Not_Found", "Investment profile does not exist"));
+            }
+
+            investmentProfile.setName(newName.trim());
+            investmentProfile.setUpdatedAt(LocalDateTime.now());
+            investmentProfileRepository.save(investmentProfile);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Updated investment profile name successfully"));
+
+        } catch (Exception e) {
+            log.error("Error in updateProfileName", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> updateVersionName(Integer versionId, String newName) {
+        try {
+            if (newName == null || newName.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Invalid_Name", "Version name must not be empty"));
+            }
+
+            InvestmentProfileVersion profileVersion = investmentProfileVersionRepository.findById(versionId).orElse(null);
+            if (profileVersion == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Version_Not_Found", "Investment profile version does not exist"));
+            }
+
+            profileVersion.setProfileVersionName(newName.trim());
+            profileVersion.setUpdatedAt(LocalDateTime.now());
+            investmentProfileVersionRepository.save(profileVersion);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Updated profile version name successfully"));
+
+        } catch (Exception e) {
+            log.error("Error in updateVersionName", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
