@@ -15,4 +15,7 @@ public interface InvestmentPlanServiceInterface {
      ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) ;
     ResponseEntity<ApiResponse> savePlanToDatabaseDirectly(SaveInvestmentPlanRequest saveRequest);
      ResponseEntity<ApiResponse> deleteInvestmentPlanVersion(Integer versionId);
+     ResponseEntity<ApiResponse> deleteInvestmentPlan(Integer profileId);
+    ResponseEntity<ApiResponse> updateProfileName(Integer profileId, String newName);
+    ResponseEntity<ApiResponse> updateVersionName(Integer versionId, String newName);
 }
