@@ -23,43 +23,40 @@ public class ListingController {
     private final ListingServiceInterface listingService;
 
     // ─────────────────────────────────────────────────────
-    // POST /api/v1/listings
-    // Seller: Tạo bài đăng mới — ảnh đi kèm ngay trong request này
-    // (xem draftImagePublicIds trong CreateListingRequest)
+    // POST /api/v1/listings  — multipart/form-data
+    // Seller: Tạo bài đăng + upload ảnh trong 1 lần gọi
     // ─────────────────────────────────────────────────────
-    @PostMapping("/listings")
+    @PostMapping(value = "/listings", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('Seller')")
-    @Operation(summary = "Seller: Tạo bài đăng mới (Property mới hoặc đăng lại tài sản cũ, kèm ảnh)")
-    public ResponseEntity<ApiResponse> createListing(@Valid @RequestBody CreateListingRequest request) {
-        return listingService.createListing(request);
+    @Operation(summary = "Seller: Tạo bài đăng mới + upload ảnh trong 1 request (multipart/form-data)")
+    public ResponseEntity<ApiResponse> createListing(
+            @RequestPart("data") @Valid CreateListingRequest request,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+        return listingService.createListing(request, images);
     }
 
     // ─────────────────────────────────────────────────────
     // GET /api/v1/listings
-    // Màn hình Chợ BĐS: danh sách tin đăng đã duyệt, phân trang
     // ─────────────────────────────────────────────────────
     @GetMapping("/listings")
     @Operation(summary = "Lấy danh sách tin đăng")
     public ResponseEntity<ApiResponse> getListings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-
         return listingService.getMarketListings(page, size);
     }
 
     // ─────────────────────────────────────────────────────
     // GET /api/v1/listings/{id}
-    // Chi tiết tin đăng công khai: Property & Image
     // ─────────────────────────────────────────────────────
     @GetMapping("/listings/{id}")
-    @Operation(summary = "Chi tiết tin đăng công khai: liên kết thông số Property & Image")
+    @Operation(summary = "Chi tiết tin đăng công khai")
     public ResponseEntity<ApiResponse> getListingDetail(@PathVariable("id") Integer listingId) {
         return listingService.getListingDetail(listingId);
     }
 
     // ─────────────────────────────────────────────────────
     // GET /api/v1/seller/listings
-    // Seller: Xem danh sách tin đăng cá nhân của mình
     // ─────────────────────────────────────────────────────
     @GetMapping("/seller/listings")
     @PreAuthorize("hasRole('Seller')")
@@ -70,20 +67,16 @@ public class ListingController {
 
     // ─────────────────────────────────────────────────────
     // GET /api/v1/seller/properties
-    // [MỚI] Seller: Xem danh sách TÀI SẢN mình đang sở hữu
-    // → dùng existingPropertyId lấy từ đây để "đăng lại" trong POST /listings
     // ─────────────────────────────────────────────────────
     @GetMapping("/seller/properties")
     @PreAuthorize("hasRole('Seller')")
-    @Operation(summary = "Seller: Xem danh sách tài sản (Property) đang sở hữu, dùng để đăng lại")
+    @Operation(summary = "Seller: Xem danh sách tài sản đang sở hữu")
     public ResponseEntity<ApiResponse> getMyProperties() {
         return listingService.getMyProperties();
     }
 
     // ─────────────────────────────────────────────────────
     // PUT /api/v1/listings/{id}
-    // Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS
-    // (Sửa bài → reset chờ duyệt lại; có thể bổ sung thêm ảnh qua draftImagePublicIds)
     // ─────────────────────────────────────────────────────
     @PutMapping("/listings/{id}")
     @PreAuthorize("hasAnyRole('Seller','Admin','Staff')")
@@ -91,7 +84,6 @@ public class ListingController {
     public ResponseEntity<ApiResponse> updateListing(
             @PathVariable("id") Integer listingId,
             @RequestBody UpdateListingRequest request) {
-
         return listingService.updateListing(listingId, request);
     }
 }
