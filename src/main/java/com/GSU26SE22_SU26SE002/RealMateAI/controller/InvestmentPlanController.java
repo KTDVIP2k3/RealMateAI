@@ -56,13 +56,13 @@ public class InvestmentPlanController {
         return investmentPlanServiceInterface.generateCompleteInvestmentPlan(request);
     }
 
-    @PostMapping("/{profileId}")
+    @PostMapping("/{Id}")
     @PreAuthorize("hasAnyRole('Investor')")
     @Operation(summary = "Investor: Thay đổi con số tính toán -> Giữ nguyên CHA (InvestmentProfile) cũ nhưng đẻ thêm 1 bản CON (InvestmentProfileVersion) mới tinh để lưu lịch sử")
     public ResponseEntity<ApiResponse> updateInvestmentPlan(
-            @PathVariable Integer profileId,
+            @PathVariable Integer Id,
             @RequestBody UpdateInvestmentPlanRequest request) {
-        return investmentPlanServiceInterface.updateExistingInvestmentPlan(profileId, request);
+        return investmentPlanServiceInterface.updateExistingInvestmentPlan(Id, request);
     }
 
     @DeleteMapping("/version/{Id}")

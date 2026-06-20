@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ProfileSimpleDTO {
     private Integer investmentProfileId;
+    private Integer latestVersionId;
     private String name;
     private String conscious;
     private String ward;
