@@ -421,22 +421,22 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(null, "Investor survey does not exist. Please create to use this function"));
             }
 
-            final String inputName = request.getName() != null ? request.getName().trim() : "";
-            if (!inputName.isEmpty()) {
-                final Integer currentInvestorId = account.getInvestor().getInvestorId();
-
-                boolean isNameExists = investmentProfileRepository.findAll().stream()
-                        .anyMatch(p -> p.getInvestor() != null
-                                && p.getInvestor().getInvestorId().equals(currentInvestorId)
-                                && p.getName() != null
-                                && p.getName().equalsIgnoreCase(inputName)
-                                && p.getIsActive() == true);
-
-                if (isNameExists) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Name_Already_Exists", "The investment plan name '" + inputName + "' already exists. Please choose another name."));
-                }
-            }
+//            final String inputName = request.getName() != null ? request.getName().trim() : "";
+//            if (!inputName.isEmpty()) {
+//                final Integer currentInvestorId = account.getInvestor().getInvestorId();
+//
+//                boolean isNameExists = investmentProfileRepository.findAll().stream()
+//                        .anyMatch(p -> p.getInvestor() != null
+//                                && p.getInvestor().getInvestorId().equals(currentInvestorId)
+//                                && p.getName() != null
+//                                && p.getName().equalsIgnoreCase(inputName)
+//                                && p.getIsActive() == true);
+//
+//                if (isNameExists) {
+//                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                            .body(ApiResponse.fail("Name_Already_Exists", "The investment plan name '" + inputName + "' already exists. Please choose another name."));
+//                }
+//            }
 
             List<InvestmentPortfolioDTO> portfolios = processStage1Portfolios(request, strategy);
             processStage2EnrichProperties(request, portfolios);
@@ -532,8 +532,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 if (errorMsg.contains("429") || errorMsg.contains("503") || errorMsg.contains("Unavailable") || errorMsg.contains("Quota exceeded") || errorMsg.contains("rate-limits")) {
                     retryCount++;
                     try {
-                        // Tăng thời gian ngủ lên 8 giây để chắc chắn reset cửa sổ RPM
-                        Thread.sleep(8000);
+                             Thread.sleep(8000);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(ie);
