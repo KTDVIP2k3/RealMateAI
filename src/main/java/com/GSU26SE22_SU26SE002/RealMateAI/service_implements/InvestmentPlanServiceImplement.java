@@ -628,11 +628,19 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         );
 
         if (matchedListings.isEmpty()) {
+//            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
+//                    .portfolioAllocationPropertyId(null)
+//                    .propertyProjectName(null)
+//                    .area(0)
+//                    .valuePrice(0.0)
+//                    .description(null)
+//                    .build());
+
             return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
                     .portfolioAllocationPropertyId(null)
                     .propertyProjectName(null)
-                    .area(0)
-                    .valuePrice(0.0)
+                    .area(null)
+                    .valuePrice(null)
                     .description(null)
                     .build());
         }
