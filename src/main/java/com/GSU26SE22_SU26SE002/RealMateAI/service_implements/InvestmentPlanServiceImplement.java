@@ -532,8 +532,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 if (errorMsg.contains("429") || errorMsg.contains("503") || errorMsg.contains("Unavailable") || errorMsg.contains("Quota exceeded") || errorMsg.contains("rate-limits")) {
                     retryCount++;
                     try {
-                        // Tăng thời gian ngủ lên 8 giây để chắc chắn reset cửa sổ RPM
-                        Thread.sleep(8000);
+                             Thread.sleep(8000);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(ie);
