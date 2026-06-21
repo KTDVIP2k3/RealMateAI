@@ -1,11 +1,13 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.responses;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.InvestmentPortfolioRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -22,5 +24,6 @@ public class ProfileSimpleDTO {
     private Long expectedRoi;
     private Long durationYear;
     private String strategyName;
+    private List<InvestmentPortfolioRequest> investmentPortfolioRequests;
     private LocalDateTime createdAt;
 }

@@ -1,6 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateInvestmentPlanRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.InvestmentPlanServiceInterface;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -11,9 +11,6 @@ import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.Schema;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.InvestmentPlanRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CriteriaRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.SaveInvestmentPlanRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import lombok.extern.slf4j.Slf4j;
@@ -121,6 +118,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 String conscious = (latestVersion != null) ? latestVersion.getConscious() : null;
                 String ward = (latestVersion != null) ? latestVersion.getWard() : null;
 
+                List<InvestmentPortfolioRequest> investmentPortfolioRequests = latestVersion.getInvestmentPortfolios().stream()
+                        .map(investmentPortfolio -> new InvestmentPortfolioRequest(
+                                investmentPortfolio.getPortfolio().getName(),
+                                investmentPortfolio.getPercentage()
+                        ))
+                                .collect(Collectors.toList());
+
                 simpleProfiles.add(ProfileSimpleDTO.builder()
                         .investmentProfileId(profile.getInvestmentProfileId())
                         .latestVersionId(latestVersion.getProfileVersionId())
@@ -132,6 +136,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .expectedRoi(expectedRoi)
                         .durationYear(durationYear)
                         .strategyName(latestVersion.getStrategy() != null ? latestVersion.getStrategy().getName() : "N/A")
+                        .investmentPortfolioRequests(investmentPortfolioRequests)
                         .createdAt(latestVersion.getCreatedAt())
                         .build());
             }
