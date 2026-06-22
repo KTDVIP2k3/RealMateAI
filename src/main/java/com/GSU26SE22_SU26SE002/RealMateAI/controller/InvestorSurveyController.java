@@ -15,19 +15,19 @@ public class InvestorSurveyController {
     private InvestorServiceInterface investorServiceInterface;
 
     @GetMapping(value = "survey/me")
-    @PreAuthorize("hasAnyRole('Investor')")
+    @PreAuthorize("hasRole('Investor')")
     public ResponseEntity<ApiResponse> getInvestorSurvey(){
         return investorServiceInterface.getInvestorSurvey();
     }
 
     @PostMapping(value = "survey")
-    @PreAuthorize("hasAnyRole('Investor')")
+    @PreAuthorize("hasRole('Investor')")
     public ResponseEntity<ApiResponse> createInvestorSurvey(@RequestBody InvestorSurveyRequest investorSurveyRequest){
         return investorServiceInterface.createInvestorSurvey(investorSurveyRequest);
     }
 
     @PutMapping(value = "survey/me")
-    @PreAuthorize("hasAnyRole('Investor')")
+    @PreAuthorize("hasRole('Investor')")
     public ResponseEntity<ApiResponse> updateInvestorSurvey(@RequestBody InvestorSurveyRequest investorSurveyRequest){
         return investorServiceInterface.updateInvestorSurvey( investorSurveyRequest);
     }
