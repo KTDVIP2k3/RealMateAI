@@ -27,7 +27,7 @@ public class ListingController {
     // Seller: Tạo bài đăng + upload ảnh trong 1 lần gọi
     // ─────────────────────────────────────────────────────
     @PostMapping(value = "/listings", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('Seller')")
+    @PreAuthorize("hasAnyAuthority('ROLE_Seller')")
     @Operation(summary = "Seller: Tạo bài đăng mới + upload ảnh trong 1 request (multipart/form-data)")
     public ResponseEntity<ApiResponse> createListing(
             @RequestPart("data") @Valid CreateListingRequest request,
@@ -59,7 +59,7 @@ public class ListingController {
     // GET /api/v1/seller/listings
     // ─────────────────────────────────────────────────────
     @GetMapping("/seller/listings")
-    @PreAuthorize("hasAnyRole('Seller')")
+    @PreAuthorize("hasAnyAuthority('ROLE_Seller')")
     @Operation(summary = "Seller: Xem danh sách tin đăng cá nhân")
     public ResponseEntity<ApiResponse> getMyListings() {
         return listingService.getMyListings();
@@ -69,7 +69,7 @@ public class ListingController {
     // GET /api/v1/seller/properties
     // ─────────────────────────────────────────────────────
     @GetMapping("/seller/properties")
-    @PreAuthorize("hasAnyRole('Seller')")
+    @PreAuthorize("hasAnyAuthority('ROLE_Seller')")
     @Operation(summary = "Seller: Xem danh sách tài sản đang sở hữu")
     public ResponseEntity<ApiResponse> getMyProperties() {
         return listingService.getMyProperties();
@@ -79,7 +79,7 @@ public class ListingController {
     // PUT /api/v1/listings/{id}
     // ─────────────────────────────────────────────────────
     @PutMapping("/listings/{id}")
-    @PreAuthorize("hasAnyRole('Seller','Admin','Staff')")
+    @PreAuthorize("hasAnyAuthority('ROLE_Seller','ROLE_Admin','ROLE_Staff')")
     @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS")
     public ResponseEntity<ApiResponse> updateListing(
             @PathVariable("id") Integer listingId,
