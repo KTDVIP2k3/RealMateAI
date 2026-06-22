@@ -27,7 +27,7 @@ public class ListingController {
     // Seller: Tạo bài đăng + upload ảnh trong 1 lần gọi
     // ─────────────────────────────────────────────────────
     @PostMapping(value = "/listings", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('Seller')")
+    @PreAuthorize("hasAnyRole('Seller')")
     @Operation(summary = "Seller: Tạo bài đăng mới + upload ảnh trong 1 request (multipart/form-data)")
     public ResponseEntity<ApiResponse> createListing(
             @RequestPart("data") @Valid CreateListingRequest request,
@@ -59,7 +59,7 @@ public class ListingController {
     // GET /api/v1/seller/listings
     // ─────────────────────────────────────────────────────
     @GetMapping("/seller/listings")
-    @PreAuthorize("hasRole('Seller')")
+    @PreAuthorize("hasAnyRole('Seller')")
     @Operation(summary = "Seller: Xem danh sách tin đăng cá nhân")
     public ResponseEntity<ApiResponse> getMyListings() {
         return listingService.getMyListings();
@@ -69,7 +69,7 @@ public class ListingController {
     // GET /api/v1/seller/properties
     // ─────────────────────────────────────────────────────
     @GetMapping("/seller/properties")
-    @PreAuthorize("hasRole('Seller')")
+    @PreAuthorize("hasAnyRole('Seller')")
     @Operation(summary = "Seller: Xem danh sách tài sản đang sở hữu")
     public ResponseEntity<ApiResponse> getMyProperties() {
         return listingService.getMyProperties();

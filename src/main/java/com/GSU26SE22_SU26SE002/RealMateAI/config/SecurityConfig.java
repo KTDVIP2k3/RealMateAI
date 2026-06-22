@@ -51,7 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/property-condition").permitAll()
                         .requestMatchers("/strategy").permitAll()
                         .requestMatchers("/api/chat").permitAll()
-                        .requestMatchers("/listings").permitAll()
+                        .requestMatchers("/listings/*").permitAll()
                         .requestMatchers("/auth/login", "/auth/verify-login","/auth/activate-account").permitAll()
                         .requestMatchers("/auth/register", "/auth/verify-otp", "/auth/send-otp").permitAll()
                         .anyRequest().authenticated())
