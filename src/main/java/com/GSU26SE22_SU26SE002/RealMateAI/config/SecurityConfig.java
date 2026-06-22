@@ -4,6 +4,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -51,7 +52,8 @@ public class SecurityConfig {
                         .requestMatchers("/property-condition").permitAll()
                         .requestMatchers("/strategy").permitAll()
                         .requestMatchers("/api/chat").permitAll()
-                        .requestMatchers("/listings/*").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/listings/*").permitAll()
+                        .requestMatchers("/listings").permitAll()
                         .requestMatchers("/auth/login", "/auth/verify-login","/auth/activate-account").permitAll()
                         .requestMatchers("/auth/register", "/auth/verify-otp", "/auth/send-otp").permitAll()
                         .anyRequest().authenticated())
