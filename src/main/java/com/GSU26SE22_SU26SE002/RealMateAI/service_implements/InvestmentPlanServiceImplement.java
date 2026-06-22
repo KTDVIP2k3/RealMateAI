@@ -141,6 +141,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .build());
             }
 
+            simpleProfiles.sort(Comparator.comparing(ProfileSimpleDTO::getInvestmentProfileId));
+
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(simpleProfiles, "Lấy danh sách kế hoạch đầu tư thành công"));
 
@@ -168,7 +170,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             }
 
             List<ProfileVersionDTO> versionHistoryList = versions.stream()
-                    .sorted(Comparator.comparing(InvestmentProfileVersion::getProfileVersionId).reversed())
+                    .sorted(Comparator.comparing(InvestmentProfileVersion::getProfileVersionId))
                     .map(version -> {
                         String strategyName = (version.getStrategy() != null) ? version.getStrategy().getName() : "N/A";
 
