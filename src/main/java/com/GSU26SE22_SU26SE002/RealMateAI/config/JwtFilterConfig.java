@@ -57,8 +57,8 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/property-condition")
                 || requestURI.equals("/strategy")
                 || requestURI.equals("/api/chat")
-                || requestURI.startsWith("/listings/")
-                || requestURI.equals("/listings")
+                || (requestURI.startsWith("/listings/") && "GET".equalsIgnoreCase(request.getMethod()))
+                || (requestURI.startsWith("/listings") && "GET".equalsIgnoreCase(request.getMethod()))
                 || requestURI.startsWith("/webjars/")) {
             filterChain.doFilter(request, response);
             return;
@@ -104,13 +104,19 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                 if (jwtService.validateToken(token, userDetails.getUsername(), role)) {
-                    String upperCaseRole = role.toUpperCase();
-                    List<SimpleGrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + upperCaseRole));
+                    String cleanRole = role.trim();
+                    if (cleanRole.startsWith("ROLE_") || cleanRole.startsWith("role_")) {
+                        cleanRole = cleanRole.substring(5);
+                    }
 
+                    System.out.println("👉 QUYỀN ĐANG NẠP VÀO SPRING LÀ: ROLE_" + cleanRole);
+
+
+                    List<SimpleGrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + cleanRole));
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 } else {
                     handleErrorResponse(response, HttpStatus.UNAUTHORIZED, "VALIDATION_FAILED",

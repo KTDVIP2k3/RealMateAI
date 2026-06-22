@@ -42,7 +42,7 @@ public class JwtServiceImplement {
     public boolean validateToken(String token, String userDetails, String role) {
         final String username = extractUsername(token);
         final String extractedRole = extractRole(token);
-        return (username.equals(userDetails) && extractedRole.equals(role) && !isTokenExpired(token));
+        return (username.equals(userDetails) && extractedRole.equalsIgnoreCase(role) && !isTokenExpired(token));
     }
 
     public Date extractExpiration(String token) {

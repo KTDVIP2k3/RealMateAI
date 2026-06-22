@@ -53,9 +53,10 @@ public class SecurityConfig {
                         .requestMatchers("/strategy").permitAll()
                         .requestMatchers("/api/chat").permitAll()
                         .requestMatchers(HttpMethod.GET,"/listings/*").permitAll()
-                        .requestMatchers("/listings").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/listings/**").permitAll()
                         .requestMatchers("/auth/login", "/auth/verify-login","/auth/activate-account").permitAll()
                         .requestMatchers("/auth/register", "/auth/verify-otp", "/auth/send-otp").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
