@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithNewPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import org.springframework.http.ResponseEntity;
@@ -11,11 +12,19 @@ import java.util.List;
 public interface ListingServiceInterface {
 
     /**
-     * Seller: tạo bài đăng mới.
-     * Tạo (hoặc tái sử dụng) Property + tạo Listing + gắn ảnh (re-parent từ
-     * draft MediaAsset) — TẤT CẢ trong 1 transaction duy nhất.
+     * Luồng ①: Seller đăng lại tài sản ĐÃ CÓ SẴN.
+     * Body: application/json
      */
-    ResponseEntity<ApiResponse> createListing(CreateListingRequest request, List<MultipartFile> images);
+    ResponseEntity<ApiResponse> createListingWithExistingProperty(
+            CreateListingWithExistingPropertyRequest request);
+
+    /**
+     * Luồng ②: Seller tạo tài sản MỚI + đăng tin + upload ảnh.
+     * Body: multipart/form-data
+     */
+    ResponseEntity<ApiResponse> createListingWithNewProperty(
+            CreateListingWithNewPropertyRequest request,
+            List<MultipartFile> images);
 
     ResponseEntity<ApiResponse> getMarketListings(int page, int size);
 

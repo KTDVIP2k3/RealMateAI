@@ -3,8 +3,8 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreatePropertyRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithNewPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
@@ -15,65 +15,34 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-/**
- * *  CƠ CHẾ ẢNH ĐI KÈM LÚC ĐĂNG TIN — "DRAFT ASSET RE-PARENTING"
-*  Bước 1 (FE thực hiện, KHÔNG nằm trong service này):
-        *     Seller gọi POST /api/v1/media/upload/multiple
- *              ?entityType=ACCOUNT&entityId={accountId của Seller}
-        *     → Ảnh lên Cloudinary THẬT, MediaAsset được lưu với entityType=ACCOUNT,
- *       entityId=accountId (nghĩa là "ảnh này đang treo dưới tài khoản này,
-        *       chưa thuộc về tài sản nào cụ thể"). FE nhận lại publicId từng ảnh.
-        *
-        *  Bước 2 (xử lý trong createListing() dưới đây):
-        *     Seller gọi POST /listings, gửi kèm draftImagePublicIds = [publicId,...]
-        *     Trong CÙNG 1 transaction:
-        *       a. Tạo/lấy Property → có propertyId
- *       b. Tạo Listing → có listingId
- *       c. Với mỗi publicId trong draftImagePublicIds:
-        *          - Tìm MediaAsset theo publicId (phải đang thuộc về đúng accountId
-        *            này, đề phòng người khác đoán publicId của người khác)
- *          - "Re-parent": set lại entityType=PROPERTY, entityId=propertyId
- *          - Tạo 1 row PropertyImage tương ứng (imageUrl=secureUrl)
- *
-         * Lợi ích của cách này so với việc "tạo Listing rỗng rồi PATCH ảnh sau":
-        *   - Đúng 1 lần gọi API để hoàn tất đăng tin có ảnh — không có khoảng thời
- *     gian nào tồn tại 1 Listing "trắng ảnh" trong DB.
-        *   - Ảnh đã lên Cloudinary thật từ Bước 1 nên nếu Bước 2 thất bại (validate
- *     lỗi, transaction rollback), ảnh vẫn còn nguyên trên Cloudinary dưới
- *     entityType=ACCOUNT — Seller chỉ cần gọi lại POST /listings với cùng
- *     publicId đó, không cần upload lại từ đầu.
- *   - Vì duyệt tin (ListingVerificationServiceImplement) kiểm tra Property
- *     phải có ảnh mới được APPROVED, cơ chế này đảm bảo KHÔNG BAO GIỜ có
- *     Listing được tạo ra mà thiếu ảnh ngay từ đầu.
-        * ════════════════════════════════════════════════════════════════════════
-        */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ListingServiceImplement implements ListingServiceInterface {
 
-    private final ListingRepository listingRepository;
-    private final PropertyRepository propertyRepository;
-    private final LocationRepository locationRepository;
-    private final PropertyImageRepository propertyImageRepository;
-    private final SellerRepository sellerRepository;
-    private final PropertyTypeRepository propertyTypeRepository;
-    private final PropertyConditionRepository propertyConditionRepository;
-    private final InvestorRepository investorRepository;
-    private final FavoriteListingRepository favoriteListingRepository;
-    private final WardRepository wardRepository;
-    private final MediaAssetRepository mediaAssetRepository;
-    private final ListingMapper listingMapper;
-    private final AuthenUntil authenUntil;
+    private final ListingRepository               listingRepository;
+    private final PropertyRepository              propertyRepository;
+    private final LocationRepository              locationRepository;
+    private final PropertyImageRepository         propertyImageRepository;
+    private final SellerRepository                sellerRepository;
+    private final PropertyTypeRepository          propertyTypeRepository;
+    private final PropertyConditionRepository     propertyConditionRepository;
+    private final InvestorRepository              investorRepository;
+    private final FavoriteListingRepository       favoriteListingRepository;
+    private final WardRepository                  wardRepository;
+    private final MediaAssetRepository            mediaAssetRepository;
+    private final ListingMapper                   listingMapper;
+    private final AuthenUntil                     authenUntil;
     private final CloudinaryMediaServiceInterface cloudinaryMediaService;
 
     private static final int PAGE_SIZE = 10;
@@ -86,153 +55,45 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
-    // ════════════════════════════════════════════════════
-    //  POST /listings — Tạo bài đăng + upload ảnh cùng lúc
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════════
+    //  Luồng ①: Đăng lại tài sản ĐÃ CÓ SẴN — application/json
+    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> createListing(CreateListingRequest request,
-                                                     List<MultipartFile> images) {
+    public ResponseEntity<ApiResponse> createListingWithExistingProperty(
+            CreateListingWithExistingPropertyRequest request) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập để thực hiện hành động này"));
-            }
+            if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
 
-            Seller seller = sellerRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
-            if (seller == null) {
+            Seller seller = sellerRepository
+                    .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+            if (seller == null) return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.fail("Forbidden", "Tài khoản không phải Seller"));
+
+            Property property = propertyRepository
+                    .findById(request.getExistingPropertyId()).orElse(null);
+            if (property == null) return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.fail("Not_Found",
+                            "Tài sản không tồn tại: id=" + request.getExistingPropertyId()));
+
+            if (property.getSeller() == null ||
+                    !property.getSeller().getSellerId().equals(seller.getSellerId())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ApiResponse.fail("Forbidden", "Tài khoản không phải Seller hoặc chưa được kích hoạt"));
+                        .body(ApiResponse.fail("Forbidden", "Tài sản này không thuộc sở hữu của bạn"));
             }
 
-            boolean hasExisting = request.getExistingPropertyId() != null;
-            boolean hasNew      = request.getNewProperty() != null;
-            if (hasExisting == hasNew) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail("Bad_Request",
-                                "Phải chọn ĐÚNG 1 trong 2: existingPropertyId (đăng lại tài sản cũ) " +
-                                        "HOẶC newProperty (tạo tài sản mới)"));
-            }
-
-            // Validate ảnh bắt buộc khi tạo Property mới
-            boolean hasImages = images != null && !images.isEmpty();
-            if (hasNew && !hasImages) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail("Bad_Request",
-                                "Tạo tài sản mới phải kèm ít nhất 1 ảnh (part 'images' trong multipart request)"));
-            }
-
-            // ── Step 1: Upload ảnh lên Cloudinary ngay đầu transaction ──
-            // Upload với entityType=ACCOUNT trước (draft), sau khi có propertyId sẽ re-parent
-            List<MediaAssetResponse> uploadedAssets = Collections.emptyList();
-            if (hasImages) {
-                uploadedAssets = cloudinaryMediaService.uploadMultiple(
-                        images, currentUser, EntityType.ACCOUNT, (long) currentUser.getAccountId());
-                log.info("[ListingService] Uploaded {} ảnh draft cho accountId={}",
-                        uploadedAssets.size(), currentUser.getAccountId());
-            }
-
-            // ── Step 2: Tạo hoặc lấy Property ──────────────────────────
-            Property targetProperty;
-            boolean isNewProperty;
-
-            if (hasExisting) {
-                targetProperty = propertyRepository.findById(request.getExistingPropertyId()).orElse(null);
-                if (targetProperty == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(ApiResponse.fail("Not_Found", "Tài sản không tồn tại: id=" + request.getExistingPropertyId()));
-                }
-                if (targetProperty.getSeller() == null
-                        || !targetProperty.getSeller().getSellerId().equals(seller.getSellerId())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body(ApiResponse.fail("Forbidden", "Tài sản này không thuộc sở hữu của bạn"));
-                }
-                isNewProperty = false;
-
-            } else {
-                CreatePropertyRequest np = request.getNewProperty();
-
-                PropertyType propertyType = propertyTypeRepository.findById(np.getPropertyTypeId()).orElse(null);
-                if (propertyType == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "Loại bất động sản không hợp lệ"));
-                }
-
-                PropertyCondition propertyCondition = null;
-                if (np.getPropertyConditionId() != null) {
-                    propertyCondition = propertyConditionRepository.findById(np.getPropertyConditionId()).orElse(null);
-                    if (propertyCondition == null) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.fail("Bad_Request", "Tình trạng bất động sản không hợp lệ"));
-                    }
-                }
-
-                Ward ward = null;
-                if (np.getWardCode() != null && !np.getWardCode().isBlank()) {
-                    ward = wardRepository.findById(np.getWardCode()).orElse(null);
-                    if (ward == null) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.fail("Bad_Request", "Mã phường/xã không hợp lệ: " + np.getWardCode()));
-                    }
-                }
-
-                Location location = Location.builder()
-                        .latitude(np.getLatitude())
-                        .longitude(np.getLongitude())
-                        .postalCode(np.getPostalCode())
-                        .ward(ward)
-                        .build();
-                Location savedLocation = locationRepository.save(location);
-
-                LocalDateTime now = LocalDateTime.now();
-                Property property = Property.builder()
-                        .seller(seller)
-                        .propertyType(propertyType)
-                        .propertyCondition(propertyCondition)
-                        .location(savedLocation)
-                        .title(np.getTitle())
-                        .description(np.getDescription())
-                        .price(np.getPrice())
-                        .area(np.getArea())
-                        .floor(np.getFloor())
-                        .bedroom(np.getBedroom())
-                        .bathroom(np.getBathroom())
-                        .direction(np.getDirection())
-                        .legalStatus(np.getLegalStatus())
-                        .addressParticular(np.getAddressParticular())
-                        .projectName(np.getProjectName())
-                        .propertyAttribute(np.getPropertyAttribute())
-                        .propertyPurpose(np.getPropertyPurpose())
-                        .isActive(true)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-                targetProperty = propertyRepository.save(property);
-                isNewProperty  = true;
-            }
-
-            // ── Step 3: Re-parent ảnh đã upload về Property ─────────────
             int reparented = 0;
-            if (!uploadedAssets.isEmpty()) {
-                List<String> publicIds = uploadedAssets.stream()
-                        .map(MediaAssetResponse::getPublicId)
-                        .collect(Collectors.toList());
+            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
                 reparented = reparentUploadedImagesToProperty(
-                        publicIds, currentUser, targetProperty, request.getMainImageIndex());
-                log.info("[ListingService] Reparented {} ảnh vào propertyId={}",
-                        reparented, targetProperty.getPropertyId());
+                        request.getDraftImagePublicIds(), currentUser, property,
+                        request.getMainImageIndex());
             }
 
-            if (isNewProperty && reparented == 0 && hasImages) {
-                throw new ListingConflictException(HttpStatus.CONFLICT,
-                        "Upload ảnh thành công nhưng không thể gắn vào tài sản. Vui lòng thử lại.");
-            }
-
-            // ── Step 4: Tạo Listing ──────────────────────────────────────
             LocalDateTime now = LocalDateTime.now();
             Listing listing = Listing.builder()
-                    .property(targetProperty)
+                    .property(property)
                     .seller(seller)
                     .title(request.getTitle())
                     .description(request.getDescription())
@@ -248,107 +109,176 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
-            Listing savedListing = listingRepository.save(listing);
+            Listing saved = listingRepository.save(listing);
 
-            log.info("[ListingService] Tạo mới: propertyId={}, listingId={}, sellerId={}, mode={}",
-                    targetProperty.getPropertyId(), savedListing.getListingId(),
-                    seller.getSellerId(), isNewProperty ? "NEW" : "REUSE");
+            log.info("[ListingService] Luồng: listingId={}, propertyId={}, sellerId={}",
+                    saved.getListingId(), property.getPropertyId(), seller.getSellerId());
 
-            Property refreshed = propertyRepository.findByIdWithDetails(targetProperty.getPropertyId())
-                    .orElse(targetProperty);
+            Property refreshed = propertyRepository
+                    .findByIdWithDetails(property.getPropertyId()).orElse(property);
+
+            String msg = "Bài đăng tạo thành công"
+                    + (reparented > 0 ? ", thêm " + reparented + " ảnh mới" : "")
+                    + ", đang chờ Staff duyệt";
 
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(
-                            listingMapper.toListingDetail(savedListing, refreshed),
-                            "Bài đăng đã được tạo kèm " + reparented + " ảnh, đang chờ Staff duyệt"));
+                    .body(ApiResponse.success(listingMapper.toListingDetail(saved, refreshed), msg));
 
-        } catch (ListingConflictException e) {
-            log.warn("[ListingService] Conflict: {}", e.getMessage());
-            return ResponseEntity.status(e.status).body(ApiResponse.fail("Conflict", e.getMessage()));
         } catch (Exception e) {
-            log.error("[ListingService] createListing lỗi", e);
+            log.error("[ListingService] createListingWithExistingProperty lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
-    /**
-     * Re-parent các MediaAsset (đã upload với entityType=ACCOUNT) sang PROPERTY.
-     * Dùng atomic claimDraftAsset() để chống race condition.
-     */
-    private int reparentUploadedImagesToProperty(List<String> publicIds, Account owner,
-                                                 Property property, Integer mainImageIndex) {
-        if (publicIds == null || publicIds.isEmpty()) return 0;
-
-        long existingCount = propertyImageRepository.countByProperty_PropertyId(property.getPropertyId());
-        int mainIdx        = (mainImageIndex == null) ? 0 : mainImageIndex;
-        int saved          = 0;
-        Long propertyIdL   = property.getPropertyId().longValue();
-        long ownerIdL      = owner.getAccountId();
-
-        for (int i = 0; i < publicIds.size(); i++) {
-            String publicId = publicIds.get(i);
-
-            int claimed = mediaAssetRepository.claimDraftAsset(
-                    publicId, owner.getAccountId(), ownerIdL,
-                    EntityType.PROPERTY, propertyIdL);
-
-            if (claimed == 0) {
-                log.warn("[ListingService] Skip publicId={} — không claim được", publicId);
-                continue;
-            }
-
-            MediaAsset asset = mediaAssetRepository.findByPublicId(publicId).orElse(null);
-            if (asset == null) {
-                log.error("[ListingService] Claim OK nhưng không tìm lại được publicId={}", publicId);
-                continue;
-            }
-
-            boolean isMain = (existingCount == 0) && (i == mainIdx);
-            PropertyImage img = PropertyImage.builder()
-                    .property(property)
-                    .imageUrl(asset.getSecureUrl())
-                    .isMain(isMain)
-                    .displayOrder((int) existingCount + saved)
-                    .build();
-            propertyImageRepository.save(img);
-            saved++;
-        }
-        return saved;
-    }
-
-    // ════════════════════════════════════════════════════
-    //  Các method còn lại — giữ nguyên logic cũ
-    // ════════════════════════════════════════════════════
-
+    // ════════════════════════════════════════════════════════════════════════
+    //  Luồng ②: Tạo tài sản MỚI + đăng tin + upload ảnh — multipart/form-data
+    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> getMyProperties() {
+    public ResponseEntity<ApiResponse> createListingWithNewProperty(
+            CreateListingWithNewPropertyRequest request,
+            List<MultipartFile> images) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
             if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
 
-            Seller seller = sellerRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+            Seller seller = sellerRepository
+                    .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
             if (seller == null) return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.fail("Forbidden", "Tài khoản không phải Seller"));
 
-            List<Property> properties = propertyRepository.findBySellerIdWithDetails(seller.getSellerId());
-            List<PropertyDetailResponse> response = properties.stream()
-                    .map(p -> {
-                        int listingCount = (int) listingRepository.countByProperty_PropertyId(p.getPropertyId());
-                        return listingMapper.toPropertyDetail(p, null, listingCount);
-                    })
-                    .collect(Collectors.toList());
+            boolean hasImages = images != null && !images.isEmpty();
+            if (!hasImages) return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.fail("Bad_Request", "Tạo tài sản mới phải kèm ít nhất 1 ảnh"));
 
-            return ResponseEntity.ok(ApiResponse.success(response, "Danh sách tài sản bạn đang sở hữu"));
+            // Dùng getter camelCase: getPropPropertyTypeId() thay vì getProp_propertyTypeId()
+            PropertyType propertyType = propertyTypeRepository
+                    .findById(request.getPropPropertyTypeId()).orElse(null);
+            if (propertyType == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.fail("Bad_Request", "Loại bất động sản không hợp lệ"));
+
+            PropertyCondition propertyCondition = null;
+            Integer conditionId = request.getPropPropertyConditionId();
+
+            if (conditionId != null) {
+                if (conditionId <= 0) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail("Bad_Request", "propPropertyConditionId phải lớn hơn 0"));
+                }
+
+                propertyCondition = propertyConditionRepository
+                        .findById(conditionId)
+                        .orElse(null);
+
+                if (propertyCondition == null) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail("Bad_Request",
+                                    "Tình trạng bất động sản không tồn tại với id = " + conditionId));
+                }
+            }
+
+            Ward ward = wardRepository.findById(request.getPropWardCode()).orElse(null);
+            if (ward == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.fail("Bad_Request",
+                            "Mã phường/xã không hợp lệ: " + request.getPropWardCode()));
+
+            // Upload ảnh lên Cloudinary (draft dưới ACCOUNT, re-parent sau)
+            List<MediaAssetResponse> uploadedAssets = cloudinaryMediaService.uploadMultiple(
+                    images, currentUser, EntityType.ACCOUNT, (long) currentUser.getAccountId());
+            log.info("[ListingService] Uploaded {} ảnh draft cho accountId={}",
+                    uploadedAssets.size(), currentUser.getAccountId());
+
+            // Tạo Location
+            Location location = Location.builder()
+                    .latitude(request.getPropLatitude())
+                    .longitude(request.getPropLongitude())
+                    .postalCode(request.getPropPostalCode())
+                    .ward(ward)
+                    .build();
+            Location savedLocation = locationRepository.save(location);
+
+            // Tạo Property
+            LocalDateTime now = LocalDateTime.now();
+            Property property = Property.builder()
+                    .seller(seller)
+                    .propertyType(propertyType)
+                    .propertyCondition(propertyCondition)
+                    .location(savedLocation)
+                    .title(request.getPropTitle())
+                    .description(request.getPropDescription())
+                    .price(request.getPropPrice())
+                    .area(request.getPropArea())
+                    .floor(request.getPropFloor())
+                    .bedroom(request.getPropBedroom())
+                    .bathroom(request.getPropBathroom())
+                    .direction(request.getPropDirection())
+                    .legalStatus(request.getPropLegalStatus())
+                    .addressParticular(request.getPropAddressParticular())
+                    .projectName(request.getPropProjectName())
+                    .isActive(true)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            Property savedProperty = propertyRepository.save(property);
+            propertyRepository.flush();
+            // Re-parent ảnh từ ACCOUNT → PROPERTY
+            List<String> publicIds = uploadedAssets.stream()
+                    .map(MediaAssetResponse::getPublicId)
+                    .collect(Collectors.toList());
+            int reparented = reparentUploadedImagesToProperty(
+                    publicIds, currentUser, savedProperty, request.getMainImageIndex());
+
+            if (reparented == 0) throw new ListingConflictException(HttpStatus.CONFLICT,
+                    "Upload ảnh thành công nhưng không thể gắn vào tài sản. Vui lòng thử lại.");
+
+            // Tạo Listing
+            Listing listing = Listing.builder()
+                    .property(savedProperty)
+                    .seller(seller)
+                    .title(request.getTitle())
+                    .description(request.getDescription())
+                    .price(request.getPrice())
+                    .contactPerson(request.getContactPerson())
+                    .contactPersonName(request.getContactPersonName())
+                    .contactPersonPhone(request.getContactPersonPhone())
+                    .linkSocialContactPerson(request.getLinkSocialContactPerson())
+                    .viewingDate(request.getViewingDate())
+                    .startTime(request.getStartTime() != null
+                            ? java.time.LocalTime.parse(request.getStartTime()) : null)
+                    .endTime(request.getEndTime() != null
+                            ? java.time.LocalTime.parse(request.getEndTime()) : null)
+                    .isActive(false)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            Listing saved = listingRepository.save(listing);
+
+            log.info("[ListingService] Luồng: listingId={}, propertyId={}, sellerId={}, ảnh={}",
+                    saved.getListingId(), savedProperty.getPropertyId(),
+                    seller.getSellerId(), reparented);
+
+            Property refreshed = propertyRepository
+                    .findByIdWithDetails(savedProperty.getPropertyId()).orElse(savedProperty);
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success(
+                            listingMapper.toListingDetail(saved, refreshed),
+                            "Bài đăng tạo thành công kèm " + reparented + " ảnh, đang chờ Staff duyệt"));
+
+        } catch (ListingConflictException e) {
+            return ResponseEntity.status(e.status).body(ApiResponse.fail("Conflict", e.getMessage()));
         } catch (Exception e) {
-            log.error("[ListingService] getMyProperties lỗi", e);
+            log.error("[ListingService] createListingWithNewProperty lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  GET /listings
+    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getMarketListings(int page, int size) {
@@ -359,10 +289,12 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
             if (currentUser != null) {
-                Investor investor = investorRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+                Investor investor = investorRepository
+                        .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
                 if (investor != null) {
                     favoritedIds = new HashSet<>(
-                            favoriteListingRepository.findFavoritedListingIdsByInvestorId(investor.getInvestorId()));
+                            favoriteListingRepository.findFavoritedListingIdsByInvestorId(
+                                    investor.getInvestorId()));
                 }
             }
 
@@ -372,12 +304,12 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .collect(Collectors.toList());
 
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("content", content);
-            result.put("page", listingPage.getNumber());
-            result.put("size", listingPage.getSize());
+            result.put("content",       content);
+            result.put("page",          listingPage.getNumber());
+            result.put("size",          listingPage.getSize());
             result.put("totalElements", listingPage.getTotalElements());
-            result.put("totalPages", listingPage.getTotalPages());
-            result.put("last", listingPage.isLast());
+            result.put("totalPages",    listingPage.getTotalPages());
+            result.put("last",          listingPage.isLast());
 
             return ResponseEntity.ok(ApiResponse.success(result, "Danh sách tin đăng trên Chợ BĐS"));
         } catch (Exception e) {
@@ -387,6 +319,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  GET /listings/{id}
+    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getListingDetail(Integer listingId) {
@@ -404,6 +339,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  GET /seller/listings
+    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getMyListings() {
@@ -412,11 +350,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
             if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
 
-            Seller seller = sellerRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+            Seller seller = sellerRepository
+                    .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
             if (seller == null) return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.fail("Forbidden", "Tài khoản không phải Seller"));
 
-            List<ListingSummaryResponse> listings = listingRepository.findBySellerId(seller.getSellerId())
+            List<ListingSummaryResponse> listings = listingRepository
+                    .findBySellerId(seller.getSellerId())
                     .stream()
                     .map(l -> listingMapper.toListingSummary(l, false))
                     .collect(Collectors.toList());
@@ -429,6 +369,44 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  GET /seller/properties
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> getMyProperties() {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            if (currentUser == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
+
+            Seller seller = sellerRepository
+                    .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+            if (seller == null) return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.fail("Forbidden", "Tài khoản không phải Seller"));
+
+            List<Property> properties = propertyRepository
+                    .findBySellerIdWithDetails(seller.getSellerId());
+
+            List<PropertyDetailResponse> response = properties.stream()
+                    .map(p -> {
+                        int listingCount = (int) listingRepository
+                                .countByProperty_PropertyId(p.getPropertyId());
+                        return listingMapper.toPropertyDetail(p, null, listingCount);
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(ApiResponse.success(response, "Danh sách tài sản bạn đang sở hữu"));
+        } catch (Exception e) {
+            log.error("[ListingService] getMyProperties lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  PUT /listings/{id}
+    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request) {
@@ -445,7 +423,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             boolean isAdminOrStaff = roleName.equals("Admin") || roleName.equals("Staff");
 
             if (!isAdminOrStaff) {
-                Seller seller = sellerRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+                Seller seller = sellerRepository
+                        .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
                 boolean isOwner = seller != null && listing.getSeller() != null
                         && listing.getSeller().getSellerId().equals(seller.getSellerId());
                 if (!isOwner) return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -453,16 +432,16 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 listing.setIsActive(false);
             }
 
-            if (request.getTitle() != null)                 listing.setTitle(request.getTitle());
-            if (request.getDescription() != null)           listing.setDescription(request.getDescription());
-            if (request.getPrice() != null)                 listing.setPrice(request.getPrice());
-            if (request.getContactPerson() != null)         listing.setContactPerson(request.getContactPerson());
-            if (request.getContactPersonName() != null)     listing.setContactPersonName(request.getContactPersonName());
-            if (request.getContactPersonPhone() != null)    listing.setContactPersonPhone(request.getContactPersonPhone());
+            if (request.getTitle() != null)                   listing.setTitle(request.getTitle());
+            if (request.getDescription() != null)             listing.setDescription(request.getDescription());
+            if (request.getPrice() != null)                   listing.setPrice(request.getPrice());
+            if (request.getContactPerson() != null)           listing.setContactPerson(request.getContactPerson());
+            if (request.getContactPersonName() != null)       listing.setContactPersonName(request.getContactPersonName());
+            if (request.getContactPersonPhone() != null)      listing.setContactPersonPhone(request.getContactPersonPhone());
             if (request.getLinkSocialContactPerson() != null) listing.setLinkSocialContactPerson(request.getLinkSocialContactPerson());
-            if (request.getViewingDate() != null)           listing.setViewingDate(request.getViewingDate());
-            if (request.getStartTime() != null)             listing.setStartTime(request.getStartTime());
-            if (request.getEndTime() != null)               listing.setEndTime(request.getEndTime());
+            if (request.getViewingDate() != null)             listing.setViewingDate(request.getViewingDate());
+            if (request.getStartTime() != null)               listing.setStartTime(request.getStartTime());
+            if (request.getEndTime() != null)                 listing.setEndTime(request.getEndTime());
             listing.setUpdatedAt(LocalDateTime.now());
 
             Property property = listing.getProperty();
@@ -497,7 +476,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     if (request.getWardCode() != null) {
                         Ward ward = wardRepository.findById(request.getWardCode()).orElse(null);
                         if (ward == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.fail("Bad_Request", "Mã phường/xã không hợp lệ: " + request.getWardCode()));
+                                .body(ApiResponse.fail("Bad_Request",
+                                        "Mã phường/xã không hợp lệ: " + request.getWardCode()));
                         location.setWard(ward);
                     }
                     locationRepository.save(location);
@@ -507,9 +487,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
             }
 
             int reparentedCount = 0;
-            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty() && property != null) {
+            if (request.getDraftImagePublicIds() != null
+                    && !request.getDraftImagePublicIds().isEmpty() && property != null) {
                 reparentedCount = reparentUploadedImagesToProperty(
-                        request.getDraftImagePublicIds(), currentUser, property, request.getMainImageIndex());
+                        request.getDraftImagePublicIds(), currentUser, property,
+                        request.getMainImageIndex());
                 log.info("[ListingService] Bổ sung {}/{} ảnh khi sửa listingId={}",
                         reparentedCount, request.getDraftImagePublicIds().size(), listingId);
             }
@@ -522,10 +504,57 @@ public class ListingServiceImplement implements ListingServiceInterface {
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(updated, refreshed),
                     "Cập nhật bài đăng thành công — cần Staff duyệt lại"));
+
         } catch (Exception e) {
             log.error("[ListingService] updateListing lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  Helper: Re-parent MediaAsset (ACCOUNT) → PropertyImage (PROPERTY)
+    // ════════════════════════════════════════════════════════════════════════
+    private int reparentUploadedImagesToProperty(List<String> publicIds,
+                                                 Account owner,
+                                                 Property property,
+                                                 Integer mainImageIndex) {
+        if (publicIds == null || publicIds.isEmpty()) return 0;
+
+        long existingCount = propertyImageRepository.countByProperty_PropertyId(property.getPropertyId());
+        int  mainIdx      = (mainImageIndex == null) ? 0 : mainImageIndex;
+        int  saved        = 0;
+        Long propertyIdL  = property.getPropertyId().longValue();
+        long ownerIdL     = owner.getAccountId();
+
+        for (int i = 0; i < publicIds.size(); i++) {
+            String publicId = publicIds.get(i);
+
+            int claimed = mediaAssetRepository.claimDraftAsset(
+                    publicId, owner.getAccountId(), ownerIdL,
+                    EntityType.PROPERTY, propertyIdL);
+
+            if (claimed == 0) {
+                log.warn("[ListingService] Skip publicId={} — không claim được", publicId);
+                continue;
+            }
+
+            MediaAsset asset = mediaAssetRepository.findByPublicId(publicId).orElse(null);
+            if (asset == null) {
+                log.error("[ListingService] Claim OK nhưng không tìm lại được publicId={}", publicId);
+                continue;
+            }
+
+            boolean isMain = (existingCount == 0) && (i == mainIdx);
+            PropertyImage img = PropertyImage.builder()
+                    .property(property)
+                    .imageUrl(asset.getSecureUrl())
+                    .isMain(isMain)
+                    .displayOrder((int) existingCount + saved)
+                    .build();
+            propertyImageRepository.save(img);
+            saved++;
+        }
+        return saved;
     }
 }
