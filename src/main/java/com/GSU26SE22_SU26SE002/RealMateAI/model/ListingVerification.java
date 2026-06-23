@@ -3,30 +3,42 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
-@NoArgsConstructor @AllArgsConstructor @Getter
-@Setter  @Builder
-@Entity @Table(name = "listing_verification")
+@Entity
+@Table(name = "listing_verification")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ListingVerification {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "listing_verification_seq")
+    @SequenceGenerator(
+            name = "listing_verification_seq",
+            sequenceName = "listing_verification_listing_verification_id_seq",
+            allocationSize = 1
+    )
     @Column(name = "listing_verification_id")
     private Integer listingVerificationId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "listing_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "listing_id", nullable = false, unique = true)
     private Listing listing;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
-    private Account account;
+    private Account account; // Người duyệt cuối cùng
 
     @Enumerated(EnumType.STRING)
-    private ListingStatusEnum status;
+    @Column(nullable = false)
+    private ListingStatusEnum status = ListingStatusEnum.PENDING;
 
+    @Column(columnDefinition = "TEXT")
     private String reviewerNote;
 
     private LocalDateTime verifiedAt;
+
 }

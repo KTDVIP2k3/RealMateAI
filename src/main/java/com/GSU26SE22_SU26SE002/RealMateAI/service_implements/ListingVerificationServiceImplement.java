@@ -20,14 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
-/**
- * ListingVerificationServiceImplement
- *
- * Xử lý nghiệp vụ duyệt tin của Staff/Admin
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -38,177 +31,149 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
     private final ListingMapper listingMapper;
     private final AuthenUntil authenUntil;
 
-    // ====================== HELPER CHECK QUYỀN ======================
     private Account getCurrentStaffOrAdmin() {
         Account currentUser = authenUntil.getCurrentUSer();
-        if (currentUser == null) {
-            throw new RuntimeException("Unauthorized");
-        }
+        if (currentUser == null) throw new RuntimeException("Unauthorized");
 
-        String roleName = currentUser.getRole() != null ? currentUser.getRole().name() : "";
-        if (!roleName.equals("Staff") && !roleName.equals("Admin")) {
-            throw new RuntimeException("Forbidden: Chỉ Staff hoặc Admin mới được thực hiện chức năng này");
+        String role = currentUser.getRole() != null ? currentUser.getRole().name() : "";
+        if (!"Staff".equals(role) && !"Admin".equals(role)) {
+            throw new RuntimeException("Forbidden: Chỉ Staff hoặc Admin mới được thực hiện");
         }
-
         return currentUser;
     }
 
-    private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
-        if (e.getMessage().contains("Unauthorized")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập để thực hiện hành động này"));
-        }
-        if (e.getMessage().contains("Forbidden")) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.fail("Forbidden", e.getMessage()));
-        }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("Server_Error", e.getMessage()));
-    }
-
-    // ════════════════════════════════════════════════════
-    //  GET /staff/listings/pending
-    // ════════════════════════════════════════════════════
+    // GET Pending Queue
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getPendingQueue() {
         try {
-            Account currentUser = getCurrentStaffOrAdmin();
-
-            List<ListingVerificationResponse> queue = listingVerificationRepository
-                    .findPendingQueue(ListingStatusEnum.PENDING)
+            getCurrentStaffOrAdmin();
+            var queue = listingVerificationRepository.findPendingQueue(ListingStatusEnum.PENDING)
                     .stream()
                     .map(this::toVerificationResponse)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return ResponseEntity.ok(ApiResponse.success(queue, "Hàng đợi chờ duyệt"));
-
         } catch (RuntimeException e) {
             return handleAuthException(e);
         } catch (Exception e) {
-            log.error("[ListingVerificationService] getPendingQueue lỗi", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            log.error("getPendingQueue error", e);
+            return ResponseEntity.internalServerError()
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
-    // ════════════════════════════════════════════════════
-    //  POST /staff/listings/{id}/verify
-    // ════════════════════════════════════════════════════
+    // POST Verify - UPSERT (chỉ 1 record)
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> verifyListing(Integer listingId, VerifyListingRequest request) {
         try {
             Account currentUser = getCurrentStaffOrAdmin();
 
-            Listing listing = listingRepository.findByIdWithDetails(listingId).orElse(null);
-            if (listing == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.fail("Not_Found", "Bài đăng không tồn tại: id=" + listingId));
-            }
+            Listing listing = listingRepository.findByIdWithDetails(listingId)
+                    .orElseThrow(() -> new RuntimeException("Listing not found"));
 
+            // Validation
             if (request.getDecision() == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail("Bad_Request", "Quyết định duyệt không được để trống"));
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.fail("Bad_Request", "Decision không được để trống"));
             }
 
-            // REJECTED bắt buộc có lý do
-            if (request.getDecision() == ListingStatusEnum.REJECTED
-                    && (request.getReviewerNote() == null || request.getReviewerNote().isBlank())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail("Bad_Request", "Từ chối duyệt phải kèm lý do (reviewerNote)"));
+            if (request.getDecision() == ListingStatusEnum.REJECTED &&
+                    (request.getReviewerNote() == null || request.getReviewerNote().isBlank())) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.fail("Bad_Request", "Từ chối phải có lý do"));
             }
 
-            // APPROVED bắt buộc phải có ảnh
-            Property property = listing.getProperty();
             if (request.getDecision() == ListingStatusEnum.APPROVED) {
-                boolean hasImage = property != null
-                        && property.getPropertyImages() != null
-                        && !property.getPropertyImages().isEmpty();
-
+                Property p = listing.getProperty();
+                boolean hasImage = p != null && p.getPropertyImages() != null && !p.getPropertyImages().isEmpty();
                 if (!hasImage) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request",
-                                    "Không thể duyệt: tài sản chưa có ảnh thực tế. " +
-                                            "Yêu cầu Seller bổ sung ảnh trước khi duyệt lại."));
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.fail("Bad_Request", "Phải có ít nhất 1 ảnh thực tế"));
                 }
             }
 
-            // Ghi nhận lịch sử duyệt
-            ListingVerification verification = ListingVerification.builder()
-                    .listing(listing)
-                    .account(currentUser)
-                    .status(request.getDecision())
-                    .reviewerNote(request.getReviewerNote())
-                    .verifiedAt(LocalDateTime.now())
-                    .build();
+            // UPSERT verification
+            ListingVerification verification = listingVerificationRepository
+                    .findByListing_ListingId(listingId)
+                    .orElseGet(() -> {
+                        ListingVerification newVer = ListingVerification.builder()
+                                .listing(listing)
+                                .build();
+                        listing.setListingVerification(newVer); // bidirectional
+                        return newVer;
+                    });
 
-            ListingVerification saved = listingVerificationRepository.save(verification);
+            verification.setAccount(currentUser);
+            verification.setStatus(request.getDecision());
+            verification.setReviewerNote(request.getReviewerNote());
+            verification.setVerifiedAt(LocalDateTime.now());
 
-            // Cập nhật trạng thái Listing
+            listingVerificationRepository.save(verification);
+
+            // Update listing status
             listing.setIsActive(request.getDecision() == ListingStatusEnum.APPROVED);
             listing.setUpdatedAt(LocalDateTime.now());
             listingRepository.save(listing);
 
-            log.info("[ListingVerificationService] accountId={} ({}) đã duyệt listingId={} → {}",
-                    currentUser.getAccountId(), currentUser.getRole(), listingId, request.getDecision());
+            String msg = request.getDecision() == ListingStatusEnum.APPROVED ? "Duyệt thành công" : "Từ chối duyệt";
 
-            String message = request.getDecision() == ListingStatusEnum.APPROVED
-                    ? "Đã duyệt bài đăng — hiện hiển thị trên Chợ BĐS"
-                    : "Đã từ chối bài đăng";
-
-            return ResponseEntity.ok(ApiResponse.success(toVerificationResponse(saved), message));
+            return ResponseEntity.ok(ApiResponse.success(toVerificationResponse(verification), msg));
 
         } catch (RuntimeException e) {
             return handleAuthException(e);
         } catch (Exception e) {
-            log.error("[ListingVerificationService] verifyListing lỗi", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            log.error("verifyListing error", e);
+            return ResponseEntity.internalServerError()
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
-    // ════════════════════════════════════════════════════
-    //  GET /staff/listings/{id}/verifications
-    // ════════════════════════════════════════════════════
+    // GET Current Status (thay vì history)
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> getVerificationHistory(Integer listingId) {
+    public ResponseEntity<ApiResponse> getVerificationStatus(Integer listingId) {
         try {
-            Account currentUser = getCurrentStaffOrAdmin();  // Yêu cầu phải là Staff/Admin
+            ListingVerification ver = listingVerificationRepository
+                    .findByListing_ListingId(listingId)
+                    .orElse(null);
 
-            List<ListingVerificationResponse> history = listingVerificationRepository
-                    .findByListing_ListingIdOrderByListingVerificationIdDesc(listingId)
-                    .stream()
-                    .map(this::toVerificationResponse)
-                    .collect(Collectors.toList());
+            if (ver == null) {
+                return ResponseEntity.ok(ApiResponse.success(null, "Bài đăng chưa được duyệt lần nào"));
+            }
 
-            return ResponseEntity.ok(ApiResponse.success(history, "Lịch sử duyệt bài đăng"));
-
-        } catch (RuntimeException e) {
-            return handleAuthException(e);
+            return ResponseEntity.ok(ApiResponse.success(toVerificationResponse(ver), "Trạng thái duyệt hiện tại"));
         } catch (Exception e) {
-            log.error("[ListingVerificationService] getVerificationHistory lỗi", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            log.error("getVerificationStatus error", e);
+            return ResponseEntity.internalServerError()
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
-    // ════════════════════════════════════════════════════
-    //  Mapper
-    // ════════════════════════════════════════════════════
-    private ListingVerificationResponse toVerificationResponse(ListingVerification lv) {
-        Listing l = lv.getListing();
-        Account reviewer = lv.getAccount();
+    private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
+        if (e.getMessage().contains("Unauthorized")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
+        }
+        if (e.getMessage().contains("Forbidden")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.fail("Forbidden", e.getMessage()));
+        }
+        return ResponseEntity.internalServerError()
+                .body(ApiResponse.fail("Server_Error", e.getMessage()));
+    }
 
+    private ListingVerificationResponse toVerificationResponse(ListingVerification lv) {
         return ListingVerificationResponse.builder()
                 .listingVerificationId(lv.getListingVerificationId())
                 .status(lv.getStatus())
                 .reviewerNote(lv.getReviewerNote())
                 .verifiedAt(lv.getVerifiedAt())
-                .reviewerAccountId(reviewer != null ? reviewer.getAccountId() : null)
-                .reviewerName(reviewer != null ? reviewer.getFull_name() : null)
-                .listing(l != null ? listingMapper.toListingDetail(l, l.getProperty()) : null)
+                .reviewerAccountId(lv.getAccount() != null ? lv.getAccount().getAccountId() : null)
+                .reviewerName(lv.getAccount() != null ? lv.getAccount().getFull_name() : null)
+                .listing(lv.getListing() != null ?
+                        listingMapper.toListingDetail(lv.getListing(), lv.getListing().getProperty()) : null)
                 .build();
     }
 }
