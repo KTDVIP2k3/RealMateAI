@@ -383,7 +383,10 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            List<Property> properties = propertyRepository.findBySellerIdWithDetails(seller.getSellerId());
+            List<Property> properties = propertyRepository.findBySellerIdWithDetails(seller.getSellerId())
+                    .stream()
+                    .distinct()
+                    .collect(Collectors.toList());
 
             List<PropertyDetailResponse> response = properties.stream()
                     .map(p -> {

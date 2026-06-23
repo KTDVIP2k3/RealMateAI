@@ -19,14 +19,14 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
      * để tránh N+1 khi map sang PropertyDetailResponse.
      */
     @Query("""
-            SELECT DISTINCT p FROM Property p
+            SELECT p FROM Property p
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
             LEFT JOIN FETCH loc.ward w
             LEFT JOIN FETCH p.propertyImages pi
             WHERE p.seller.sellerId = :sellerId
-            ORDER BY p.createdAt DESC
+            ORDER BY p.createdAt DESC NULLS LAST
             """)
     List<Property> findBySellerIdWithDetails(@Param("sellerId") Integer sellerId);
 

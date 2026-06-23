@@ -14,44 +14,31 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/staff/listings")
 @RequiredArgsConstructor
-@Tag(name = "Listing Verification", description = "Staff/Admin duyệt tin đăng (nội dung + ảnh)")
+@Tag(name = "Listing Verification", description = "Duyệt tin đăng - chỉ giữ trạng thái hiện tại")
 public class ListingVerificationController {
 
     private final ListingVerificationServiceInterface verificationService;
 
-    // ─────────────────────────────────────────────────────
-    // GET /api/v1/staff/listings/pending
-    // Hàng đợi chờ duyệt — đã JOIN FETCH sẵn property.images
-    // ─────────────────────────────────────────────────────
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('Staff','Admin')")
-    @Operation(summary = "Staff/Admin: Hàng đợi bài đăng chờ duyệt (kèm sẵn ảnh + nội dung)")
+    @Operation(summary = "Hàng đợi chờ duyệt")
     public ResponseEntity<ApiResponse> getPendingQueue() {
         return verificationService.getPendingQueue();
     }
 
-    // ─────────────────────────────────────────────────────
-    // POST /api/v1/staff/listings/{id}/verify
-    // Duyệt 1 bài đăng — APPROVED yêu cầu Property phải có ảnh
-    // ─────────────────────────────────────────────────────
     @PostMapping("/{id}/verify")
     @PreAuthorize("hasAnyRole('Staff','Admin')")
-    @Operation(summary = "Staff/Admin: Duyệt bài đăng (xét đồng thời nội dung và ảnh)")
+    @Operation(summary = "Duyệt bài đăng (APPROVED / REJECTED)")
     public ResponseEntity<ApiResponse> verifyListing(
             @PathVariable("id") Integer listingId,
             @Valid @RequestBody VerifyListingRequest request) {
-
         return verificationService.verifyListing(listingId, request);
     }
 
-    // ─────────────────────────────────────────────────────
-    // GET /api/v1/staff/listings/{id}/verifications
-    // Lịch sử duyệt — kể cả các lần REJECTED trước đó
-    // ─────────────────────────────────────────────────────
     @GetMapping("/{id}/verifications")
     @PreAuthorize("hasAnyRole('Staff','Admin','Seller')")
-    @Operation(summary = "Lịch sử duyệt của 1 bài đăng")
-    public ResponseEntity<ApiResponse> getVerificationHistory(@PathVariable("id") Integer listingId) {
-        return verificationService.getVerificationHistory(listingId);
+    @Operation(summary = "Lấy TRẠNG THÁI DUYỆT HIỆN TẠI của bài đăng")
+    public ResponseEntity<ApiResponse> getVerificationStatus(@PathVariable("id") Integer listingId) {
+        return verificationService.getVerificationStatus(listingId);
     }
 }
