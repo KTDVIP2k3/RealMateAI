@@ -23,9 +23,11 @@ public class PostingPackageOrder {
     @JoinColumn(name = "posting_package_price_id", nullable = false)
     private PostingPackagePrice postingPackagePrice;
 
-    private String status;
+//    private String status;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+    private Integer duration;
+    private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
