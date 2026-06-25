@@ -57,7 +57,7 @@ public class MembershipPlanController {
         return membershipPlanServiceInterface.updateMembershipPlan(id, membershipPlanRequest);
     }
 
-    @PutMapping(value = "/admin/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping(value = "/admin/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Admin: XÓA MỀM gói thành viên (Ẩn gói)",
             description = "Thay vì xóa vật lý khỏi database để tránh lỗi toàn vẹn dữ liệu, API này sẽ chuyển trạng thái isActive của gói thành false để ẩn khỏi UI của User.")

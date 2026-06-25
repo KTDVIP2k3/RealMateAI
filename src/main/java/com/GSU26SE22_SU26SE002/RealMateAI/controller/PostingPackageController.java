@@ -60,7 +60,7 @@ public class PostingPackageController {
         return postingPackageServiceInterface.updatePostingPackage(id, postingPackageRequest);
     }
 
-    @PutMapping(value = "/admin/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping(value = "/admin/{id}/delete", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Admin: XÓA MỀM gói dịch vụ đăng tin (Ẩn gói)",
             description = "Thay vì xóa vật lý khỏi database để tránh lỗi toàn vẹn dữ liệu, API này sẽ chuyển trạng thái isActive của gói thành false để ẩn khỏi UI của User.")
