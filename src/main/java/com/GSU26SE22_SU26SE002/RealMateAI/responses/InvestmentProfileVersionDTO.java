@@ -23,11 +23,11 @@ public class InvestmentProfileVersionDTO {
     private String conscious;
     private String ward;
     private Long expectedRoi;
-    private Long minProfit;
+//    private Long minProfit;
     private String riskToleranceLevel;
     private Long durationYear;
     private LocalDate startDate;
-    private String investmentType;
+//    private String investmentType;
     private Map<String, Object> investmentStrategyDetail;
     private List<String> legalStatus;
     private String version;
