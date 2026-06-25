@@ -19,11 +19,11 @@ public class InvestmentPlanRequest {
     private String conscious;
     private String ward;
     private Long expectedRoi;
-    private Long minProfit;
+//    private Long minProfit;
     private String riskToleranceLevel;
     private Long durationYear;
     private LocalDate startDate;
-    private String investmentType;
+//    private String investmentType;
     private List<String> legalStatus;
 //    private String version;
     private Integer strategy_id;

@@ -253,14 +253,14 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .conscious(profileVersion.getConscious())
                     .ward(profileVersion.getWard())
                     .expectedRoi(profileVersion.getExpectedRoi())
-                    .minProfit(profileVersion.getMinProfit())
+//                    .minProfit(profileVersion.getMinProfit())
                     .riskToleranceLevel(profileVersion.getRiskToleranceLevel())
                     .durationYear(profileVersion.getDurationYear())
                     .startDate(profileVersion.getStartDate())
-                    .investmentType(profileVersion.getInvestmentType())
-                    .investmentStrategyDetail(profileVersion.getInvestmentStrategyDetail())
+//                    .investmentType(profileVersion.getInvestmentType())
+                   .investmentStrategyDetail(profileVersion.getInvestmentStrategyDetail())
                     .legalStatus(legalStatusList)
-                    .version(null)
+//                    .version(null)
                     .isActive(profileVersion.getIsActive())
                     .createdAt(profileVersion.getCreatedAt())
                     .updatedAt(profileVersion.getUpdatedAt())
@@ -505,8 +505,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         }
 
         String promptStage1 = String.format(
-                "Based on the client's capital:\n- Equity: %d\n- Loan Capital: %d\n- Reserve Fund: %d\n" +
-                        "Allocate capital into the following target portfolios (Total percentage must equal 100%%): %s",
+                "Dựa trên nguồn vốn của khách hàng:\n- Vốn tự có (Equity): %d\n- Vốn vay (Loan Capital): %d\n- Quỹ dự phòng (Reserve Fund): %d\n" +
+                        "Hãy phân bổ nguồn vốn này vào các danh mục đầu tư mục tiêu sau (Tổng phần trăm phân bổ bắt buộc phải bằng 100%%): %s.\n" +
+                        "YÊU CẦU BẮT BUỘC: Toàn bộ các nội dung văn bản, mô tả, phân tích phải được viết hoàn toàn bằng TIẾNG VIỆT.",
                 request.getEquity(), request.getLoanCapital(), request.getReserveFund(), portfolioInputList.toString()
         );
 
@@ -687,7 +688,15 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             log.error(e.getMessage());
         }
 
-        String promptStage3 = "Analyze the portfolio structure and 3-tier allocation model to return a comprehensive market scenario report in JSON format: " + cleanTreeJson;
+        String promptStage3 = "Hãy đóng vai trò là một chuyên gia phân tích tài chính bất động sản chuyên nghiệp.\n" +
+                "Nhiệm vụ của bạn là phân tích cấu trúc danh mục và mô hình phân bổ tài sản sau đây: " + cleanTreeJson + "\n\n" +
+                "YÊU CẦU ĐẦU RA BẮT BUỘC:\n" +
+                "1. Toàn bộ nội dung thông tin, phân tích, nhận định thị trường, chiến lược hành động, giải thích phải viết bằng TIẾNG VIỆT 100% (Tuyệt đối không trộn lẫn từ ngữ tiếng Anh).\n" +
+                "2. Tại mảng 'scenarios' (Danh sách kịch bản), bạn BẮT BUỘC phải tạo ra chính xác 3 phần tử kịch bản. Trường 'enumScenarioType' của các kịch bản này CHỈ ĐƯỢC PHÉP đặt tên theo đúng 3 định dạng cố định sau:\n" +
+                "   - 'xu hướng tăng'\n" +
+                "   - 'trung bình'\n" +
+                "   - 'xu hướng giảm'\n" +
+                "Trả về kết quả phân tích thị trường toàn diện này dưới định dạng cấu trúc JSON chính xác theo Schema quy định.";
 
         GenerateContentConfig configStage3 = GenerateContentConfig.builder()
                 .responseMimeType("application/json")
@@ -824,11 +833,11 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .conscious(request.getConscious())
                 .ward(request.getWard())
                 .expectedRoi(request.getExpectedRoi())
-                .minProfit(request.getMinProfit())
+                .minProfit(null)
                 .riskToleranceLevel(request.getRiskToleranceLevel())
                 .durationYear(request.getDurationYear())
                 .startDate(request.getStartDate())
-                .investmentType(request.getInvestmentType())
+                .investmentType(null)
                 .investmentStrategyDetail(strategyDetailMap)
                 .legalStatus(legalStatusJson)
                 .isActive(true)
@@ -999,11 +1008,11 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             internalRequest.setConscious(request.getConscious());
             internalRequest.setWard(request.getWard());
             internalRequest.setExpectedRoi(request.getExpectedRoi());
-            internalRequest.setMinProfit(request.getMinProfit());
+//            internalRequest.setMinProfit(request.getMinProfit());
             internalRequest.setRiskToleranceLevel(request.getRiskToleranceLevel());
             internalRequest.setDurationYear(request.getDurationYear());
             internalRequest.setStartDate(request.getStartDate());
-            internalRequest.setInvestmentType(request.getInvestmentType());
+//            internalRequest.setInvestmentType(request.getInvestmentType());
             internalRequest.setInvestmentStrategyDetail(request.getInvestmentStrategyDetail());
             internalRequest.setLegalStatus(request.getLegalStatus());
             internalRequest.setCriteriaList(request.getCriteriaList());
@@ -1069,12 +1078,12 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .conscious(request.getConscious())
                 .ward(request.getWard())
                 .expectedRoi(request.getExpectedRoi())
-                .minProfit(request.getMinProfit())
+//                .minProfit(request.getMinProfit())
                 .riskToleranceLevel(request.getRiskToleranceLevel())
                 .durationYear(request.getDurationYear())
                 .startDate(request.getStartDate())
                 .legalStatus(legalStatusJson)
-                .investmentType(request.getInvestmentType())
+//                .investmentType(request.getInvestmentType())
                 .investmentStrategyDetail(strategyDetailMap)
                 .isActive(true)
                 .createdAt(now)
