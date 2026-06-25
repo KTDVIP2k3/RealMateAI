@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,9 +24,11 @@ public class MembershipSubscription {
     @JoinColumn(name = "membership_plan_id", nullable = false)
     private MembershipPlan membershipPlan;
 
-    private LocalDateTime startDate;
-    private LocalDateTime endDate;
-    private String status;
+//    private LocalDateTime startDate;
+//    private LocalDateTime endDate;
+//    private String status;
+    private MembershipSubscriptionEnum membershipSubscriptionEnum_status;
+    private Integer quantity_using;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

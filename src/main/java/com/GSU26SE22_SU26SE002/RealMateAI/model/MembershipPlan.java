@@ -20,10 +20,12 @@ public class MembershipPlan {
     private Integer membershipPlanId;
 
     private String name;
-    private BigDecimal price;
-    private Integer duration;
+//    private Integer duration;
+
+    @Column(columnDefinition = "Text")
     private String description;
     private Integer quantity;
+    private BigDecimal price;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
