@@ -49,6 +49,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     @Autowired
     private InvestmentProfileRepository investmentProfileRepository;
 
+
+
     @Autowired
     private InvestmentPortfolioRepository investmentPortfolioRepository;
 
