@@ -74,6 +74,29 @@ public interface ListingRepository extends JpaRepository<Listing, Integer> {
             """)
     Optional<Listing> findByIdWithDetails(@Param("listingId") Integer listingId);
     /**
+     * Seller xem chi tiết 1 listing của chính mình (kể cả chưa duyệt).
+     * Ownership được xác thực ngay trong query (AND l.seller.sellerId = :sellerId).
+     */
+    @Query("""
+            SELECT l FROM Listing l
+            JOIN FETCH l.property p
+            LEFT JOIN FETCH p.propertyType pt
+            LEFT JOIN FETCH p.propertyCondition pc
+            LEFT JOIN FETCH p.location loc
+            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.seller s
+            LEFT JOIN FETCH s.account a
+            WHERE l.listingId = :listingId
+              AND l.seller.sellerId = :sellerId
+            """)
+    Optional<Listing> findByIdAndSellerId(@Param("listingId") Integer listingId,
+                                          @Param("sellerId") Integer sellerId);
+
+
+
+
+
+    /**
      * Đếm số Listing (mọi trạng thái) hiện đang tham chiếu tới 1 Property.
      * Dùng để hiển thị "tài sản này đã được đăng N lần" trong GET /seller/properties.
      */
