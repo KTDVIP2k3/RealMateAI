@@ -35,4 +35,8 @@ public interface ListingServiceInterface {
     ResponseEntity<ApiResponse> getMyProperties();
 
     ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request);
+
+    ResponseEntity<ApiResponse> getMyListingDetail(Integer listingId);
+
+    ResponseEntity<ApiResponse> softDeleteListing(Integer listingId);
 }

@@ -535,4 +535,78 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
         return saved;
     }
+    // ════════════════════════════════════════════════════════════════════════
+    // GET /seller/listings/{id} — Seller xem chi tiết 1 listing của mình
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> getMyListingDetail(Integer listingId) {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            Seller seller = getCurrentSeller(currentUser);
+
+            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
+                    .orElse(null);
+            if (listing == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found",
+                                "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
+            }
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    listingMapper.toListingDetail(listing, listing.getProperty()),
+                    "Chi tiết tin đăng của bạn"));
+
+        } catch (RuntimeException e) {
+            return handleAuthException(e);
+        } catch (Exception e) {
+            log.error("[ListingService] getMyListingDetail lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // DELETE /seller/listings/{id} — Xoá mềm (isActive = false)
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> softDeleteListing(Integer listingId) {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            Seller seller = getCurrentSeller(currentUser);
+
+            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
+                    .orElse(null);
+            if (listing == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found",
+                                "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
+            }
+
+            if (Boolean.FALSE.equals(listing.getIsActive())) {
+                // Đã inactive rồi — idempotent, trả 200 luôn
+                return ResponseEntity.ok(ApiResponse.success(null,
+                        "Bài đăng đã được xoá trước đó"));
+            }
+
+            listing.setIsActive(false);
+            listing.setUpdatedAt(LocalDateTime.now());
+            listingRepository.save(listing);
+
+            log.info("[ListingService] softDelete: listingId={} bởi sellerId={}", listingId, seller.getSellerId());
+
+            return ResponseEntity.ok(ApiResponse.success(null,
+                    "Xoá bài đăng thành công (id=" + listingId + ")"));
+
+        } catch (RuntimeException e) {
+            return handleAuthException(e);
+        } catch (Exception e) {
+            log.error("[ListingService] softDeleteListing lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+
 }

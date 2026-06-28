@@ -116,7 +116,28 @@ public class ListingController {
     public ResponseEntity<ApiResponse> getMyListings() {
         return listingService.getMyListings();
     }
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /seller/listings/{id}  — NEW
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/seller/listings/{id}")
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Xem chi tiết 1 tin đăng của mình (kể cả chưa duyệt)")
+    public ResponseEntity<ApiResponse> getMyListingDetail(
+            @PathVariable("id") Integer listingId) {
+        return listingService.getMyListingDetail(listingId);
+    }
 
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DELETE /seller/listings/{id}  — NEW (soft delete)
+    // ─────────────────────────────────────────────────────────────────────────
+    @DeleteMapping("/seller/listings/{id}")
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Xoá mềm tin đăng (đặt isActive = false)")
+    public ResponseEntity<ApiResponse> deleteMyListing(
+            @PathVariable("id") Integer listingId) {
+        return listingService.softDeleteListing(listingId);
+    }
     // ─────────────────────────────────────────────────────────────────────────
     // GET /seller/properties
     // ─────────────────────────────────────────────────────────────────────────
