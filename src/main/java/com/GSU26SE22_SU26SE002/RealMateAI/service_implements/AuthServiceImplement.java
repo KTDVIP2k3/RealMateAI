@@ -1,9 +1,12 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.OTP;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.Seller;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.OtpRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.SellerRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AuthServiceInterface;
@@ -27,6 +30,8 @@ import java.time.LocalDateTime;
 public class AuthServiceImplement implements AuthServiceInterface {
     @Autowired
     AccountRepository accountRepository;
+    @Autowired
+    private SellerRepository sellerRepository;
     @Autowired
     private OtpRepository otpRepository;
     @Autowired
@@ -102,7 +107,15 @@ public class AuthServiceImplement implements AuthServiceInterface {
             account.setGender(registerRequest.getGender());
             account.setRole(registerRequest.getRole());
 
-            accountRepository.saveAndFlush(account);
+            Account savedAccount = accountRepository.saveAndFlush(account);
+            if (registerRequest.getRole() == RoleEnum.Seller) {
+                Seller seller = Seller.builder()
+                        .account(savedAccount)
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                sellerRepository.save(seller);
+            }
             int savedAccountId = account.getAccountId();
 //            session.setAttribute("accountId", savedAccountId);
             emailServiceVerificationImplement.sendVerificationEmail(account);

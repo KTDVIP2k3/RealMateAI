@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/posting-packages/active").permitAll()
                         .requestMatchers(HttpMethod.GET, "/posting-packages/*/detail").permitAll()
                         .requestMatchers("/membership-plans/active").permitAll()
+                        .requestMatchers("/wallets/deposit/success", "/wallets/deposit/cancel", "/wallets/deposit/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*/detail").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())

@@ -24,6 +24,11 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          PAYOS_CLIENT_ID: ${{ secrets.PAYOS_CLIENT_ID }}
+          PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY }}
+          PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY }}
+          PAYOS_RETURN_URL: ${{ secrets.PAYOS_RETURN_URL }}
+          PAYOS_CANCEL_URL: ${{ secrets.PAYOS_CANCEL_URL }}
         run: |
           cat > .env << EOF
           SPRING_PROFILE=prod
@@ -37,6 +42,11 @@ jobs:
           CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
           CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
           CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+          PAYOS_CLIENT_ID=$PAYOS_CLIENT_ID
+          PAYOS_API_KEY=$PAYOS_API_KEY
+          PAYOS_CHECKSUM_KEY=$PAYOS_CHECKSUM_KEY
+          PAYOS_RETURN_URL=$PAYOS_RETURN_URL
+          PAYOS_CANCEL_URL=$PAYOS_CANCEL_URL
           EOF
 
       - name: Stop old containers
