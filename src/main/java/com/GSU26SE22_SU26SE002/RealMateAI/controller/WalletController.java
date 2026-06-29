@@ -23,7 +23,7 @@ public class WalletController {
 
     @PostMapping("/deposit")
     @PreAuthorize("hasAnyRole('Investor', 'Seller')")
-    @Operation(summary = "[FE CALL] Nạp tiền vào ví - Frontend gọi trực tiếp để lấy link thanh toán")
+    @Operation(summary = "[FE CALL] Người investor hoặc seller  nạp tiền vào ví - Frontend gọi trực tiếp để lấy link thanh toán")
     public ResponseEntity<ApiResponse> deposit(@RequestParam("amount") Long amount) {
         return walletService.initiateDeposit(amount);
     }
@@ -67,7 +67,7 @@ public class WalletController {
 
     @PostMapping("/withdraw")
     @PreAuthorize("hasAnyRole('Investor', 'Seller')")
-    @Operation(summary = "[FE CALL] Yêu cầu rút tiền - Frontend gọi khi người dùng muốn rút tiền về ngân hàng")
+    @Operation(summary = "[FE CALL] Người investor hoặc seller yêu cầu rút tiền - Frontend gọi khi người investor hoặc seller muốn rút tiền về ngân hàng")
     public ResponseEntity<ApiResponse> withdraw(
             @RequestParam("amount") BigDecimal amount,
             @RequestParam("bankName") String bankName,
@@ -77,7 +77,7 @@ public class WalletController {
 
     @PostMapping("/withdraw/review")
     @PreAuthorize("hasAnyRole('Staff', 'Admin')")
-    @Operation(summary = "[FE CALL] Duyệt đơn rút tiền - Frontend quản trị gọi khi phê duyệt hoặc từ chối")
+    @Operation(summary = "[FE CALL] Staff, Admin duyệt đơn rút tiền - Frontend quản trị gọi khi phê duyệt hoặc từ chối")
     public ResponseEntity<ApiResponse> reviewWithdraw(
             @RequestParam("withdrawalId") Integer withdrawalId,
             @RequestParam("status") String status,
