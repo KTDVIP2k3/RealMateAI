@@ -104,12 +104,12 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
 
-            boolean existName = postingPackageRepository.findAll().stream()
-                    .anyMatch(p -> p.getName().trim().toLowerCase().equals(postingPackageRequest.getName().trim().toLowerCase()));
-
-            if(existName){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
-            }
+//            boolean existName = postingPackageRepository.findAll().stream()
+//                    .anyMatch(p -> p.getName().trim().toLowerCase().equals(postingPackageRequest.getName().trim().toLowerCase()));
+//
+//            if(existName){
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
+//            }
             postingPackage.setName(postingPackageRequest.getName());
             postingPackage.setDescription(postingPackageRequest.getDescription());
             postingPackage.setPosting_package_price(postingPackageRequest.getPosting_package_price());
