@@ -13,4 +13,5 @@ public class InvestmentPlanDTO {
     private List<InvestmentPortfolioDTO> investmentPortfolios;
     private List<InvestmentScenarioDTO> scenarios;
     private ExecutionPlanDTO executionPlan;
+    private Integer score;
 }
