@@ -31,4 +31,7 @@ public class ListingSummaryResponse {
 
     /** true nếu user hiện tại đã yêu thích bài đăng này */
     private Boolean isFavorited;
+
+    /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
+    private String verificationStatus;
 }

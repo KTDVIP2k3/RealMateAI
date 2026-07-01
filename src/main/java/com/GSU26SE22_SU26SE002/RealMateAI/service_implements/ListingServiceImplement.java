@@ -1,11 +1,14 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingActionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithNewPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingStatusRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
@@ -31,6 +34,7 @@ import java.util.stream.Collectors;
 public class ListingServiceImplement implements ListingServiceInterface {
 
     private final ListingRepository listingRepository;
+    private final ListingVerificationRepository listingVerificationRepository;
     private final PropertyRepository propertyRepository;
     private final LocationRepository locationRepository;
     private final PropertyImageRepository propertyImageRepository;
@@ -116,6 +120,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .build();
 
             Listing saved = listingRepository.save(listing);
+            createPendingVerification(saved);
 
             log.info("[ListingService] Luồng①: listingId={}, propertyId={}, sellerId={}",
                     saved.getListingId(), property.getPropertyId(), seller.getSellerId());
@@ -219,7 +224,10 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .legalStatus(request.getPropLegalStatus())
                     .addressParticular(request.getPropAddressParticular())
                     .projectName(request.getPropProjectName())
-                    .isActive(true)
+                    // Property MỚI tạo cùng Listing phải ở trạng thái CHỜ DUYỆT
+                    // (isActive=false), chỉ bật lên khi Staff APPROVE bài đăng
+                    // (xem ListingVerificationServiceImplement#verifyListing).
+                    .isActive(false)
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
@@ -260,6 +268,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .build();
 
             Listing saved = listingRepository.save(listing);
+            createPendingVerification(saved);
 
             log.info("[ListingService] Luồng②: listingId={}, propertyId={}, sellerId={}, ảnh={}",
                     saved.getListingId(), savedProperty.getPropertyId(), seller.getSellerId(), reparented);
@@ -278,6 +287,46 @@ public class ListingServiceImplement implements ListingServiceInterface {
             log.error("[ListingService] createListingWithNewProperty lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Helper: Tạo bản ghi ListingVerification ở trạng thái PENDING ngay khi
+    // Listing được tạo — bắt buộc để GET /staff/listings/pending nhìn thấy
+    // bài đăng mới ngay lập tức (trước đây record này chỉ được tạo khi Staff
+    // gọi verify lần đầu → hàng đợi chờ duyệt luôn rỗng với bài đăng mới).
+    // ════════════════════════════════════════════════════════════════════════
+    private void createPendingVerification(Listing listing) {
+        ListingVerification verification = ListingVerification.builder()
+                .listing(listing)
+                .status(ListingStatusEnum.PENDING)
+                .build();
+        listingVerificationRepository.save(verification);
+        // Gán ngược để object Listing trong bộ nhớ phản ánh đúng ngay lập tức
+        // (response trả về sau khi tạo cũng hiển thị verificationStatus=PENDING).
+        listing.setListingVerification(verification);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Helper: Khi Seller (không phải Admin/Staff) chỉnh sửa 1 bài đăng ĐÃ có
+    // kết quả duyệt (APPROVED/REJECTED), đưa verification hiện tại về lại
+    // PENDING để bài đăng quay lại hàng đợi chờ Staff duyệt lại.
+    // ════════════════════════════════════════════════════════════════════════
+    private void resetVerificationToPending(Listing listing) {
+        ListingVerification verification = listingVerificationRepository
+                .findByListing_ListingId(listing.getListingId())
+                .orElse(null);
+
+        if (verification == null) {
+            createPendingVerification(listing);
+            return;
+        }
+
+        if (verification.getStatus() != ListingStatusEnum.PENDING) {
+            verification.setStatus(ListingStatusEnum.PENDING);
+            verification.setReviewerNote(null);
+            verification.setVerifiedAt(null);
+            listingVerificationRepository.save(verification);
         }
     }
 
@@ -433,6 +482,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
                             .body(ApiResponse.fail("Forbidden", "Bạn không có quyền sửa bài đăng này"));
                 }
                 listing.setIsActive(false);
+                // Sửa nội dung → cần Staff duyệt lại từ đầu, đưa verification về PENDING
+                // để bài đăng xuất hiện lại trong GET /staff/listings/pending.
+                resetVerificationToPending(listing);
             }
 
             // Update fields (giữ nguyên logic cũ của bạn)
@@ -608,5 +660,77 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // PATCH /seller/listings/{id} — Seller tự đổi trạng thái hiển thị
+    // (PAUSE/RESUME) cho bài đăng của mình. KHÔNG liên quan tới quyết định
+    // duyệt của Staff (APPROVED/REJECTED) — đó vẫn là verification status.
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> updateListingStatus(Integer listingId, UpdateListingStatusRequest request) {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            Seller seller = getCurrentSeller(currentUser);
+
+            if (request.getAction() == null) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.fail("Bad_Request", "action không được để trống (PAUSE hoặc RESUME)"));
+            }
+
+            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
+                    .orElse(null);
+            if (listing == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found",
+                                "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
+            }
+
+            ListingVerification verification = listingVerificationRepository
+                    .findByListing_ListingId(listingId).orElse(null);
+            ListingStatusEnum currentStatus = verification != null ? verification.getStatus() : null;
+
+            if (request.getAction() == SellerListingActionEnum.RESUME) {
+                if (currentStatus != ListingStatusEnum.APPROVED) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(ApiResponse.fail("Conflict",
+                                    "Chỉ bật lại được bài đăng đã được Staff duyệt (APPROVED). "
+                                            + "Trạng thái hiện tại: " + (currentStatus == null ? "PENDING" : currentStatus)));
+                }
+                if (Boolean.TRUE.equals(listing.getIsActive())) {
+                    return ResponseEntity.ok(ApiResponse.success(
+                            listingMapper.toListingDetail(listing, listing.getProperty()),
+                            "Bài đăng đang hiển thị, không có gì thay đổi"));
+                }
+                listing.setIsActive(true);
+            } else { // PAUSE
+                if (Boolean.FALSE.equals(listing.getIsActive())) {
+                    return ResponseEntity.ok(ApiResponse.success(
+                            listingMapper.toListingDetail(listing, listing.getProperty()),
+                            "Bài đăng đã tạm ẩn từ trước, không có gì thay đổi"));
+                }
+                listing.setIsActive(false);
+            }
+
+            listing.setUpdatedAt(LocalDateTime.now());
+            Listing updated = listingRepository.save(listing);
+
+            log.info("[ListingService] updateListingStatus: listingId={} action={} bởi sellerId={}",
+                    listingId, request.getAction(), seller.getSellerId());
+
+            String msg = request.getAction() == SellerListingActionEnum.RESUME
+                    ? "Bật lại bài đăng thành công"
+                    : "Tạm ẩn bài đăng thành công";
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    listingMapper.toListingDetail(updated, updated.getProperty()), msg));
+
+        } catch (RuntimeException e) {
+            return handleAuthException(e);
+        } catch (Exception e) {
+            log.error("[ListingService] updateListingStatus lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
 
 }

@@ -28,9 +28,11 @@ public class ListingVerification {
     @JoinColumn(name = "listing_id", nullable = false, unique = true)
     private Listing listing;
 
+    // Người duyệt cuối cùng — NULL khi record được tự tạo ở trạng thái PENDING
+    // lúc Seller tạo/tạo lại Listing (chưa có Staff/Admin nào duyệt).
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private Account account; // Người duyệt cuối cùng
+    @JoinColumn(name = "account_id", nullable = true)
+    private Account account;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

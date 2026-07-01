@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 @Repository
 public interface ListingRepository extends JpaRepository<Listing, Integer> {
-
     /**
      * BĐS — chỉ lấy bài đã duyệt (isActive=true), phân trang.
      * JOIN FETCH property + propertyType + location + propertyImages, tránh N+1.
@@ -55,6 +54,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer> {
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingVerification lv
             WHERE l.seller.sellerId = :sellerId
             ORDER BY l.createdAt DESC
             """)
@@ -70,6 +70,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer> {
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingVerification lv
             WHERE l.listingId = :listingId
             """)
     Optional<Listing> findByIdWithDetails(@Param("listingId") Integer listingId);
@@ -86,6 +87,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer> {
             LEFT JOIN FETCH p.propertyImages pi
             LEFT JOIN FETCH l.seller s
             LEFT JOIN FETCH s.account a
+            LEFT JOIN FETCH l.listingVerification lv
             WHERE l.listingId = :listingId
               AND l.seller.sellerId = :sellerId
             """)

@@ -28,6 +28,12 @@ public class ListingDetailResponse {
     private LocalTime endTime;
     private Boolean isActive;
 
+    /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
+    private String verificationStatus;
+
+    /** Lý do từ chối / ghi chú của Staff (nếu có) */
+    private String reviewerNote;
+
     /** Thông số BĐS đầy đủ, kèm danh sách ảnh thực tế (property.images) */
     private PropertyDetailResponse property;
 
