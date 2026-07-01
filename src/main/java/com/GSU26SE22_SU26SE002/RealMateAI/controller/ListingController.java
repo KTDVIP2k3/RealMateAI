@@ -3,6 +3,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithNewPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingStatusRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -138,6 +139,20 @@ public class ListingController {
             @PathVariable("id") Integer listingId) {
         return listingService.softDeleteListing(listingId);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PATCH /seller/listings/{id}  — NEW: Seller tự đổi trạng thái hiển thị
+    // (PAUSE/RESUME). RESUME chỉ hợp lệ khi bài đăng đã được Staff APPROVED.
+    // ─────────────────────────────────────────────────────────────────────────
+    @PatchMapping("/seller/listings/{id}")
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Đổi trạng thái hiển thị tin đăng (PAUSE/RESUME)")
+    public ResponseEntity<ApiResponse> updateMyListingStatus(
+            @PathVariable("id") Integer listingId,
+            @Valid @RequestBody UpdateListingStatusRequest request) {
+        return listingService.updateListingStatus(listingId, request);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // GET /seller/properties
     // ─────────────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.ListingVerification;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Property;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingVerificationRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PropertyRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.VerifyListingRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ListingVerificationResponse;
@@ -28,6 +29,7 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
 
     private final ListingVerificationRepository listingVerificationRepository;
     private final ListingRepository listingRepository;
+    private final PropertyRepository propertyRepository;
     private final ListingMapper listingMapper;
     private final AuthenUntil authenUntil;
 
@@ -112,12 +114,31 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
 
             listingVerificationRepository.save(verification);
 
+            boolean approved = request.getDecision() == ListingStatusEnum.APPROVED;
+
             // Update listing status
-            listing.setIsActive(request.getDecision() == ListingStatusEnum.APPROVED);
+            listing.setIsActive(approved);
             listing.setUpdatedAt(LocalDateTime.now());
             listingRepository.save(listing);
 
-            String msg = request.getDecision() == ListingStatusEnum.APPROVED ? "Duyệt thành công" : "Từ chối duyệt";
+            // Đồng bộ Property: khi Listing được tạo kèm Property MỚI (property
+            // chưa từng được duyệt lần nào — vẫn đang isActive=false/pending),
+            // quyết định duyệt của bài đăng này áp dụng luôn cho cả Property
+            // (APPROVE cả 2 hoặc REJECT cả 2). Nếu Property đã từng được duyệt
+            // trước đó (đang tái sử dụng cho 1 Listing khác — luồng ① đăng lại
+            // tài sản đã có), KHÔNG đụng vào trạng thái Property, vì Property
+            // đó đã hợp lệ độc lập với kết quả duyệt của bài đăng hiện tại.
+            Property property = listing.getProperty();
+            boolean propertyStillPending = property != null && !Boolean.TRUE.equals(property.getIsActive());
+            if (propertyStillPending) {
+                property.setIsActive(approved);
+                property.setUpdatedAt(LocalDateTime.now());
+                propertyRepository.save(property);
+                log.info("[ListingVerification] Đồng bộ Property propertyId={} theo quyết định listingId={}: isActive={}",
+                        property.getPropertyId(), listingId, approved);
+            }
+
+            String msg = approved ? "Duyệt thành công" : "Từ chối duyệt";
 
             return ResponseEntity.ok(ApiResponse.success(toVerificationResponse(verification), msg));
 

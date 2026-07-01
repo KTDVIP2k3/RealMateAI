@@ -40,6 +40,8 @@ public class ListingMapper {
         Seller seller = l.getSeller();
         Account sellerAccount = seller != null ? seller.getAccount() : null;
 
+        ListingVerification lv = l.getListingVerification();
+
         return ListingDetailResponse.builder()
                 .listingId(l.getListingId())
                 .title(l.getTitle())
@@ -53,6 +55,8 @@ public class ListingMapper {
                 .startTime(l.getStartTime())
                 .endTime(l.getEndTime())
                 .isActive(l.getIsActive())
+                .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
+                .reviewerNote(lv != null ? lv.getReviewerNote() : null)
                 .property(propertyDetail)
                 .sellerId(seller != null ? seller.getSellerId() : null)
                 .sellerName(sellerAccount != null ? sellerAccount.getFull_name() : null)
@@ -118,6 +122,8 @@ public class ListingMapper {
                         .map(PropertyImage::getImageUrl)
                         .orElse(null));
 
+        ListingVerification lv = l.getListingVerification();
+
         return ListingSummaryResponse.builder()
                 .listingId(l.getListingId())
                 .title(l.getTitle())
@@ -130,6 +136,7 @@ public class ListingMapper {
                 .isActive(l.getIsActive())
                 .createdAt(l.getCreatedAt())
                 .isFavorited(isFavorited)
+                .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .build();
     }
 
