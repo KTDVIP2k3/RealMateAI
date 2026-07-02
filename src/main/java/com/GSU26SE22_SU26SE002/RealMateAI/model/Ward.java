@@ -31,7 +31,7 @@ public class Ward {
     @JoinColumn(name = "province_code", nullable = false)
     private Province province;
 
-    @OneToMany(mappedBy = "ward", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "ward", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Location> locations = new ArrayList<>();
 }

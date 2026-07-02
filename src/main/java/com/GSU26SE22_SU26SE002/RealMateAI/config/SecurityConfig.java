@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers("/membership-plans/active").permitAll()
                         .requestMatchers("/wallets/deposit/success", "/wallets/deposit/cancel", "/wallets/deposit/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*/detail").permitAll()
+                        .requestMatchers("/locations/**").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
