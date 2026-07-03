@@ -19,9 +19,9 @@ public class WardBoundary {
     @Column(name = "PK_ward_boundary_id")
     private Integer wardBoundaryId;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "FK_ward_code", nullable = false)
-    private Ward ward;
+//    @OneToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "FK_ward_code", nullable = false)
+//    private Ward ward;
 
     @Column(name = "boundary")
     private Geometry boundary;

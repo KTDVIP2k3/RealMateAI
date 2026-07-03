@@ -68,6 +68,7 @@ public class SecurityConfig {
                                 "/wallets/deposit/cancel",
                                 "/wallets/deposit/webhook"
                         ).permitAll()
+                        .requestMatchers("/ward-boundary/**").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
