@@ -29,6 +29,8 @@ public class ExecutionPlan {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    private int match_score;
+
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

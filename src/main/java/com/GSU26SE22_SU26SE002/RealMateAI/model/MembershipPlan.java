@@ -27,6 +27,7 @@ public class MembershipPlan {
     private Integer quantity;
     private BigDecimal price;
     private Boolean isActive;
+    private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

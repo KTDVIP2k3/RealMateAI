@@ -4,6 +4,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.HeatmapZone;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,19 +22,14 @@ public class CrawPropertyListing {
     @Column(name = "craw_property_listing_id")
     private Integer crawPropertyListingId;
 
-    private String sourceUrl;
-    private String title;
+    @Column(name = "price", precision = 18, scale = 2)
+    private BigDecimal price;
 
-    @Column(columnDefinition = "TEXT")
-    private String rawData;
+    @Column(name = "area", precision = 18, scale = 2)
+    private BigDecimal area;
 
-    private Long price;
-    private Double area;
-    private String address;
-    private String propertyTypeName;
-    private String status;
-    private LocalDateTime crawledAt;
-    private LocalDateTime createdAt;
+    @Column(name = "price_per_m2", precision = 18, scale = 2)
+    private BigDecimal pricePerM2;
 
     @OneToMany(mappedBy = "crawPropertyListing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<HeatmapZone> heatmapZones = new ArrayList<>();

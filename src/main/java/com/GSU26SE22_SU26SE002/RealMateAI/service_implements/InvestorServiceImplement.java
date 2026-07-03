@@ -42,15 +42,16 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
 
             InvestorDTO investorDTO = new InvestorDTO();
             investorDTO.setSurveyId(investor.getInvestorId());
-            investorDTO.setInvestmentStyle(investor.getInvestmentStyle());
             investorDTO.setInvestmentExperience(investor.getInvestmentExperience());
-            investorDTO.setProfitTarget(investor.getProfitTarget());
-            investorDTO.setManagementAbility(investor.getManagementAbility());
-            investorDTO.setLevelOfVolatility(investor.getLevelOfVolatility());
-            investorDTO.setCapitalUtilizationMindset(investor.getCapitalUtilizationMindset());
-            investorDTO.setPositionalPriority(investor.getPositionalPriority());
-            investorDTO.setInvestmentMethod(investor.getInvestmentMethod());
             investorDTO.setStableIncome(investor.getStableIncome());
+            investorDTO.setInvestmentGoal(investor.getInvestmentGoal());
+            investorDTO.setInvestmentPriority(investor.getInvestmentPriority());
+            investorDTO.setInvestmentStyle(investor.getInvestmentStyle());
+            investorDTO.setReturnExpectation(investor.getReturnExpectation());
+            investorDTO.setPropertyPreference(investor.getPropertyPreference());
+            investorDTO.setDecisionFactor(investor.getDecisionFactor());
+            investorDTO.setManagementAbility(investor.getManagementAbility());
+            investorDTO.setInvestmentMethod(investor.getInvestmentMethod());
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(investorDTO, "Investor Survey"));
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Sever_Error", e.getMessage()));
@@ -71,17 +72,16 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
 
            Investor investor = new Investor();
            investor.setAccount(account);
-//           investor.setLinkSocial(investorSurveyRequest.getLinkSocial());
-//           investor.setAddress(investorSurveyRequest.getAddress());
-           investor.setInvestmentStyle(investorSurveyRequest.getInvestmentStyle());
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
-           investor.setProfitTarget(investorSurveyRequest.getProfitTarget());
-           investor.setManagementAbility(investorSurveyRequest.getManagementAbility());
-           investor.setLevelOfVolatility(investorSurveyRequest.getLevelOfVolatility());
-           investor.setCapitalUtilizationMindset(investorSurveyRequest.getCapitalUtilizationMindset());
-           investor.setPositionalPriority(investorSurveyRequest.getPositionalPriority());
-           investor.setInvestmentMethod(investorSurveyRequest.getInvestmentMethod());
            investor.setStableIncome(investorSurveyRequest.getStableIncome());
+           investor.setInvestmentGoal(investorSurveyRequest.getInvestmentGoal());
+           investor.setInvestmentPriority(investorSurveyRequest.getInvestmentPriority());
+           investor.setInvestmentStyle(investorSurveyRequest.getInvestmentStyle());
+           investor.setReturnExpectation(investorSurveyRequest.getReturnExpectation());
+           investor.setPropertyPreference(investorSurveyRequest.getPropertyPreference());
+           investor.setDecisionFactor(investorSurveyRequest.getDecisionFactor());
+           investor.setManagementAbility(investorSurveyRequest.getManagementAbility());
+           investor.setInvestmentMethod(investorSurveyRequest.getInvestmentMethod());
            investor.setCreatedAt(LocalDateTime.now());
            investor.setIsActive(true);
            investorRepository.save(investor);
@@ -100,21 +100,19 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
            if(investor == null){
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Investor does not exist"));
            }
-//           investor.setLinkSocial(investorSurveyRequest.getLinkSocial());
-//           investor.setAddress(investorSurveyRequest.getAddress());
-           investor.setInvestmentStyle(investorSurveyRequest.getInvestmentStyle());
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
-           investor.setProfitTarget(investorSurveyRequest.getProfitTarget());
-           investor.setManagementAbility(investorSurveyRequest.getManagementAbility());
-           investor.setLevelOfVolatility(investorSurveyRequest.getLevelOfVolatility());
-           investor.setCapitalUtilizationMindset(investorSurveyRequest.getCapitalUtilizationMindset());
-           investor.setPositionalPriority(investorSurveyRequest.getPositionalPriority());
-           investor.setInvestmentMethod(investorSurveyRequest.getInvestmentMethod());
            investor.setStableIncome(investorSurveyRequest.getStableIncome());
+           investor.setInvestmentGoal(investorSurveyRequest.getInvestmentGoal());
+           investor.setInvestmentPriority(investorSurveyRequest.getInvestmentPriority());
+           investor.setInvestmentStyle(investorSurveyRequest.getInvestmentStyle());
+           investor.setReturnExpectation(investorSurveyRequest.getReturnExpectation());
+           investor.setPropertyPreference(investorSurveyRequest.getPropertyPreference());
+           investor.setDecisionFactor(investorSurveyRequest.getDecisionFactor());
+           investor.setManagementAbility(investorSurveyRequest.getManagementAbility());
+           investor.setInvestmentMethod(investorSurveyRequest.getInvestmentMethod());
            investor.setUpdatedAt(LocalDateTime.now());
            investor.setIsActive(true);
-           investorRepository.save(investor);
-           return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Update investor survey successfully"));
+           investorRepository.save(investor);           return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Update investor survey successfully"));
        } catch (Exception e) {
            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Sever_Erorr", e.getMessage()));
        }

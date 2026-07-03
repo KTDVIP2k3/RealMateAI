@@ -25,8 +25,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     public ResponseEntity<ApiResponse> getMembershipPlanListIsActive() {
         try {
             List<MembershipPlanDTO> membershipPlanDTOList = membershipPlanRepository.findAll().stream()
-                    .filter(membershipPlan -> Boolean.TRUE.equals(membershipPlan.getIsActive()))
-                    .map(membershipPlan -> new MembershipPlanDTO(
+                    .filter(plan -> Boolean.TRUE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))   .map(membershipPlan -> new MembershipPlanDTO(
                             membershipPlan.getName(),
                             membershipPlan.getDescription(),
                             membershipPlan.getQuantity(),
@@ -50,7 +49,9 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     @Override
     public ResponseEntity<ApiResponse> getMembershipPlanListByAdmin() {
         try {
-            List<MembershipPlan> membershipPlans = membershipPlanRepository.findAll();
+            List<MembershipPlan> membershipPlans = membershipPlanRepository.findAll().stream()
+                    .filter(plan -> !Boolean.TRUE.equals(plan.getIsDeleted()))
+                    .collect(Collectors.toList());
             if (membershipPlans.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.OK)
                         .body(ApiResponse.success(membershipPlans, "List membership plan is empty"));
@@ -67,7 +68,8 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     @Override
     public ResponseEntity<ApiResponse> getMembershipPlanDetail(Integer id) {
         try {
-            MembershipPlan existMembershipPlan = membershipPlanRepository.findById(id).orElse(null);
+            MembershipPlan existMembershipPlan = membershipPlanRepository.findById(id)
+                    .filter(plan -> !Boolean.TRUE.equals(plan.getIsDeleted())).orElse(null);
             if (existMembershipPlan == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan id does not exist"));
@@ -90,6 +92,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     public ResponseEntity<ApiResponse> createMembershipPlan(MembershipPlanRequest membershipPlanRequest) {
         try {
             boolean existName = membershipPlanRepository.findAll().stream()
+                    .filter(plan -> !Boolean.TRUE.equals(plan.getIsDeleted()))
                     .anyMatch(plan -> plan.getName().trim().toLowerCase().equals(membershipPlanRequest.getName().trim().toLowerCase()));
 
             if (existName) {
@@ -103,6 +106,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
             membershipPlan.setQuantity(membershipPlanRequest.getQuantity());
             membershipPlan.setPrice(membershipPlanRequest.getPrice());
             membershipPlan.setIsActive(true);
+            membershipPlan.setIsDeleted(false);
             membershipPlan.setCreatedAt(LocalDateTime.now());
 
             membershipPlanRepository.save(membershipPlan);
@@ -117,7 +121,8 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     @Override
     public ResponseEntity<ApiResponse> updateMembershipPlan(Integer id, MembershipPlanRequest membershipPlanRequest) {
         try {
-            MembershipPlan membershipPlan = membershipPlanRepository.findById(id).orElse(null);
+            MembershipPlan membershipPlan = membershipPlanRepository.findById(id)
+                    .filter(plan -> !Boolean.TRUE.equals(plan.getIsDeleted())).orElse(null);
             if (membershipPlan == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan id does not exist"));
@@ -157,12 +162,33 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
             }
 
             existMembershipPlan.setIsActive(false);
+            existMembershipPlan.setIsDeleted(true);
+            existMembershipPlan.setUpdatedAt(LocalDateTime.now());
             membershipPlanRepository.save(existMembershipPlan);
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(null, "Delete membership plan successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> toggleActiveMembershipPlan(Integer id, Boolean isActive) {
+        try {
+            MembershipPlan membershipPlan = membershipPlanRepository.findById(id)
+                    .filter(plan -> !Boolean.TRUE.equals(plan.getIsDeleted())).orElse(null);
+            if (membershipPlan == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan id does not exist"));
+            }
+            membershipPlan.setIsActive(isActive);
+            membershipPlan.setUpdatedAt(LocalDateTime.now());
+            membershipPlanRepository.save(membershipPlan);
+
+            String msg = isActive ? "Activated membership plan successfully" : "Deactivated membership plan successfully";
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, msg));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 }

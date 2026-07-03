@@ -24,6 +24,8 @@ import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class WalletServiceImplement implements WalletServiceInterface {
@@ -49,9 +51,11 @@ public class WalletServiceImplement implements WalletServiceInterface {
     @Value("${payos.cancel-url}")
     private String cancelUrl;
 
+    private final Map<String, String[]> customUrlCache = new ConcurrentHashMap<>();
+
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> initiateDeposit(Long amount) {
+    public ResponseEntity<ApiResponse> initiateDeposit(Long amount, String customReturnUrl, String customCancelUrl) {
         try {
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
@@ -86,12 +90,22 @@ public class WalletServiceImplement implements WalletServiceInterface {
                     .build();
             transactionRepository.save(transaction);
 
+            String finalReturnUrl = returnUrl;
+            String finalCancelUrl = cancelUrl;
+
+            if (customReturnUrl != null && !customReturnUrl.isBlank() && customCancelUrl != null && !customCancelUrl.isBlank()) {
+                finalReturnUrl = customReturnUrl;
+                finalCancelUrl = customCancelUrl;
+
+                customUrlCache.put(String.valueOf(orderCode), new String[]{customReturnUrl, customCancelUrl});
+            }
+
             CreatePaymentLinkRequest paymentRequest = CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode)
                     .amount(amount)
                     .description("Nap tien vi RealMateAI")
-                    .returnUrl(returnUrl)
-                    .cancelUrl(cancelUrl)
+                    .returnUrl(finalReturnUrl)
+                    .cancelUrl(finalCancelUrl)
                     .build();
 
             CreatePaymentLinkResponse paymentLink = payOS.paymentRequests().create(paymentRequest);
@@ -104,6 +118,74 @@ public class WalletServiceImplement implements WalletServiceInterface {
             System.err.println("=== LỖI PAYOS SDK 2.0.1: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("SERVER_ERROR", "Lỗi từ cổng thanh toán: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    public String resolveRedirectUrl(String orderCode, String type) {
+
+        if (customUrlCache.containsKey(orderCode)) {
+            String[] urls = customUrlCache.remove(orderCode);
+            return "success".equals(type) ? urls[0] : urls[1];
+        }
+
+        try {
+            Transaction transaction = transactionRepository.findByTransactionCode(orderCode).orElse(null);
+            if (transaction != null && transaction.getAccount() != null) {
+                String role = transaction.getAccount().getRole().name();
+
+                if ("Seller".equalsIgnoreCase(role)) {
+                    return "success".equals(type)
+                            ? "http://localhost:3000/seller/wallet?status=success&orderCode=" + orderCode
+                            : "http://localhost:3000/seller/wallet?status=cancel&orderCode=" + orderCode;
+                } else if ("Investor".equalsIgnoreCase(role)) {
+                    return "success".equals(type)
+                            ? "mobile://wallet?status=success&orderCode=" + orderCode
+                            : "mobile://wallet?status=cancel&orderCode=" + orderCode;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi phân tích định tuyến chuyển hướng: " + e.getMessage());
+        }
+
+        return "http://localhost:3000/wallet?status=" + type + "&orderCode=" + orderCode;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse> getMyWallet() {
+        try {
+
+            Account currentAccount = authenUntil.getCurrentUSer();
+            if (currentAccount == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("UNAUTHORIZED", "Người dùng chưa đăng nhập"));
+            }
+
+            Wallet wallet = walletRepository.findByAccount_AccountId(currentAccount.getAccountId()).orElse(null);
+
+            if (wallet == null) {
+                wallet = Wallet.builder()
+                        .account(currentAccount)
+                        .balance(BigDecimal.ZERO)
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                wallet = walletRepository.save(wallet);
+            }
+
+            Map<String, Object> responseData = new java.util.HashMap<>();
+            responseData.put("walletId", wallet.getWalletId());
+            responseData.put("balance", wallet.getBalance());
+            responseData.put("isActive", wallet.getIsActive());
+            responseData.put("userId", wallet.getAccount().getAccountId());
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(responseData, "Lấy thông tin ví của tôi thành công"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("SERVER_ERROR", "Lỗi hệ thống: " + e.getMessage()));
         }
     }
 
@@ -279,4 +361,6 @@ public class WalletServiceImplement implements WalletServiceInterface {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("SERVER_ERROR", e.getMessage()));
         }
     }
+
+
 }
