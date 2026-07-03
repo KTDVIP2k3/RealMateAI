@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @NoArgsConstructor @AllArgsConstructor @Getter
 @Setter  @Builder
@@ -29,4 +30,7 @@ public class Location {
 
     @OneToOne(mappedBy = "location", fetch = FetchType.LAZY)
     private Property property;
+
+    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<HeatmapZone> heatmapZones;
 }
