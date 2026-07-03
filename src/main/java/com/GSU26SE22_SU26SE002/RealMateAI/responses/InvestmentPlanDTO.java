@@ -10,8 +10,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestmentPlanDTO {
+    private Integer score;
     private List<InvestmentPortfolioDTO> investmentPortfolios;
     private List<InvestmentScenarioDTO> scenarios;
     private ExecutionPlanDTO executionPlan;
-    private Integer score;
 }

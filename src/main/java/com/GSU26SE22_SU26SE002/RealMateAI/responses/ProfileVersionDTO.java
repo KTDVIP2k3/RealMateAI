@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ProfileVersionDTO {
     private Integer investmentProfileVersionId;
+    private Integer matchScore;
     private String name;
     private String conscious;
     private String ward;

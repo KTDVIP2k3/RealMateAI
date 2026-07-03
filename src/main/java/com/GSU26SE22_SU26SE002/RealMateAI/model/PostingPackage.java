@@ -30,6 +30,7 @@ public class PostingPackage {
     /** Duration in days */
 //    private Integer durationDays;
     private Boolean isActive;
+    private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

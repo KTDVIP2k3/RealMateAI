@@ -127,9 +127,16 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         ))
                                 .collect(Collectors.toList());
 
+                Integer matchScore = 0;
+                if (latestVersion.getExecutionPlans() != null && !latestVersion.getExecutionPlans().isEmpty()) {
+                    matchScore = latestVersion.getExecutionPlans().get(0).getMatch_score();
+                    if (matchScore == null) matchScore = 0;
+                }
+
                 simpleProfiles.add(ProfileSimpleDTO.builder()
                         .investmentProfileId(profile.getInvestmentProfileId())
                         .latestVersionId(latestVersion.getProfileVersionId())
+                        .matchScore(matchScore)
                         .name(profile.getName())
                         .conscious(conscious)
                         .ward(ward)
@@ -176,8 +183,15 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .map(version -> {
                         String strategyName = (version.getStrategy() != null) ? version.getStrategy().getName() : "N/A";
 
+                        Integer vMatchScore = 0;
+                        if (version.getExecutionPlans() != null && !version.getExecutionPlans().isEmpty()) {
+                            vMatchScore = version.getExecutionPlans().get(0).getMatch_score();
+                            if (vMatchScore == null) vMatchScore = 0;
+                        }
+
                         return ProfileVersionDTO.builder()
                                 .investmentProfileVersionId(version.getProfileVersionId())
+                                .matchScore(vMatchScore)
                                 .name(version.getProfileVersionName())
                                 .conscious(version.getConscious())
                                 .ward(version.getWard())
@@ -209,6 +223,21 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             if (profileVersion == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail("Profile_Not_Found", "Investment profile version không tồn tại với ID: " + profileVersion));
+            }
+
+            Integer finalMatchScore = 0;
+            ExecutionPlanDTO executionPlanDTO = null;
+            if (profileVersion.getExecutionPlans() != null && !profileVersion.getExecutionPlans().isEmpty()) {
+                ExecutionPlan activePlan = profileVersion.getExecutionPlans().get(0);
+                finalMatchScore = activePlan.getMatch_score();
+
+                if (activePlan.getDescription() != null && !activePlan.getDescription().isEmpty()) {
+                    try {
+                        executionPlanDTO = objectMapper.readValue(activePlan.getDescription(), ExecutionPlanDTO.class);
+                    } catch (Exception jsonEx) {
+                        log.error("Error parsing ExecutionPlan JSON for version ID: {}", profileVersionId, jsonEx);
+                    }
+                }
             }
 
             InvestmentProfile profile = profileVersion.getInvestmentProfile();
@@ -247,6 +276,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             InvestmentProfileVersionDTO profileDTO = InvestmentProfileVersionDTO.builder()
                     .investmentProfileVersionId(profileVersion.getProfileVersionId())
+                    .matchScore(finalMatchScore)
                     .strategyName(profileVersion.getStrategy() != null ? profileVersion.getStrategy().getName() : null)
                     .name(profileVersion.getProfileVersionName())
                     .equity(profileVersion.getEquity())
@@ -288,6 +318,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.fail("Version_Not_Found", "Không tìm thấy phiên bản kế hoạch với ID: " + profileVersionId));
             }
 
+
+
             List<InvestmentScenarioDTO> scenarioDTOList = new ArrayList<>();
             if (profileVersion.getInvestmentScenarios() != null) {
                 scenarioDTOList = profileVersion.getInvestmentScenarios().stream()
@@ -312,9 +344,14 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             }
 
 
+            Integer finalMatchScore = 0;
             ExecutionPlanDTO executionPlanDTO = null;
+
             if (profileVersion.getExecutionPlans() != null && !profileVersion.getExecutionPlans().isEmpty()) {
                 ExecutionPlan activePlan = profileVersion.getExecutionPlans().get(0);
+
+                    finalMatchScore = activePlan.getMatch_score();
+
                 if (activePlan.getDescription() != null && !activePlan.getDescription().isEmpty()) {
                     try {
                         executionPlanDTO = objectMapper.readValue(activePlan.getDescription(), ExecutionPlanDTO.class);
@@ -401,6 +438,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             InvestmentPlanDTO finalOutput = InvestmentPlanDTO.builder()
                     .scenarios(scenarioDTOList)
+                    .score(finalMatchScore)
                     .executionPlan(executionPlanDTO)
                     .investmentPortfolios(portfolioDTOList)
                     .build();
@@ -449,8 +487,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             List<InvestmentPortfolioDTO> portfolios = processStage1Portfolios(request, strategy);
             processStage2EnrichProperties(request, portfolios);
-            InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(request, portfolios);
-
+            InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(request, portfolios, account.getInvestor());
             saveInvestmentPlanToDatabase(request, finalOutput, strategy);
 
             return ResponseEntity.status(HttpStatus.OK)
@@ -682,7 +719,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         return resultList;
     }
 
-    private InvestmentPlanDTO processStage3ScenariosAndExecution(InvestmentPlanRequest request, List<InvestmentPortfolioDTO> portfolios) {
+    private InvestmentPlanDTO processStage3ScenariosAndExecution(InvestmentPlanRequest request, List<InvestmentPortfolioDTO> portfolios, Investor investor) {
         String cleanTreeJson = "";
         try {
             cleanTreeJson = objectMapper.writeValueAsString(portfolios);
@@ -690,11 +727,37 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             log.error(e.getMessage());
         }
 
+        String investorSurveyContext = String.format(
+                "--- THÔNG TIN KHẢO SÁT KHẨU VỊ NHÀ ĐẦU TƯ ---\n" +
+                        "- Kinh nghiệm đầu tư: %s\n" +
+                        "- Có thu nhập ổn định: %s\n" +
+                        "- Mục tiêu đầu tư: %s\n" +
+                        "- Tiêu chí ưu tiên: %s\n" +
+                        "- Phong cách đầu tư: %s\n" +
+                        "- Kỳ vọng lợi nhuận: %s\n" +
+                        "- Loại hình BĐS ưa thích: %s\n" +
+                        "- Yếu tố quyết định xuống tiền: %s\n" +
+                        "- Khả năng tự quản lý: %s\n" +
+                        "- Phương thức đầu tư: %s\n\n",
+                investor.getInvestmentExperience(),
+                investor.getStableIncome() != null && investor.getStableIncome() ? "Có" : "Không",
+                investor.getInvestmentGoal(),
+                investor.getInvestmentPriority(),
+                investor.getInvestmentStyle(),
+                investor.getReturnExpectation(),
+                investor.getPropertyPreference(),
+                investor.getDecisionFactor(),
+                investor.getManagementAbility(),
+                investor.getInvestmentMethod()
+        );
+
         String promptStage3 = "Hãy đóng vai trò là một chuyên gia phân tích tài chính bất động sản chuyên nghiệp.\n" +
-                "Nhiệm vụ của bạn là phân tích cấu trúc danh mục và mô hình phân bổ tài sản sau đây: " + cleanTreeJson + "\n\n" +
+                "Dưới đây là kết quả khảo sát khẩu vị rủi ro và phong cách của nhà đầu tư này:\n" + investorSurveyContext +
+                "Nhiệm vụ của bạn là đối chiếu dữ liệu khảo sát trên với cấu trúc danh mục và phân bổ bất động sản thực tế sau đây: " + cleanTreeJson + "\n\n" +
                 "YÊU CẦU ĐẦU RA BẮT BUỘC:\n" +
-                "1. Toàn bộ nội dung thông tin, phân tích, nhận định thị trường, chiến lược hành động, giải thích phải viết bằng TIẾNG VIỆT 100% (Tuyệt đối không trộn lẫn từ ngữ tiếng Anh).\n" +
-                "2. Tại mảng 'scenarios' (Danh sách kịch bản), bạn BẮT BUỘC phải tạo ra chính xác 3 phần tử kịch bản. Trường 'enumScenarioType' của các kịch bản này CHỈ ĐƯỢC PHÉP đặt tên theo đúng 3 định dạng cố định sau:\n" +
+                "1. Tại trường 'score': Hãy phân tích xem danh mục BĐS thực tế thu được có khớp với gu, mong muốn và năng lực tài chính của nhà đầu tư không. Hãy chấm một điểm số đại diện cho mức độ PHÙ HỢP VÀ KHẢ THI của phương án trên thang điểm từ 0 đến 100.\n" +
+                "2. Toàn bộ nội dung thông tin, phân tích, nhận định thị trường, chiến lược hành động, giải thích phải viết bằng TIẾNG VIỆT 100% (Tuyệt đối không trộn lẫn từ ngữ tiếng Anh).\n" +
+                "3. Tại mảng 'scenarios' (Danh sách kịch bản), bạn BẮT BUỘC phải tạo ra chính xác 3 phần tử kịch bản. Trường 'enumScenarioType' của các kịch bản này CHỈ ĐƯỢC PHÉP đặt tên theo đúng 3 định dạng cố định sau:\n" +
                 "   - 'xu hướng tăng'\n" +
                 "   - 'trung bình'\n" +
                 "   - 'xu hướng giảm'\n" +
@@ -705,7 +768,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .responseSchema(Schema.builder()
                         .type("OBJECT")
                         .properties(Map.of(
-                                "score", Schema.builder().type("INTEGER").build(),
+                                "score", Schema.builder().type("INTEGER").build(), // Nhận diện trường score ở gốc JSON
                                 "scenarios", Schema.builder()
                                         .type("ARRAY")
                                         .items(Schema.builder()
@@ -897,10 +960,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             var planDTO = output.getExecutionPlan();
             String descJson = objectMapper.writeValueAsString(planDTO);
 
+            int scoreEvaluated = (output.getScore() != null) ? output.getScore() : 0;
+
             ExecutionPlan planEntity = ExecutionPlan.builder()
                     .investmentProfileVersion(savedVersion)
                     .name("AI Execution Plan Details")
                     .description(descJson)
+                    .match_score(scoreEvaluated)
                     .status("ACTIVE")
                     .createdAt(now)
                     .updatedAt(now)
@@ -995,6 +1061,11 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.fail("Profile_Not_Found", "The investment profile you want to update does not exist."));
             }
 
+            if (oldProfile.getInvestor() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(null, "Investor survey does not exist. Please create to use this function"));
+            }
+
             Strategy strategy = strategyRepository.findById(request.getStrategy_id()).orElse(null);
             if (strategy == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -1021,8 +1092,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             List<InvestmentPortfolioDTO> portfolios = processStage1Portfolios(internalRequest, strategy);
             processStage2EnrichProperties(internalRequest, portfolios);
-            InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(internalRequest, portfolios);
-
+            InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(internalRequest, portfolios, oldProfile.getInvestor());
             saveUpdatePlanToDatabase(oldProfile, internalRequest, finalOutput, strategy);
 
             return ResponseEntity.status(HttpStatus.OK)
@@ -1141,10 +1211,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             var planDTO = output.getExecutionPlan();
             String descJson = objectMapper.writeValueAsString(planDTO);
 
+            int scoreEvaluated = (output.getScore() != null) ? output.getScore() : 0;
+
             ExecutionPlan planEntity = ExecutionPlan.builder()
                     .investmentProfileVersion(savedVersion)
                     .name("AI Execution Plan Details")
                     .description(descJson)
+                    .match_score(scoreEvaluated)
                     .status("ACTIVE")
                     .createdAt(now)
                     .updatedAt(now)

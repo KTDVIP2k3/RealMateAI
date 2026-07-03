@@ -15,6 +15,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class InvestmentProfileVersionDTO {
     private Integer investmentProfileVersionId;
+    private Integer matchScore;
     private String strategyName;
     private String name;
     private Long equity;

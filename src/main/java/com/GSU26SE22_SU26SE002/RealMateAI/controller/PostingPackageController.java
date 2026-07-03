@@ -67,4 +67,14 @@ public class PostingPackageController {
     public ResponseEntity<ApiResponse> deletePostingPackage(@PathVariable Integer id) {
         return postingPackageServiceInterface.deletePostingPackage(id);
     }
+
+    @PatchMapping(value = "/admin/{id}/toggle-active", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('Admin')")
+    @Operation(summary = "Admin: TẠM NGƯNG hoặc TÁI KÍCH HOẠT gói đăng tin",
+            description = "Thay đổi trạng thái isActive của gói (True để mở lại, False để tạm ngưng hoạt động) mà không làm mất gói.")
+    public ResponseEntity<ApiResponse> toggleActivePostingPackage(
+            @PathVariable Integer id,
+            @RequestParam Boolean isActive) {
+        return postingPackageServiceInterface.toggleActivePostingPackage(id, isActive);
+    }
 }
