@@ -178,6 +178,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
             responseData.put("walletId", wallet.getWalletId());
             responseData.put("balance", wallet.getBalance());
             responseData.put("isActive", wallet.getIsActive());
+            responseData.put("userId", wallet.getAccount().getAccountId());
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(responseData, "Lấy thông tin ví của tôi thành công"));
