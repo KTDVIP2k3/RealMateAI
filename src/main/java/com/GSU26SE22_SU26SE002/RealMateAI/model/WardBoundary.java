@@ -2,6 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.geolatte.geom.Geometry;
 
 import java.math.BigDecimal;
 
@@ -22,8 +23,8 @@ public class WardBoundary {
     @JoinColumn(name = "FK_ward_code", nullable = false)
     private Ward ward;
 
-    @Column(name = "boundary", columnDefinition = "Geometry")
-    private String boundary;
+    @Column(name = "boundary")
+    private Geometry boundary;
 
     @Column(name = "area_km2", precision = 18, scale = 2)
     private BigDecimal areaKm2;
