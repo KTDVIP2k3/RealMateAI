@@ -24,26 +24,19 @@ public class HeatmapZone {
     @JoinColumn(name = "craw_property_listing_id", nullable = false)
     private CrawPropertyListing crawPropertyListing;
 
-    @Column(name = "zone_name")
-    private String zoneName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location location;
 
-    @Column(precision = 10, scale = 7)
-    private BigDecimal latitude;
+    @Column(name = "hot_score")
+    private Integer hotScore;
 
-    @Column(precision = 10, scale = 7)
-    private BigDecimal longitude;
+    @Column(name = "price_average", precision = 18, scale = 2)
+    private BigDecimal priceAverage;
 
-    private Double radius;
+    @Column(name = "total_listing")
+    private Integer totalListing;
 
-    private Long avgPricePerM2;
-
-    private Integer transactionCount;
-
-    private Double demandIndex;
-
-    private String ward;
-    private String district;
-    private String city;
-    private LocalDateTime createdAt;
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
