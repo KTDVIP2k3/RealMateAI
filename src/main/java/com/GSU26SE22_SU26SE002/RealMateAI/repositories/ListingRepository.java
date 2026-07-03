@@ -2,7 +2,10 @@ package com.GSU26SE22_SU26SE002.RealMateAI.repositories;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,7 +14,34 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
 @Repository
-public interface ListingRepository extends JpaRepository<Listing, Integer> {
+
+public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaSpecificationExecutor<Listing> {
+
+    /**
+     * Override findAll(Specification, Pageable) từ JpaSpecificationExecutor để gắn
+     * @EntityGraph, tránh N+1 khi map sang ListingSummaryResponse cho POST /listings/search
+     * (dùng cùng bộ Specification động trong ListingSpecification).
+     */
+    @Override
+    @EntityGraph(attributePaths = {"property", "property.propertyType", "property.propertyImages"})
+    Page<Listing> findAll(Specification<Listing> spec, Pageable pageable);
+
+    /**
+     * Tin đăng tương đồng đang hoạt động (cùng loại BĐS + cùng phường/xã) — dùng làm
+     * dữ liệu thị trường tham chiếu cho POST /listings/price-suggestion.
+     * Chỉ cần price + area của Property nên JOIN FETCH tối thiểu, không kéo ảnh/mô tả.
+     */
+    @Query("""
+            SELECT l FROM Listing l
+            JOIN FETCH l.property p
+            WHERE l.isActive = true
+              AND p.isActive = true
+              AND p.propertyType.propertyTypeId = :propertyTypeId
+              AND p.location.ward.ward_code = :wardCode
+            ORDER BY l.createdAt DESC
+            """)
+    List<Listing> findComparableActiveListings(@Param("propertyTypeId") Integer propertyTypeId,
+                                               @Param("wardCode") String wardCode);
     /**
      * BĐS — chỉ lấy bài đã duyệt (isActive=true), phân trang.
      * JOIN FETCH property + propertyType + location + propertyImages, tránh N+1.
