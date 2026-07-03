@@ -63,6 +63,11 @@ public class SecurityConfig {
                         .requestMatchers("/wallets/deposit/success", "/wallets/deposit/cancel", "/wallets/deposit/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*/detail").permitAll()
                         .requestMatchers("/locations/**").permitAll()
+                        .requestMatchers(
+                                "/wallets/deposit/success",
+                                "/wallets/deposit/cancel",
+                                "/wallets/deposit/webhook"
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
