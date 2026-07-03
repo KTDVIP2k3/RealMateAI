@@ -56,6 +56,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/property-type")
                 || requestURI.equals("/property-condition")
                 || requestURI.equals("/strategy")
+                || requestURI.startsWith("/ward-boundary")
                 || requestURI.equals("/api/chat")
                 || requestURI.equals("/posting-packages/active")
                 || (requestURI.startsWith("/listings/") && "GET".equalsIgnoreCase(request.getMethod()))
