@@ -11,4 +11,5 @@ public interface MembershipPlanServiceInterface {
     ResponseEntity<ApiResponse> createMembershipPlan(MembershipPlanRequest membershipPlanRequest);
     ResponseEntity<ApiResponse> updateMembershipPlan(Integer id, MembershipPlanRequest membershipPlanRequest);
     ResponseEntity<ApiResponse> deleteMembershipPlan(Integer id);
+    ResponseEntity<ApiResponse> toggleActiveMembershipPlan(Integer id, Boolean isActive);
 }

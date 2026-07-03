@@ -16,6 +16,7 @@ import java.util.List;
 public class ProfileSimpleDTO {
     private Integer investmentProfileId;
     private Integer latestVersionId;
+    private Integer matchScore;
     private String name;
     private String conscious;
     private String ward;

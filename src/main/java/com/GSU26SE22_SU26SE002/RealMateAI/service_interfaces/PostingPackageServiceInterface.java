@@ -17,4 +17,6 @@ public interface PostingPackageServiceInterface {
     ResponseEntity<ApiResponse> updatePostingPackage(Integer id, PostingPackageRequest postingPackageRequest);
 
     ResponseEntity<ApiResponse> deletePostingPackage(Integer id);
+
+    ResponseEntity<ApiResponse> toggleActivePostingPackage(Integer id, Boolean isActive);
 }

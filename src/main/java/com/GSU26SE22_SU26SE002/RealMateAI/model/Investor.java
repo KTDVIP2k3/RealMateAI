@@ -25,15 +25,17 @@ public class Investor {
     private Account account;
 
 
-    private String investmentStyle;
     private String investmentExperience;
-    private String profitTarget;
-    private String managementAbility;
-    private String levelOfVolatility;
-    private String capitalUtilizationMindset;
-    private String positionalPriority;
-    private String investmentMethod;
     private Boolean stableIncome;
+    private String investmentGoal;
+    private String investmentPriority;
+    private String investmentStyle;
+    private String returnExpectation;
+    private String propertyPreference;
+    private String decisionFactor;
+    private String managementAbility;
+    private String investmentMethod;
+
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

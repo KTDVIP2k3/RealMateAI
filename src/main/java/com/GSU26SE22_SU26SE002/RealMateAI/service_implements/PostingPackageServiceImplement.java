@@ -6,7 +6,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.PostingPackageRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PostingPackageServiceInterface;
-import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class PostingPackageOrderServiceImplement implements PostingPackageServiceInterface {
+public class PostingPackageServiceImplement implements PostingPackageServiceInterface {
     @Autowired
     private PostingPackageRepository postingPackageRepository;
 
@@ -25,7 +24,7 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
     public ResponseEntity<ApiResponse> getPostingPackageListIsActive() {
         try{
             List<PostingPackageDTO> postingPackageDTOList = postingPackageRepository.findAll().stream()
-                    .filter(postingPackage -> postingPackage.getIsActive())
+                    .filter(p -> Boolean.TRUE.equals(p.getIsActive()) && !Boolean.TRUE.equals(p.getIsDeleted()))
                     .map(postingPackage ->
                             new PostingPackageDTO(postingPackage.getName(),
                             postingPackage.getDescription(),
@@ -44,8 +43,9 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
     @Override
     public ResponseEntity<ApiResponse> getPostingPackageListByAdmin() {
         try{
-            List<PostingPackage> postingPackages = postingPackageRepository.findAll();
-            if(postingPackages.isEmpty() || postingPackages == null){
+            List<PostingPackage> postingPackages = postingPackageRepository.findAll().stream()
+                    .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted()))
+                    .collect(Collectors.toList());    if(postingPackages.isEmpty() || postingPackages == null){
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackages, "List posting package is empty"));
             }
 
@@ -59,7 +59,8 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
     @Override
     public ResponseEntity<ApiResponse> getPostingPackageDetail(Integer id) {
         try{
-            PostingPackage existPostingPackage = postingPackageRepository.findById(id).orElse(null);
+            PostingPackage existPostingPackage = postingPackageRepository.findById(id)
+                    .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted())).orElse(null);
             if(existPostingPackage == null){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
@@ -88,6 +89,7 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
             postingPackage.setPosting_package_price(postingPackageRequest.getPosting_package_price());
             postingPackage.setPriority(postingPackageRequest.getPriority());
             postingPackage.setIsActive(true);
+            postingPackage.setIsDeleted(false);
             postingPackage.setCreatedAt(LocalDateTime.now());
             postingPackageRepository.save(postingPackage);
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create posting package successfully"));
@@ -99,7 +101,8 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
     @Override
     public ResponseEntity<ApiResponse> updatePostingPackage(Integer id, PostingPackageRequest postingPackageRequest) {
         try{
-            PostingPackage postingPackage = postingPackageRepository.findById(id).orElse(null);
+            PostingPackage postingPackage = postingPackageRepository.findById(id)
+                    .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted())).orElse(null);
             if(postingPackage == null){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
@@ -131,10 +134,31 @@ public class PostingPackageOrderServiceImplement implements PostingPackageServic
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
             existPostingPackage.setIsActive(false);
+            existPostingPackage.setIsDeleted(true);
+            existPostingPackage.setUpdatedAt(LocalDateTime.now());
             postingPackageRepository.save(existPostingPackage);
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Delete posting package successfully"));
 
         }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> toggleActivePostingPackage(Integer id, Boolean isActive) {
+        try {
+            PostingPackage postingPackage = postingPackageRepository.findById(id)
+                    .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted())).orElse(null);
+            if (postingPackage == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
+            }
+            postingPackage.setIsActive(isActive);
+            postingPackage.setUpdatedAt(LocalDateTime.now());
+            postingPackageRepository.save(postingPackage);
+
+            String msg = isActive ? "Activated posting package successfully" : "Deactivated posting package successfully";
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, msg));
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }

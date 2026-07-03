@@ -64,4 +64,14 @@ public class MembershipPlanController {
     public ResponseEntity<ApiResponse> deleteMembershipPlan(@PathVariable Integer id) {
         return membershipPlanServiceInterface.deleteMembershipPlan(id);
     }
+
+    @PatchMapping(value = "/admin/{id}/toggle-active", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('Admin')")
+    @Operation(summary = "Admin: TẠM NGƯNG hoặc TÁI KÍCH HOẠT gói thành viên",
+            description = "Thay đổi trạng thái isActive của gói mà không làm mất dữ liệu. Truyền true để mở lại gói, truyền false để tạm ngưng kinh doanh gói đó.")
+    public ResponseEntity<ApiResponse> toggleActiveMembershipPlan(
+            @PathVariable Integer id,
+            @RequestParam Boolean isActive) {
+        return membershipPlanServiceInterface.toggleActiveMembershipPlan(id, isActive);
+    }
 }
