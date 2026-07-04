@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.requests;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -42,6 +43,8 @@ public class CreateListingWithExistingPropertyRequest {
      * Thêm ảnh mới cho property (optional).
      * Nếu property đã có ảnh, field này để null hoặc rỗng.
      */
+
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     private List<String> draftImagePublicIds;
     private Integer mainImageIndex;
 }
