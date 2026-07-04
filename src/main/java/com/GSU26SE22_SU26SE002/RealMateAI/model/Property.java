@@ -56,7 +56,7 @@ public class Property {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "property_purpose", columnDefinition = "json")
-    private List<String> propertyPurpose;
+    private Map<String, Object> propertyPurpose;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
