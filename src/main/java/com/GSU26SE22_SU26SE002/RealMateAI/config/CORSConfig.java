@@ -10,16 +10,26 @@ public class CORSConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("http://localhost:5173", "http://localhost:3000", "http://103.161.180.17:8081", "http://103.161.180.17")  .allowedHeaders("*")
+                .allowedOriginPatterns("http://localhost:5173",
+                        "http://localhost:3000",
+                        "http://103.161.180.17:8081",
+                        "http://103.161.180.17",
+                        "https://sep490-gsu26se22.vercel.app")
+                .allowedHeaders("*")
                 .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers")
                 .allowedMethods("*")
                 .maxAge(1440000);
 
         // Thêm cấu hình cho Swagger
-        registry.addMapping("/v2/api-docs/**").allowedOrigins("*").allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
-        registry.addMapping("/swagger-resources/**").allowedOrigins("*").allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
-        registry.addMapping("/swagger-ui.html").allowedOrigins("*").allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
-        registry.addMapping("/webjars/**").allowedOrigins("*").allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
-        registry.addMapping("/swagger-ui/**").allowedOrigins("*").allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        registry.addMapping("/v2/api-docs/**").allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        registry.addMapping("/swagger-resources/**").allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        registry.addMapping("/swagger-ui.html").allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        registry.addMapping("/webjars/**").allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+        registry.addMapping("/swagger-ui/**").allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
     }
 }
