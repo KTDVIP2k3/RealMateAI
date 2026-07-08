@@ -16,13 +16,13 @@ public class NewsCategoryController {
     private NewsCategoryServiceInterface newsCategoryServiceInterface;
 
     @GetMapping
-    @Operation(summary = "[Test Only]. Không đụng vào, chỉ test lấy data nạp vào db. Lấy danh sách tất cả danh mục tin tức")
+    @Operation(summary = " Lấy danh sách tất cả danh mục tin tức")
     public ResponseEntity<ApiResponse> getAllCategories() {
         return newsCategoryServiceInterface.getAllCategories();
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "[Test Only]. Không đụng vào, chỉ test lấy data nạp vào db. Lấy thông tin chi tiết của một danh mục theo ID")
+    @Operation(summary = " Lấy thông tin chi tiết của một danh mục theo ID")
     public ResponseEntity<ApiResponse> getCategoryById(@PathVariable Integer id) {
         return newsCategoryServiceInterface.getCategoryById(id);
     }
