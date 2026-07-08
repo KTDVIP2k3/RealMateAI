@@ -93,7 +93,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
             }
 
             Account accountExistByName = accountRepository.findByUserName(registerRequest.getUserName()).orElse(null);
-            boolean existByName = accountRepository.findAll().stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(registerRequest.getUserName().toLowerCase()));
+            boolean existByName = accountRepository.findAll().stream().anyMatch(account -> account.getUsername().trim().toLowerCase().equalsIgnoreCase(registerRequest.getUserName().trim().toLowerCase()));
             if(existByName){
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "UserName: " + registerRequest.getUserName() + " is existed"));
             }
@@ -198,7 +198,15 @@ public class AuthServiceImplement implements AuthServiceInterface {
     public ResponseEntity<ApiResponse> verifyOtp(OtpRequest otpRequest, HttpSession httpSession) {
         try {
 //            Integer accountId = (Integer) httpSession.getAttribute("accountId");
-            Account account = accountRepository.findByEmail(otpRequest.getEmail()).orElse(null);
+            Boolean existAccount = accountRepository.findAll().stream()
+                    .anyMatch(a -> a.getEmail().trim().toLowerCase().
+                            equalsIgnoreCase(otpRequest.getEmail().trim().toLowerCase()));
+
+            Account account =accountRepository.findAll().stream()
+                    .filter(a -> a.getEmail().trim().toLowerCase()
+                            .equalsIgnoreCase(otpRequest.getEmail().trim().toLowerCase()))
+                    .findFirst()
+                    .orElse(null);
             if (account == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email does not exist"));
 
             OTP otpEntity = account.getOtp();
