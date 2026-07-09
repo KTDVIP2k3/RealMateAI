@@ -24,9 +24,9 @@ public class HeatmapZone {
     @JoinColumn(name = "craw_property_listing_id", nullable = false)
     private CrawPropertyListing crawPropertyListing;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "location_id")
-    private Location location;
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "location_id")
+//    private Location location;
 
     @Column(name = "hot_score")
     private Integer hotScore;

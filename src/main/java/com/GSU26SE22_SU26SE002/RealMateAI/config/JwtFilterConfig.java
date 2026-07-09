@@ -56,6 +56,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/property-type")
                 || requestURI.equals("/property-condition")
                 || requestURI.equals("/strategy")
+                || requestURI.startsWith("/ward-boundary")
                 || requestURI.equals("/api/chat")
                 || requestURI.equals("/posting-packages/active")
                 || (requestURI.startsWith("/listings/") && "GET".equalsIgnoreCase(request.getMethod()))
@@ -70,6 +71,8 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/wallets/deposit/success")
                 || requestURI.equals("/wallets/deposit/cancel")
                 || requestURI.equals("/wallets/deposit/webhook")
+                || requestURI.startsWith("/news-categories")
+                || requestURI.startsWith("/news")
                 || requestURI.startsWith("/webjars/")) {
             filterChain.doFilter(request, response);
             return;

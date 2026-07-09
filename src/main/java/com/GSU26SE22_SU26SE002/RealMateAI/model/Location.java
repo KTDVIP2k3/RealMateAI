@@ -31,6 +31,6 @@ public class Location {
     @OneToOne(mappedBy = "location", fetch = FetchType.LAZY)
     private Property property;
 
-    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<HeatmapZone> heatmapZones;
+//    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//    private List<HeatmapZone> heatmapZones;
 }

@@ -53,6 +53,7 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
                         item.put("transactionStatus", t.getTransactionStatus() != null ? t.getTransactionStatus() : "PENDING");
                         item.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : "");
                         item.put("contentDescription", t.getContentDescription() != null ? t.getContentDescription() : "");
+                        item.put("checkoutUrl", t.getCheckoutUrl() != null ? t.getCheckoutUrl() : "");
                         return item;
                     })
                     .collect(Collectors.toList());

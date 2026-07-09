@@ -35,6 +35,5 @@ public class Ward {
     @Builder.Default
     private List<Location> locations = new ArrayList<>();
 
-    @OneToOne(mappedBy = "ward", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private WardBoundary wardBoundary;
+
 }

@@ -19,6 +19,8 @@ public class Transaction {
     @JoinColumn(name = "wallet_id")
     private Wallet wallet;
 
+    private String checkoutUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id")
     private Account account;

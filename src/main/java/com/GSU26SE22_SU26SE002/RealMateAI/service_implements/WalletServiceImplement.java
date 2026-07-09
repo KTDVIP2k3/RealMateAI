@@ -111,6 +111,9 @@ public class WalletServiceImplement implements WalletServiceInterface {
             CreatePaymentLinkResponse paymentLink = payOS.paymentRequests().create(paymentRequest);
             String checkoutUrl = paymentLink.getCheckoutUrl();
 
+            transaction.setCheckoutUrl(checkoutUrl);
+            transactionRepository.save(transaction);
+
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(checkoutUrl, "Tạo link thanh toán PayOS thành công"));
 
