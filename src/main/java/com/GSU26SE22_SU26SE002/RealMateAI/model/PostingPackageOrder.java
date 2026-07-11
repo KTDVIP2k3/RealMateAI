@@ -1,9 +1,9 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackagePrice;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @NoArgsConstructor @AllArgsConstructor @Getter
@@ -20,10 +20,12 @@ public class PostingPackageOrder {
     private Listing listing;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "posting_package_price_id", nullable = false)
-    private PostingPackagePrice postingPackagePrice;
+    @JoinColumn(name = "posting_package_id", nullable = false)
+    private PostingPackage postingPackage;
 
 //    private String status;
+
+    private BigDecimal totalAmount;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Integer duration;
