@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackagePrice;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -36,5 +35,5 @@ public class PostingPackage {
 
     @OneToMany(mappedBy = "postingPackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
-    private List<PostingPackagePrice> postingPackagePrices = new ArrayList<>();
+    private List<PostingPackageOrder> postingPackageOrders = new ArrayList<>();
 }
