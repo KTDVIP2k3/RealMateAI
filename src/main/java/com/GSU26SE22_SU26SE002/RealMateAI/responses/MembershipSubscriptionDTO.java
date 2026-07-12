@@ -12,6 +12,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class MembershipSubscriptionDTO {
     private Integer membershipSubscriptionId;
+    private Integer membershipPlanId;
+    private String membershipPlanName;
     private MembershipSubscriptionEnum membershipSubscriptionEnum_status;
     private BigDecimal price_pay;
     private Integer quantity_using;

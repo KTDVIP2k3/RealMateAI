@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MembershipPlanDTO {
+    private Integer membershipPlanId;
     private String name;
     private String description;
     private Integer quantity;
