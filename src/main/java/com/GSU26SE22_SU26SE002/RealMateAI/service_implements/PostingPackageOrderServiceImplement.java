@@ -70,6 +70,10 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                     for (PostingPackageOrder postingPackageOrder : listing.getPostingPackageOrders()) {
                         PostingPackageOrderDTO postingPackageOrderDTO = new PostingPackageOrderDTO();
                         postingPackageOrderDTO.setPostingPackageOrderId(postingPackageOrder.getPostingPackageOrderId());
+                        postingPackageOrderDTO.setPostingPackageId(postingPackageOrder.getPostingPackage().getPostingPackageId());
+                        postingPackageOrderDTO.setPostingPackageName(postingPackageOrder.getPostingPackage().getName());
+                        postingPackageOrderDTO.setListingId(postingPackageOrder.getListing().getListingId());
+                        postingPackageOrderDTO.setListingTitle(postingPackageOrder.getListing().getTitle());
                         postingPackageOrderDTO.setDuration(postingPackageOrder.getDuration());
                         postingPackageOrderDTO.setTotalAmount(postingPackageOrder.getTotalAmount());
                         postingPackageOrderDTO.setStartDate(postingPackageOrder.getStartDate());

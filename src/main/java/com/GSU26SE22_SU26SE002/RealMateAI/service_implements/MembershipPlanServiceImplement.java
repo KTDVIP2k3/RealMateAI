@@ -25,7 +25,9 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     public ResponseEntity<ApiResponse> getMembershipPlanListIsActive() {
         try {
             List<MembershipPlanDTO> membershipPlanDTOList = membershipPlanRepository.findAll().stream()
-                    .filter(plan -> Boolean.TRUE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))   .map(membershipPlan -> new MembershipPlanDTO(
+                    .filter(plan -> Boolean.TRUE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))
+                    .map(membershipPlan -> new MembershipPlanDTO(
+                            membershipPlan.getMembershipPlanId(),
                             membershipPlan.getName(),
                             membershipPlan.getDescription(),
                             membershipPlan.getQuantity(),
@@ -76,6 +78,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
             }
 
             MembershipPlanDTO membershipPlanDTO = new MembershipPlanDTO(
+                    existMembershipPlan.getMembershipPlanId(),
                     existMembershipPlan.getName(),
                     existMembershipPlan.getDescription(),
                     existMembershipPlan.getQuantity(),

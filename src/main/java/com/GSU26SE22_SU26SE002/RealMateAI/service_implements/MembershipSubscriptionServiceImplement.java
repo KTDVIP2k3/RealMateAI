@@ -63,7 +63,10 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
             List<MembershipSubscriptionDTO> membershipSubscriptionDTOList = account.getInvestor().getMembershipSubscriptions()
                     .stream()
                     .map(membershipSubscriptions ->
-                            new MembershipSubscriptionDTO(membershipSubscriptions.getMembershipSubscriptionId()
+                            new MembershipSubscriptionDTO(
+                                    membershipSubscriptions.getMembershipSubscriptionId()
+                                    , membershipSubscriptions.getMembershipPlan().getMembershipPlanId()
+                                    , membershipSubscriptions.getMembershipPlan().getName()
                                     , membershipSubscriptions.getMembershipSubscriptionEnum_status()
                                     , membershipSubscriptions.getPrice_pay()
                                     , membershipSubscriptions.getQuantity_using()

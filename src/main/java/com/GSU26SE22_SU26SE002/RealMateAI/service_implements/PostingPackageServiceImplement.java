@@ -26,9 +26,11 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
             List<PostingPackageDTO> postingPackageDTOList = postingPackageRepository.findAll().stream()
                     .filter(p -> Boolean.TRUE.equals(p.getIsActive()) && !Boolean.TRUE.equals(p.getIsDeleted()))
                     .map(postingPackage ->
-                            new PostingPackageDTO(postingPackage.getName(),
+                            new PostingPackageDTO(postingPackage.getPostingPackageId()
+                                    ,postingPackage.getName(),
                             postingPackage.getDescription(),
-                            postingPackage.getPosting_package_price(), postingPackage.getPriority()))
+                            postingPackage.getPosting_package_price()
+                                    , postingPackage.getPriority()))
                     .collect(Collectors.toList());
             if(postingPackageDTOList == null || postingPackageDTOList.isEmpty()){
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackageDTOList, "List posting package is empty"));
@@ -64,7 +66,8 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
             if(existPostingPackage == null){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
-            PostingPackageDTO postingPackageDTO = new PostingPackageDTO(existPostingPackage.getName(),
+            PostingPackageDTO postingPackageDTO = new PostingPackageDTO(existPostingPackage.getPostingPackageId()
+                    ,existPostingPackage.getName(),
                     existPostingPackage.getDescription(),
                     existPostingPackage.getPosting_package_price(),
                     existPostingPackage.getPriority());

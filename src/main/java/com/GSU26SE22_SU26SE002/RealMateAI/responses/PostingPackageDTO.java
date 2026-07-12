@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PostingPackageDTO {
+    private Integer postingPackageId;
     private String name;
     private String description;
     private BigDecimal posting_package_price;

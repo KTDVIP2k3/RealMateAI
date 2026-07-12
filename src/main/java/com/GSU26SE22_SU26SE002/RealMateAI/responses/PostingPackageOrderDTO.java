@@ -12,6 +12,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class PostingPackageOrderDTO {
     private Integer postingPackageOrderId;
+    private Integer postingPackageId;
+    private String postingPackageName;
+    private Integer listingId;
+    private String listingTitle;
     private BigDecimal totalAmount;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
