@@ -58,12 +58,18 @@ public final class ListingSpecification {
             }
 
             if (StringUtils.hasText(req.getWardCode()) || StringUtils.hasText(req.getProvinceCode())) {
+                // Chỉ JOIN "ward" MỘT LẦN DUY NHẤT rồi tái sử dụng cho cả 2 điều kiện bên dưới.
+                // Trước đây: khi truyền cả wardCode lẫn provinceCode, code JOIN "ward" lần 2
+                // (location.join("ward", ...)) trong lúc lần đầu đã "chạm" tới ward qua
+                // location.get("ward") — sinh ra 2 JOIN dư thừa tới cùng 1 bảng trong SQL,
+                // vừa tốn hiệu năng vừa có nguy cơ nhân bản dòng kết quả.
                 Join<Property, Location> location = property.join("location", JoinType.INNER);
+                Join<Location, Ward> ward = location.join("ward", JoinType.INNER);
+
                 if (StringUtils.hasText(req.getWardCode())) {
-                    predicates.add(cb.equal(location.get("ward").get("ward_code"), req.getWardCode()));
+                    predicates.add(cb.equal(ward.get("ward_code"), req.getWardCode()));
                 }
                 if (StringUtils.hasText(req.getProvinceCode())) {
-                    Join<Location, Ward> ward = location.join("ward", JoinType.INNER);
                     predicates.add(cb.equal(ward.get("province").get("province_code"), req.getProvinceCode()));
                 }
             }

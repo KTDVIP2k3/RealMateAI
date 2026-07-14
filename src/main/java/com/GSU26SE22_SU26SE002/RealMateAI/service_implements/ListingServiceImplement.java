@@ -17,6 +17,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
+import com.GSU26SE22_SU26SE002.RealMateAI.utils.TwoStepPaginationUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentConfig;
@@ -29,6 +30,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -363,8 +365,21 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> getMarketListings(int page, int size) {
         try {
-            Pageable pageable = PageRequest.of(Math.max(page, 0), PAGE_SIZE);
-            Page<Listing> listingPage = listingRepository.findAllActiveWithDetails(pageable);
+            int effectiveSize = size > 0 ? Math.min(size, MAX_SEARCH_PAGE_SIZE) : PAGE_SIZE;
+            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize,
+                    Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            // Pattern 2-query (xem TwoStepPaginationUtil): query 1 lấy ID đã phân trang
+            // CHUẨN ở tầng DB (findByIsActiveTrue không JOIN FETCH collection nào), query 2
+            // fetch chi tiết (property/propertyType/location/propertyImages) theo đúng ID đó.
+            // Thay cho findAllActiveWithDetails cũ (JOIN FETCH propertyImages + Pageable
+            // cùng lúc → Hibernate phải phân trang trong memory, chậm dần khi data lớn).
+            Page<Listing> listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
+                    pageable,
+                    p -> listingRepository.findByIsActiveTrue(p).map(Listing::getListingId),
+                    listingRepository::findAllByListingIdInWithDetails,
+                    Listing::getListingId
+            );
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
@@ -980,7 +995,18 @@ public class ListingServiceImplement implements ListingServiceInterface {
             };
 
             Pageable pageable = PageRequest.of(page, size, sort);
-            Page<Listing> listingPage = listingRepository.findAll(ListingSpecification.fromRequest(request), pageable);
+
+            // Pattern 2-query giống getMarketListings (xem TwoStepPaginationUtil): query 1
+            // dùng findAll(Specification, Pageable) MẶC ĐỊNH của JpaSpecificationExecutor
+            // (không JOIN FETCH collection) để phân trang + sort CHUẨN ở tầng DB, query 2
+            // fetch chi tiết theo đúng danh sách listingId đã phân trang đó.
+            Specification<Listing> spec = ListingSpecification.fromRequest(request);
+            Page<Listing> listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
+                    pageable,
+                    p -> listingRepository.findAll(spec, p).map(Listing::getListingId),
+                    listingRepository::findAllByListingIdInWithDetails,
+                    Listing::getListingId
+            );
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
