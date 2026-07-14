@@ -4,6 +4,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @NoArgsConstructor @AllArgsConstructor @Getter
@@ -28,7 +29,9 @@ public class MembershipSubscription {
 //    private LocalDateTime endDate;
 //    private String status;
     private MembershipSubscriptionEnum membershipSubscriptionEnum_status;
+    private BigDecimal price_pay;
     private Integer quantity_using;
+    private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
