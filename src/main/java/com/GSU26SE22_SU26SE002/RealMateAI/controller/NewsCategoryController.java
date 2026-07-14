@@ -21,9 +21,9 @@ public class NewsCategoryController {
         return newsCategoryServiceInterface.getAllCategories();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{categoryId}")
     @Operation(summary = " Lấy thông tin chi tiết của một danh mục theo ID")
-    public ResponseEntity<ApiResponse> getCategoryById(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse> getCategoryById(@PathVariable("categoryId") Integer id) { // Giữ nguyên parameter id truyền vào service
         return newsCategoryServiceInterface.getCategoryById(id);
     }
 
@@ -33,15 +33,15 @@ public class NewsCategoryController {
         return newsCategoryServiceInterface.createCategory(request);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{categoryId}")
     @Operation(summary = "[Test Only]. Không đụng vào, chỉ test lấy data nạp vào db. Cập nhật tên danh mục tin tức theo ID")
-    public ResponseEntity<ApiResponse> updateCategory(@PathVariable Integer id, @RequestBody NewsCategoryRequest request) {
+    public ResponseEntity<ApiResponse> updateCategory(@PathVariable("categoryId") Integer id, @RequestBody NewsCategoryRequest request) {
         return newsCategoryServiceInterface.updateCategory(id, request);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{categoryId}")
     @Operation(summary = "[Test Only]. Không đụng vào, chỉ test lấy data nạp vào db. Xóa một danh mục tin tức theo ID")
-    public ResponseEntity<ApiResponse> deleteCategory(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse> deleteCategory(@PathVariable("categoryId") Integer id) {
         return newsCategoryServiceInterface.deleteCategory(id);
     }
 }

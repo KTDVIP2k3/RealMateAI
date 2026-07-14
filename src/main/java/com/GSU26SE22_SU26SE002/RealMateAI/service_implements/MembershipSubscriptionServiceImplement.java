@@ -16,8 +16,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class MembershipSubscriptionServiceImplement implements MembershipSubscriptionServiceInterface {
@@ -40,7 +40,7 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
     private MembershipPlanRepository membershipPlanRepository;
 
     @Override
-    public ResponseEntity<ApiResponse> getMembershipSubscriptions() {
+    public ResponseEntity<ApiResponse> getMembershipSubscriptions(int page, int size) {
         try{
             Account account = authenUntil.getCurrentUSer();
             if(account == null){
@@ -72,9 +72,54 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
                                     , membershipSubscriptions.getQuantity_using()
                                     , membershipSubscriptions.getIsActive()))
                     .toList();
-            return  ResponseEntity.status(HttpStatus.OK).body
-                    (ApiResponse.success(membershipSubscriptionDTOList, "MembershipSubscription list"));
-        } catch (Exception e) {
+            List<MembershipSubscriptionDTO> sortedList = membershipSubscriptionDTOList.stream()
+                    .sorted(Comparator.comparing(
+                            MembershipSubscriptionDTO::getMembershipSubscriptionId,
+                            Comparator.nullsLast(Comparator.reverseOrder())
+                    ))
+                    .toList();
+
+            boolean isGetAll = (page == 0 && size == 0);
+
+            List<MembershipSubscriptionDTO> pagedContent;
+            int effectivePage = 0;
+            int effectiveSize = sortedList.size();
+            int totalElements = sortedList.size();
+            int totalPages = 1;
+            boolean isLast = true;
+
+            if (isGetAll) {
+                pagedContent = sortedList;
+            } else {
+                effectiveSize = size > 0 ? size : 20;
+                effectivePage = Math.max(page, 0);
+
+                org.springframework.data.domain.Pageable pageable =
+                        org.springframework.data.domain.PageRequest.of(effectivePage, effectiveSize);
+
+                pagedContent = sortedList.stream()
+                        .skip(pageable.getOffset())
+                        .limit(pageable.getPageSize())
+                        .collect(Collectors.toList());
+
+                org.springframework.data.domain.Page<MembershipSubscriptionDTO> subscriptionPage =
+                        new org.springframework.data.domain.PageImpl<>(pagedContent, pageable, totalElements);
+
+                effectivePage = subscriptionPage.getNumber();
+                effectiveSize = subscriptionPage.getSize();
+                totalPages = subscriptionPage.getTotalPages();
+                isLast = subscriptionPage.isLast();
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", pagedContent);
+            result.put("page", effectivePage);
+            result.put("size", effectiveSize);
+            result.put("totalElements", totalElements);
+            result.put("totalPages", totalPages);
+            result.put("last", isLast);
+
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "MembershipSubscription list"));    } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
         }
     }

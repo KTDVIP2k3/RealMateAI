@@ -20,21 +20,23 @@ public class MembershipSubscriptionController {
     @GetMapping
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Lấy danh sách các gói thành viên đã đăng ký của cá nhân")
-    public ResponseEntity<ApiResponse> getMembershipSubscriptions() {
-        return membershipSubscriptionServiceInterface.getMembershipSubscriptions();
+    public ResponseEntity<ApiResponse> getMembershipSubscriptions(@RequestParam(name = "page", required = false, defaultValue = "0") int page,
+                                                                  @RequestParam(name = "size", required = false, defaultValue = "10") int size)
+    {
+        return membershipSubscriptionServiceInterface.getMembershipSubscriptions(page, size);
     }
 
-    @PostMapping("/pay")
+    @PostMapping
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Thanh toán mua mới một gói thành viên bằng số dư ví")
     public ResponseEntity<ApiResponse> payMemberShipSubscriptions(@RequestParam Integer membershipPlanId) {
         return membershipSubscriptionServiceInterface.payMemberShipSubscriptions(membershipPlanId);
     }
 
-    @PutMapping("/{id}/renew")
+    @PostMapping("/{subscriptionId}/renew")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Gia hạn gói thành viên hiện tại bằng số dư ví")
-    public ResponseEntity<ApiResponse> renewMemberShipSubscriptions(@PathVariable("id") Integer membershipSubscriptionId) {
-        return membershipSubscriptionServiceInterface.renewMemberShipSubscriptions(membershipSubscriptionId);
+    public ResponseEntity<ApiResponse> renewMemberShipSubscriptions(@PathVariable("subscriptionId") Integer subscriptionId) {
+        return membershipSubscriptionServiceInterface.renewMemberShipSubscriptions(subscriptionId);
     }
 }

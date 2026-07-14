@@ -10,14 +10,16 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PostingPackageOrderServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class PostingPackageOrderServiceImplement implements PostingPackageOrderServiceInterface {
@@ -47,7 +49,7 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
     private TransactionRepository transactionRepository;
 
     @Override
-    public ResponseEntity<ApiResponse> getPostingPackageOrders() {
+    public ResponseEntity<ApiResponse> getPostingPackageOrders(int page, int size) {
         try {
             Account account = authenUntil.getCurrentUSer();
             if (account == null) {
@@ -84,11 +86,54 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 }
             }
 
-            if (postingPackageOrderDTOList.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "List is empty"));
-            }
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackageOrderDTOList, "Posting package order list"));
+            List<PostingPackageOrderDTO> sortedList = postingPackageOrderDTOList.stream()
+                    .sorted(Comparator.comparing(
+                            PostingPackageOrderDTO :: getStartDate,
+                            Comparator.nullsLast(Comparator.reverseOrder())
+                    ))
+                    .toList();
 
+            boolean isGetAll = (page == 0 && size == 0);
+
+            List<PostingPackageOrderDTO> pagedContent;
+            int effectivePage = 0;
+            int effectiveSize = sortedList.size();
+            int totalElements = sortedList.size();
+            int totalPages = 1;
+            boolean isLast = true;
+
+            if (isGetAll) {
+                pagedContent = sortedList;
+            } else {
+                effectiveSize = size > 0 ? size : 20;
+                effectivePage = Math.max(page, 0);
+
+                Pageable pageable =
+                        PageRequest.of(effectivePage, effectiveSize);
+
+                pagedContent = sortedList.stream()
+                        .skip(pageable.getOffset())
+                        .limit(pageable.getPageSize())
+                        .collect(Collectors.toList());
+
+                org.springframework.data.domain.Page<PostingPackageOrderDTO> orderPage =
+                        new org.springframework.data.domain.PageImpl<>(pagedContent, pageable, totalElements);
+
+                effectivePage = orderPage.getNumber();
+                effectiveSize = orderPage.getSize();
+                totalPages = orderPage.getTotalPages();
+                isLast = orderPage.isLast();
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", pagedContent);
+            result.put("page", effectivePage);
+            result.put("size", effectiveSize);
+            result.put("totalElements", totalElements);
+            result.put("totalPages", totalPages);
+            result.put("last", isLast);
+
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "Posting package order list"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
         }

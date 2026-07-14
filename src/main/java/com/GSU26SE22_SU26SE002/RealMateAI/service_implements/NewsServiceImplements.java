@@ -22,12 +22,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -43,50 +42,72 @@ public class NewsServiceImplements implements NewsServiceInterface {
     @Autowired
     private ModelMapper modelMapper;
 
-    @Override
-    public ResponseEntity<ApiResponse> getAllNewsPaged(PageRequest pageRequest) {
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse> getAllNewsPaged(int page, int size) {
         try {
-            Pageable pageable = org.springframework.data.domain.PageRequest.of(
-                    pageRequest.getPage(),
-                    pageRequest.getSize(),
-                    Sort.by("createdAt").descending()
-            );
-
-            Page<News> newsPage = newsRepository.findAll(pageable);
-
-            List<NewsDTO> dtoList = newsPage.getContent().stream().map(news -> {
-                NewsDTO dto = modelMapper.map(news, NewsDTO.class);
-                if (news.getNewsCategory() != null) {
-                    dto.setNewsCategoryId(news.getNewsCategory().getNewsCategoryId());
-                    dto.setNewsCategoryName(news.getNewsCategory().getName());
-                }
-                return dto;
-            }).collect(Collectors.toList());
-
-            int currentPage = newsPage.getNumber();
-            int totalPages = newsPage.getTotalPages();
-            int currentChunk = currentPage / 10;
-            int startPage = currentChunk * 10;
-            int endPage = Math.min(startPage + 9, totalPages - 1);
-
-            List<Integer> pageNumbers = new ArrayList<>();
-            for (int i = startPage; i <= endPage; i++) {
-                pageNumbers.add(i);
+            List<News> allNews = newsRepository.findAll();
+            if (allNews == null) {
+                allNews = java.util.Collections.emptyList();
             }
 
-            PagedResponseDTO<NewsDTO> pagedResponse = PagedResponseDTO.<NewsDTO>builder()
-                    .content(dtoList)
-                    .pageNo(currentPage)
-                    .pageSize(newsPage.getSize())
-                    .totalElements(newsPage.getTotalElements())
-                    .totalPages(totalPages)
-                    .isLast(newsPage.isLast())
-                    .pageNumbers(pageNumbers)
-                    .hasPreviousChunk(startPage > 0)
-                    .hasNextChunk(endPage < totalPages - 1)
-                    .build();
+            List<News> sortedList = allNews.stream()
+                    .sorted(java.util.Comparator.comparing(
+                            News::getCreatedAt,
+                            java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())
+                    ))
+                    .toList();
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(pagedResponse, "Get news successfully"));
+            boolean isGetAll = (page == 0 && size == 0);
+
+            List<NewsDTO> pagedContent;
+            int effectivePage = 0;
+            int effectiveSize = sortedList.size();
+            int totalElements = sortedList.size();
+            int totalPages = 1;
+            boolean isLast = true;
+
+            if (isGetAll) {
+                pagedContent = sortedList.stream().map(news -> {
+                    NewsDTO dto = modelMapper.map(news, NewsDTO.class);
+                    if (news.getNewsCategory() != null) {
+                        dto.setNewsCategoryId(news.getNewsCategory().getNewsCategoryId());
+                        dto.setNewsCategoryName(news.getNewsCategory().getName());
+                    }
+                    return dto;
+                }).collect(Collectors.toList());
+            } else {
+                effectiveSize = size > 0 ? size : 20;
+                effectivePage = Math.max(page, 0);
+
+                int offset = effectivePage * effectiveSize;
+                totalPages = (int) Math.ceil((double) totalElements / effectiveSize);
+                isLast = effectivePage >= totalPages - 1;
+
+                List<News> slicedNews = sortedList.stream()
+                        .skip(offset)
+                        .limit(effectiveSize)
+                        .toList();
+
+                pagedContent = slicedNews.stream().map(news -> {
+                    NewsDTO dto = modelMapper.map(news, NewsDTO.class);
+                    if (news.getNewsCategory() != null) {
+                        dto.setNewsCategoryId(news.getNewsCategory().getNewsCategoryId());
+                        dto.setNewsCategoryName(news.getNewsCategory().getName());
+                    }
+                    return dto;
+                }).collect(Collectors.toList());
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", pagedContent);
+            result.put("page", effectivePage);
+            result.put("size", effectiveSize);
+            result.put("totalElements", totalElements);
+            result.put("totalPages", totalPages);
+            result.put("last", isLast);
+
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "Get news successfully"));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
         }

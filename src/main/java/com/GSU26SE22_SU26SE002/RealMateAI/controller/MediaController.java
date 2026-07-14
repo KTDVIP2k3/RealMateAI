@@ -17,19 +17,19 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+
 @RestController
-@RequestMapping("/api/v1/media")
+@RequestMapping("/media")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Media", description = "Upload & quản lý ảnh, file qua Cloudinary")
 public class MediaController {
 
-
     private final CloudinaryMediaServiceInterface mediaService;
     private final AuthenUntil securityUtils;
 
     // ─────────────────────────────────────────────────────────────
-    // POST /api/v1/media/upload
+    // POST /media/upload
     // Upload 1 file (ảnh hoặc tài liệu)
     // ─────────────────────────────────────────────────────────────
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -38,7 +38,7 @@ public class MediaController {
     public ResponseEntity<MediaAssetResponse> uploadSingle(
             @RequestPart("file") MultipartFile file,
             @RequestParam(required = false) EntityType entityType,
-            @RequestParam(required = false)       Long          entityId) {
+            @RequestParam(required = false) Long entityId) {
 
         Account uploader = securityUtils.getCurrentUSer();
         MediaAssetResponse response = mediaService.uploadFile(file, uploader, entityType, entityId);
@@ -46,16 +46,16 @@ public class MediaController {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // POST /api/v1/media/upload/multiple
+    // POST /media/upload/multiple
     // Upload nhiều file cùng lúc (max 20)
     // ─────────────────────────────────────────────────────────────
     @PostMapping(value = "/upload/multiple", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Upload nhiều file cùng lúc (tối đa 20)")
     public ResponseEntity<List<MediaAssetResponse>> uploadMultiple(
-            @RequestPart("files")                 List<MultipartFile> files,
+            @RequestPart("files") List<MultipartFile> files,
             @RequestParam(required = false) EntityType entityType,
-            @RequestParam(required = false)       Long                entityId) {
+            @RequestParam(required = false) Long entityId) {
 
         Account uploader = securityUtils.getCurrentUSer();
         List<MediaAssetResponse> responses = mediaService.uploadMultiple(files, uploader, entityType, entityId);
@@ -63,14 +63,14 @@ public class MediaController {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // DELETE /api/v1/media/{publicId}
+    // DELETE /media/{publicId}
     // Xóa file khỏi Cloudinary + soft-delete DB
     // ─────────────────────────────────────────────────────────────
     @DeleteMapping("/{publicId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Xóa file theo publicId")
     public ResponseEntity<Void> deleteFile(
-            @PathVariable @NotBlank String publicId) {
+            @PathVariable("publicId") @NotBlank String publicId) {
 
         // URL decode publicId vì có thể chứa '/'
         String decoded = java.net.URLDecoder.decode(publicId, java.nio.charset.StandardCharsets.UTF_8);
@@ -79,20 +79,20 @@ public class MediaController {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // GET /api/v1/media?entityType=LISTING&entityId=5
+    // GET /media?entityType=LISTING&entityId=5
     // Lấy danh sách file theo entity
     // ─────────────────────────────────────────────────────────────
     @GetMapping
     @Operation(summary = "Lấy danh sách media theo entity")
     public ResponseEntity<List<MediaAssetResponse>> getByEntity(
             @RequestParam EntityType entityType,
-            @RequestParam Long       entityId) {
+            @RequestParam Long entityId) {
 
         return ResponseEntity.ok(mediaService.getAssetsByEntity(entityType, entityId));
     }
 
     // ─────────────────────────────────────────────────────────────
-    // GET /api/v1/media/thumbnail?publicId=xxx&w=400&h=300
+    // GET /media/thumbnail?publicId=xxx&w=400&h=300
     // Tạo URL thumbnail động (không cần auth)
     // ─────────────────────────────────────────────────────────────
     @GetMapping("/thumbnail")
@@ -105,5 +105,4 @@ public class MediaController {
         String url = mediaService.generateThumbnailUrl(publicId, width, height);
         return ResponseEntity.ok(url);
     }
-
 }

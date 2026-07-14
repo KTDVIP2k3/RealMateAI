@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/strategy")
+@RequestMapping("/strategies")
 public class StrategyController {
     @Autowired
     private StrategyServiceInterface strategyServiceInterface;
