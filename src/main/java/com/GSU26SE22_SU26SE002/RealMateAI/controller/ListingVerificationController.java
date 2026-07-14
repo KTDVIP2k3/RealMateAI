@@ -12,33 +12,29 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/staff/listings")
 @RequiredArgsConstructor
-@Tag(name = "Listing Verification", description = "Duyệt tin đăng - chỉ giữ trạng thái hiện tại")
+@Tag(name = "Listing Verification")
 public class ListingVerificationController {
 
     private final ListingVerificationServiceInterface verificationService;
 
-    @GetMapping("/pending")
+    @GetMapping("/staff/listings/pending")
     @PreAuthorize("hasAnyRole('Staff','Admin')")
-    @Operation(summary = "Hàng đợi chờ duyệt")
     public ResponseEntity<ApiResponse> getPendingQueue() {
         return verificationService.getPendingQueue();
     }
 
-    @PostMapping("/{id}/verify")
+    @PostMapping("/staff/listings/{listingId}/verification")
     @PreAuthorize("hasAnyRole('Staff','Admin')")
-    @Operation(summary = "Duyệt bài đăng (APPROVED / REJECTED)")
     public ResponseEntity<ApiResponse> verifyListing(
-            @PathVariable("id") Integer listingId,
+            @PathVariable("listingId") Integer listingId,
             @Valid @RequestBody VerifyListingRequest request) {
         return verificationService.verifyListing(listingId, request);
     }
 
-    @GetMapping("/{id}/verifications")
+    @GetMapping("/staff/listings/{listingId}/verification")
     @PreAuthorize("hasAnyRole('Staff','Admin','Seller')")
-    @Operation(summary = "Lấy TRẠNG THÁI DUYỆT HIỆN TẠI của bài đăng")
-    public ResponseEntity<ApiResponse> getVerificationStatus(@PathVariable("id") Integer listingId) {
+    public ResponseEntity<ApiResponse> getVerificationStatus(@PathVariable("listingId") Integer listingId) {
         return verificationService.getVerificationStatus(listingId);
     }
 }

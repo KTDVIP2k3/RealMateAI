@@ -41,39 +41,39 @@ public class JwtFilterConfig extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String requestURI = request.getRequestURI();
+        String method = request.getMethod();
+
         if (requestURI.startsWith("/swagger-ui")
                 || requestURI.startsWith("/v3/api-docs")
+                || requestURI.startsWith("/webjars/")
                 || requestURI.equals("/auth/login")
+                || requestURI.equals("/auth/verify-login")
+                || requestURI.equals("/auth/activate-account")
                 || requestURI.equals("/auth/register")
                 || requestURI.equals("/auth/verify-otp")
-                || requestURI.equals("/auth/verify-login")
                 || requestURI.equals("/auth/send-otp")
-                || requestURI.equals("/auth/activate-account")
                 || requestURI.equals("/auth/forgot-password")
                 || requestURI.equals("/auth/new-password")
-                || requestURI.equals("/province")
-                || requestURI.equals("/ward")
-                || requestURI.equals("/property-type")
-                || requestURI.equals("/property-condition")
-                || requestURI.equals("/strategy")
-                || requestURI.startsWith("/ward-boundary")
+                || requestURI.equals("/provinces")
+                || requestURI.equals("/wards")
+                || requestURI.equals("/property-types")
+                || requestURI.equals("/property-conditions")
+                || requestURI.equals("/strategies")
                 || requestURI.equals("/api/chat")
+                || requestURI.equals("/error")
                 || requestURI.equals("/posting-packages/active")
-                || (requestURI.startsWith("/listings/") && "GET".equalsIgnoreCase(request.getMethod()))
-                || (requestURI.startsWith("/listings") && "GET".equalsIgnoreCase(request.getMethod()))
-                || (requestURI.startsWith("/posting-packages/") && requestURI.endsWith("/detail") && "GET".equalsIgnoreCase(request.getMethod()))
                 || requestURI.equals("/membership-plans/active")
                 || requestURI.equals("/wallets/deposit/success")
                 || requestURI.equals("/wallets/deposit/cancel")
                 || requestURI.equals("/wallets/deposit/webhook")
-                || (requestURI.startsWith("/membership-plans/") && requestURI.endsWith("/detail") && "GET".equalsIgnoreCase(request.getMethod()))
+                || (requestURI.startsWith("/listings") && "GET".equalsIgnoreCase(method))
+                || (requestURI.startsWith("/posting-packages/") && "GET".equalsIgnoreCase(method))
+                || (requestURI.startsWith("/membership-plans/") && "GET".equalsIgnoreCase(method) && !requestURI.contains("/admin/"))
+                || (requestURI.startsWith("/media/thumbnail") && "GET".equalsIgnoreCase(method))
                 || requestURI.startsWith("/locations")
-                || requestURI.equals("/wallets/deposit/success")
-                || requestURI.equals("/wallets/deposit/cancel")
-                || requestURI.equals("/wallets/deposit/webhook")
                 || requestURI.startsWith("/news-categories")
                 || requestURI.startsWith("/news")
-                || requestURI.startsWith("/webjars/")) {
+                || requestURI.startsWith("/ward-boundary")) {
             filterChain.doFilter(request, response);
             return;
         }

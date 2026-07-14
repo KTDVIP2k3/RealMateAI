@@ -36,48 +36,59 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder(){
         return  new BCryptPasswordEncoder(12);
     }
-//
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
+    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.csrf(customizer -> customizer.disable())
                 .cors(cors -> cors.configure(httpSecurity))
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/v3/api-docs/**",
-                        "/swagger-ui/**",
-                        "/swagger-ui.html").permitAll()
-                        .requestMatchers("/auth/login").permitAll()
-                        .requestMatchers("/auth/register", "/auth/forgot-password", "/auth/new-password").permitAll()
-                        .requestMatchers("/province").permitAll()
-                        .requestMatchers("/ward").permitAll()
-                        .requestMatchers("/property-type").permitAll()
-                        .requestMatchers("/property-condition").permitAll()
-                        .requestMatchers("/strategy").permitAll()
-                        .requestMatchers("/api/chat").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/listings/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/listings/**").permitAll()
-                        .requestMatchers("/auth/login", "/auth/verify-login","/auth/activate-account").permitAll()
-                        .requestMatchers("/auth/register", "/auth/verify-otp", "/auth/send-otp").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers("/posting-packages/active").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/posting-packages/*/detail").permitAll()
-                        .requestMatchers("/membership-plans/active").permitAll()
-                        .requestMatchers("/wallets/deposit/success", "/wallets/deposit/cancel", "/wallets/deposit/webhook").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/membership-plans/*/detail").permitAll()
-                        .requestMatchers("/locations/**").permitAll()
-                        .requestMatchers("/news/**").permitAll()
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/webjars/**"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/verify-login",
+                                "/auth/activate-account",
+                                "/auth/register",
+                                "/auth/verify-otp",
+                                "/auth/send-otp",
+                                "/auth/forgot-password",
+                                "/auth/new-password"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/provinces",
+                                "/wards",
+                                "/property-types",
+                                "/property-conditions",
+                                "/strategies",
+                                "/api/chat",
+                                "/error",
+                                "/posting-packages/active",
+                                "/membership-plans/active"
+                        ).permitAll()
                         .requestMatchers(
                                 "/wallets/deposit/success",
                                 "/wallets/deposit/cancel",
                                 "/wallets/deposit/webhook"
                         ).permitAll()
-                        .requestMatchers("/news-categories/**").permitAll()
-                        .requestMatchers("/ward-boundary/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/listings/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/posting-packages/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/membership-plans/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/media/thumbnail").permitAll()
+                        .requestMatchers(
+                                "/locations/**",
+                                "/news/**",
+                                "/news-categories/**",
+                                "/ward-boundary/**"
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .formLogin(customizer -> customizer.disable())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
-        return  httpSecurity.build();
-
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        return httpSecurity.build();
     }
-
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception{
         return authenticationConfiguration.getAuthenticationManager();

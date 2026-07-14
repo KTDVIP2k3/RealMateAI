@@ -57,7 +57,6 @@ public class WalletController {
         response.sendRedirect(redirectUrl);
     }
 
-
     @PostMapping("/deposit/webhook")
     @Operation(summary = "[KHÔNG CẦN CALL] Hệ thống PayOS tự động gọi ngầm để đồng bộ dữ liệu giao dịch")
     public ResponseEntity<ApiResponse> webhook(@RequestBody PayOSWebhookRequest request) {
@@ -79,9 +78,9 @@ public class WalletController {
         }
     }
 
-    @PostMapping("/withdraw")
+    @PostMapping("/wallet-withdrawals")
     @PreAuthorize("hasAnyRole('Investor', 'Seller')")
-    @Operation(summary = "[FE CALL] Người investor hoặc seller yêu cầu rút tiền - Frontend gọi khi người investor hoặc seller muốn rút tiền về ngân hàng")
+    @Operation(summary = "[FE CALL] Người investor hoặc seller yêu cầu rút tiền")
     public ResponseEntity<ApiResponse> withdraw(
             @RequestParam("amount") BigDecimal amount,
             @RequestParam("bankName") String bankName,
@@ -89,17 +88,17 @@ public class WalletController {
         return walletService.requestWithdrawal(amount, bankName, bankAccountNumber);
     }
 
-    @PostMapping("/withdraw/review")
+    @PostMapping("/wallet-withdrawals/{withdrawalId}/review")
     @PreAuthorize("hasAnyRole('Staff', 'Admin')")
-    @Operation(summary = "[FE CALL] Staff, Admin duyệt đơn rút tiền - Frontend quản trị gọi khi phê duyệt hoặc từ chối")
+    @Operation(summary = "[FE CALL] Staff, Admin duyệt đơn rút tiền")
     public ResponseEntity<ApiResponse> reviewWithdraw(
-            @RequestParam("withdrawalId") Integer withdrawalId,
+            @PathVariable("withdrawalId") Integer withdrawalId,
             @RequestParam("status") String status,
             @RequestParam(value = "note", required = false) String note) {
         return walletService.reviewWithdrawRequest(withdrawalId, status, note);
     }
 
-    @GetMapping("/my")
+    @GetMapping("/me")
     @PreAuthorize("hasAnyRole('Investor', 'Seller')")
     @Operation(summary = "[FE CALL] Lấy thông tin số dư Ví hiện tại của tôi")
     public ResponseEntity<ApiResponse> getMyWallet() {

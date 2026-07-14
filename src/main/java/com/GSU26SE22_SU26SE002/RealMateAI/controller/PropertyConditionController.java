@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyCondition;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PropertyConditionServiceInterface;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/property-condition")
+@RequestMapping("/property-conditions")
 public class PropertyConditionController {
     @Autowired
     private PropertyConditionServiceInterface propertyConditionServiceInterface;

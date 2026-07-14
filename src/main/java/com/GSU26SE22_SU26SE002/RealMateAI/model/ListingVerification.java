@@ -15,12 +15,6 @@ import java.time.LocalDateTime;
 public class ListingVerification {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "listing_verification_seq")
-    @SequenceGenerator(
-            name = "listing_verification_seq",
-            sequenceName = "listing_verification_listing_verification_id_seq",
-            allocationSize = 1
-    )
     @Column(name = "listing_verification_id")
     private Integer listingVerificationId;
 

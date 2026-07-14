@@ -1,24 +1,36 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingSortEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingActionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithNewPropertyRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.GenerateListingContentRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.ListingSearchRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.PriceSuggestionRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingStatusRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
+import com.GSU26SE22_SU26SE002.RealMateAI.utils.TwoStepPaginationUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.genai.Client;
+import com.google.genai.types.GenerateContentConfig;
+import com.google.genai.types.GenerateContentResponse;
+import com.google.genai.types.Schema;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -27,7 +39,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,8 +59,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final ListingMapper listingMapper;
     private final AuthenUntil authenUntil;
     private final CloudinaryMediaServiceInterface cloudinaryMediaService;
+    private final Client geminiClient;
+    private final ObjectMapper objectMapper;
 
     private static final int PAGE_SIZE = 10;
+    private static final int GEMINI_MAX_RETRY = 5;
+    private static final long GEMINI_RETRY_DELAY_MS = 8000;
+    private static final int MAX_SEARCH_PAGE_SIZE = 50;
 
     private static class ListingConflictException extends RuntimeException {
         final HttpStatus status;
@@ -349,8 +365,21 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> getMarketListings(int page, int size) {
         try {
-            Pageable pageable = PageRequest.of(Math.max(page, 0), PAGE_SIZE);
-            Page<Listing> listingPage = listingRepository.findAllActiveWithDetails(pageable);
+            int effectiveSize = size > 0 ? Math.min(size, MAX_SEARCH_PAGE_SIZE) : PAGE_SIZE;
+            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize,
+                    Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            // Pattern 2-query (xem TwoStepPaginationUtil): query 1 lấy ID đã phân trang
+            // CHUẨN ở tầng DB (findByIsActiveTrue không JOIN FETCH collection nào), query 2
+            // fetch chi tiết (property/propertyType/location/propertyImages) theo đúng ID đó.
+            // Thay cho findAllActiveWithDetails cũ (JOIN FETCH propertyImages + Pageable
+            // cùng lúc → Hibernate phải phân trang trong memory, chậm dần khi data lớn).
+            Page<Listing> listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
+                    pageable,
+                    p -> listingRepository.findByIsActiveTrue(p).map(Listing::getListingId),
+                    listingRepository::findAllByListingIdInWithDetails,
+                    Listing::getListingId
+            );
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
@@ -733,4 +762,319 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // POST /listings/generate-content — Seller: AI sinh tiêu đề + mô tả bài đăng
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> generateListingContent(GenerateListingContentRequest request) {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            getCurrentSeller(currentUser);
+
+            PropertyType propertyType = propertyTypeRepository.findById(request.getPropertyTypeId()).orElse(null);
+            if (propertyType == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Loại bất động sản không hợp lệ"));
+            }
+
+            String wardName = null;
+            if (request.getWardCode() != null && !request.getWardCode().isBlank()) {
+                Ward ward = wardRepository.findById(request.getWardCode()).orElse(null);
+                wardName = ward != null ? ward.getFullName() : null;
+            }
+
+            String tone = (request.getTone() == null || request.getTone().isBlank()) ? "professional" : request.getTone();
+            String highlights = (request.getHighlights() == null || request.getHighlights().isEmpty())
+                    ? "Không có" : String.join(", ", request.getHighlights());
+
+            String prompt = String.format(
+                    "Bạn là chuyên gia viết bài đăng bất động sản tại Việt Nam. Dựa trên thông số sau, " +
+                            "hãy viết 1 tiêu đề (dưới 100 ký tự) và 1 đoạn mô tả (150-300 từ) cho bài đăng rao bán/cho thuê, " +
+                            "văn phong \"%s\", thu hút người mua nhưng KHÔNG bịa thêm thông tin không có trong dữ liệu:\n" +
+                            "- Loại bất động sản: %s\n" +
+                            "- Vị trí (phường/xã): %s\n" +
+                            "- Địa chỉ cụ thể: %s\n" +
+                            "- Dự án: %s\n" +
+                            "- Diện tích: %s m2\n" +
+                            "- Số phòng ngủ: %s\n" +
+                            "- Số phòng tắm: %s\n" +
+                            "- Tầng: %s\n" +
+                            "- Hướng: %s\n" +
+                            "- Tình trạng pháp lý: %s\n" +
+                            "- Giá: %s VND\n" +
+                            "- Điểm nhấn cần nhấn mạnh: %s\n" +
+                            "YÊU CẦU BẮT BUỘC: Toàn bộ nội dung phải viết hoàn toàn bằng TIẾNG VIỆT.",
+                    tone,
+                    propertyType.getName(),
+                    wardName != null ? wardName : "Không rõ",
+                    request.getAddressParticular() != null ? request.getAddressParticular() : "Không rõ",
+                    request.getProjectName() != null ? request.getProjectName() : "Không có",
+                    request.getArea(),
+                    request.getBedroom() != null ? request.getBedroom() : "Không rõ",
+                    request.getBathroom() != null ? request.getBathroom() : "Không rõ",
+                    request.getFloor() != null ? request.getFloor() : "Không rõ",
+                    request.getDirection() != null ? request.getDirection() : "Không rõ",
+                    request.getLegalStatus() != null ? request.getLegalStatus() : "Không rõ",
+                    request.getPrice() != null ? request.getPrice() : "Không rõ",
+                    highlights
+            );
+
+            GenerateContentConfig config = GenerateContentConfig.builder()
+                    .responseMimeType("application/json")
+                    .responseSchema(Schema.builder()
+                            .type("OBJECT")
+                            .properties(Map.of(
+                                    "title", Schema.builder().type("STRING").build(),
+                                    "description", Schema.builder().type("STRING").build()
+                            ))
+                            .required(List.of("title", "description"))
+                            .build())
+                    .build();
+
+            GenerateContentResponse response = callGeminiWithRetry(prompt, config);
+
+            Map<String, Object> parsed = objectMapper.readValue(
+                    response.text().trim(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+
+            GenerateListingContentResponse result = GenerateListingContentResponse.builder()
+                    .title(String.valueOf(parsed.get("title")))
+                    .description(String.valueOf(parsed.get("description")))
+                    .build();
+
+            log.info("[ListingService] generateListingContent: propertyTypeId={}, sellerAccountId={}",
+                    request.getPropertyTypeId(), currentUser.getAccountId());
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Sinh nội dung bài đăng thành công"));
+
+        } catch (RuntimeException e) {
+            return handleAuthException(e);
+        } catch (Exception e) {
+            log.error("[ListingService] generateListingContent lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // POST /listings/price-suggestion — Seller: AI đề xuất khoảng giá bán
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> suggestListingPrice(PriceSuggestionRequest request) {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            getCurrentSeller(currentUser);
+
+            PropertyType propertyType = propertyTypeRepository.findById(request.getPropertyTypeId()).orElse(null);
+            if (propertyType == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Loại bất động sản không hợp lệ"));
+            }
+            Ward ward = wardRepository.findById(request.getWardCode()).orElse(null);
+            if (ward == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mã phường/xã không hợp lệ: " + request.getWardCode()));
+            }
+
+            List<Listing> comparables = listingRepository
+                    .findComparableActiveListings(request.getPropertyTypeId(), request.getWardCode());
+
+            List<Double> pricesPerSqm = new ArrayList<>();
+            for (Listing l : comparables) {
+                Property p = l.getProperty();
+                if (p != null && p.getArea() != null && p.getArea() > 0 && l.getPrice() != null) {
+                    pricesPerSqm.add(l.getPrice() / p.getArea());
+                }
+            }
+
+            boolean hasMarketData = !pricesPerSqm.isEmpty();
+            Double avgPricePerSqm = hasMarketData
+                    ? pricesPerSqm.stream().mapToDouble(Double::doubleValue).average().orElse(0)
+                    : null;
+            Double minPricePerSqm = hasMarketData ? Collections.min(pricesPerSqm) : null;
+            Double maxPricePerSqm = hasMarketData ? Collections.max(pricesPerSqm) : null;
+
+            String marketSummary = hasMarketData
+                    ? String.format(
+                    "Dựa trên %d tin đăng tương đồng đang hoạt động (cùng loại BĐS, cùng phường/xã): " +
+                            "đơn giá trung bình %.0f VND/m2, thấp nhất %.0f VND/m2, cao nhất %.0f VND/m2.",
+                    pricesPerSqm.size(), avgPricePerSqm, minPricePerSqm, maxPricePerSqm)
+                    : "Không có tin đăng tương đồng nào trên hệ thống để đối chiếu, hãy ước lượng dựa trên " +
+                    "kiến thức chung về thị trường bất động sản khu vực này.";
+
+            String prompt = String.format(
+                    "Bạn là chuyên gia định giá bất động sản tại Việt Nam. " +
+                            "Hãy đề xuất khoảng giá bán hợp lý (VND) cho tài sản sau:\n" +
+                            "- Loại bất động sản: %s\n" +
+                            "- Phường/xã: %s\n" +
+                            "- Diện tích: %s m2\n" +
+                            "- Số phòng ngủ: %s\n" +
+                            "- Số phòng tắm: %s\n" +
+                            "- Tầng: %s\n" +
+                            "- Hướng: %s\n" +
+                            "- Tình trạng pháp lý: %s\n" +
+                            "- Dự án: %s\n\n" +
+                            "Dữ liệu thị trường tham chiếu: %s\n\n" +
+                            "Trả về suggestedPrice (giá đề xuất, VND), minPrice, maxPrice (khoảng giá hợp lý, VND), " +
+                            "pricePerSqm (đơn giá VND/m2 tương ứng suggestedPrice), và reasoning (giải thích ngắn gọn " +
+                            "bằng TIẾNG VIỆT lý do đề xuất mức giá này, tối đa 4 câu).",
+                    propertyType.getName(),
+                    ward.getFullName(),
+                    request.getArea(),
+                    request.getBedroom() != null ? request.getBedroom() : "Không rõ",
+                    request.getBathroom() != null ? request.getBathroom() : "Không rõ",
+                    request.getFloor() != null ? request.getFloor() : "Không rõ",
+                    request.getDirection() != null ? request.getDirection() : "Không rõ",
+                    request.getLegalStatus() != null ? request.getLegalStatus() : "Không rõ",
+                    request.getProjectName() != null ? request.getProjectName() : "Không có",
+                    marketSummary
+            );
+
+            GenerateContentConfig config = GenerateContentConfig.builder()
+                    .responseMimeType("application/json")
+                    .responseSchema(Schema.builder()
+                            .type("OBJECT")
+                            .properties(Map.of(
+                                    "suggestedPrice", Schema.builder().type("INTEGER").build(),
+                                    "minPrice", Schema.builder().type("INTEGER").build(),
+                                    "maxPrice", Schema.builder().type("INTEGER").build(),
+                                    "pricePerSqm", Schema.builder().type("INTEGER").build(),
+                                    "reasoning", Schema.builder().type("STRING").build()
+                            ))
+                            .required(List.of("suggestedPrice", "minPrice", "maxPrice", "pricePerSqm", "reasoning"))
+                            .build())
+                    .build();
+
+            GenerateContentResponse response = callGeminiWithRetry(prompt, config);
+
+            Map<String, Object> parsed = objectMapper.readValue(
+                    response.text().trim(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+
+            PriceSuggestionResponse result = PriceSuggestionResponse.builder()
+                    .suggestedPrice(((Number) parsed.get("suggestedPrice")).longValue())
+                    .minPrice(((Number) parsed.get("minPrice")).longValue())
+                    .maxPrice(((Number) parsed.get("maxPrice")).longValue())
+                    .pricePerSqm(((Number) parsed.get("pricePerSqm")).longValue())
+                    .comparableCount(pricesPerSqm.size())
+                    .basedOnMarketData(hasMarketData)
+                    .reasoning(String.valueOf(parsed.get("reasoning")))
+                    .build();
+
+            log.info("[ListingService] suggestListingPrice: propertyTypeId={}, wardCode={}, comparableCount={}",
+                    request.getPropertyTypeId(), request.getWardCode(), pricesPerSqm.size());
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Đề xuất giá bán thành công"));
+
+        } catch (RuntimeException e) {
+            return handleAuthException(e);
+        } catch (Exception e) {
+            log.error("[ListingService] suggestListingPrice lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // POST /listings/search — Tìm kiếm nâng cao tin đăng công khai
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> searchListings(ListingSearchRequest request) {
+        try {
+            int page = (request.getPage() == null || request.getPage() < 0) ? 0 : request.getPage();
+            int size = (request.getSize() == null || request.getSize() <= 0) ? PAGE_SIZE : request.getSize();
+            size = Math.min(size, MAX_SEARCH_PAGE_SIZE);
+
+            Sort sort = switch (request.getSortBy() == null ? ListingSortEnum.NEWEST : request.getSortBy()) {
+                case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
+                case PRICE_DESC -> Sort.by(Sort.Direction.DESC, "price");
+                case AREA_ASC -> Sort.by(Sort.Direction.ASC, "property.area");
+                case AREA_DESC -> Sort.by(Sort.Direction.DESC, "property.area");
+                case NEWEST -> Sort.by(Sort.Direction.DESC, "createdAt");
+            };
+
+            Pageable pageable = PageRequest.of(page, size, sort);
+
+            // Pattern 2-query giống getMarketListings (xem TwoStepPaginationUtil): query 1
+            // dùng findAll(Specification, Pageable) MẶC ĐỊNH của JpaSpecificationExecutor
+            // (không JOIN FETCH collection) để phân trang + sort CHUẨN ở tầng DB, query 2
+            // fetch chi tiết theo đúng danh sách listingId đã phân trang đó.
+            Specification<Listing> spec = ListingSpecification.fromRequest(request);
+            Page<Listing> listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
+                    pageable,
+                    p -> listingRepository.findAll(spec, p).map(Listing::getListingId),
+                    listingRepository::findAllByListingIdInWithDetails,
+                    Listing::getListingId
+            );
+
+            Account currentUser = authenUntil.getCurrentUSer();
+            Set<Integer> favoritedIds = Collections.emptySet();
+            if (currentUser != null) {
+                Investor investor = investorRepository
+                        .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+                if (investor != null) {
+                    favoritedIds = new HashSet<>(
+                            favoriteListingRepository.findFavoritedListingIdsByInvestorId(investor.getInvestorId()));
+                }
+            }
+
+            final Set<Integer> favIds = favoritedIds;
+            List<ListingSummaryResponse> content = listingPage.getContent().stream()
+                    .map(l -> listingMapper.toListingSummary(l, favIds.contains(l.getListingId())))
+                    .collect(Collectors.toList());
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", content);
+            result.put("page", listingPage.getNumber());
+            result.put("size", listingPage.getSize());
+            result.put("totalElements", listingPage.getTotalElements());
+            result.put("totalPages", listingPage.getTotalPages());
+            result.put("last", listingPage.isLast());
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Kết quả tìm kiếm tin đăng"));
+
+        } catch (Exception e) {
+            log.error("[ListingService] searchListings lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Helper: Gọi Gemini kèm retry cho lỗi 429 (quá hạn mức)/503 (server bận),
+    // dùng chung cho generateListingContent + suggestListingPrice.
+    // Logic đồng nhất với InvestmentPlanServiceImplement để tránh lệch hành vi
+    // retry giữa các module cùng gọi Gemini trong hệ thống.
+    // ════════════════════════════════════════════════════════════════════════
+    private GenerateContentResponse callGeminiWithRetry(String prompt, GenerateContentConfig config) {
+        int retryCount = 0;
+        GenerateContentResponse response = null;
+
+        while (retryCount < GEMINI_MAX_RETRY) {
+            try {
+                response = geminiClient.models.generateContent("gemini-2.5-flash", prompt, config);
+                break;
+            } catch (Exception e) {
+                String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+                if (errorMsg.contains("429") || errorMsg.contains("503") || errorMsg.contains("Unavailable")
+                        || errorMsg.contains("Quota exceeded") || errorMsg.contains("rate-limits")) {
+                    retryCount++;
+                    try {
+                        Thread.sleep(GEMINI_RETRY_DELAY_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(ie);
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        }
+
+        if (response == null) {
+            throw new RuntimeException("Gemini API đang bận hoặc quá hạn mức (429/503). Vui lòng thử lại sau vài giây.");
+        }
+        return response;
+    }
 }

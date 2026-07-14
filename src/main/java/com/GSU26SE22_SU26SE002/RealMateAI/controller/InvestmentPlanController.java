@@ -2,7 +2,6 @@ package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.InvestmentPlanRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.NameUpdateRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.SaveInvestmentPlanRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateInvestmentPlanRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.InvestmentPlanServiceInterface;
@@ -31,21 +30,21 @@ public class InvestmentPlanController {
     @GetMapping("/{profileId}/versions")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Lấy danh sách các CON (InvestmentProfileVersion) thuộc về CHA (InvestmentProfile) này")
-    public ResponseEntity<ApiResponse> getProfilesByInvest(Integer profileId){
+    public ResponseEntity<ApiResponse> getProfilesByInvest(@PathVariable("profileId") Integer profileId){
         return investmentPlanServiceInterface.getListViewsByProfileId(profileId);
     }
 
     @GetMapping("/versions/{versionId}/inputs")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xem chi tiết thông số cài đặt đầu vào của CON (InvestmentProfileVersion)")
-    public ResponseEntity<ApiResponse> getProfileDetailById(@PathVariable Integer versionId) {
+    public ResponseEntity<ApiResponse> getProfileDetailById(@PathVariable("versionId") Integer versionId) {
         return investmentPlanServiceInterface.getProfileVersionDetailById(versionId);
     }
 
     @GetMapping("/versions/{versionId}/results")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xem chi tiết kết quả dòng tiền và giỏ hàng của CON (InvestmentProfileVersion)")
-    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(@PathVariable Integer versionId) {
+    public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(@PathVariable("versionId") Integer versionId) {
         return investmentPlanServiceInterface.getInvestmentPlanDetailByVersionId(versionId);
     }
 
@@ -56,50 +55,44 @@ public class InvestmentPlanController {
         return investmentPlanServiceInterface.generateCompleteInvestmentPlan(request);
     }
 
-    @PostMapping("/{Id}")
+    @PostMapping("/{profileId}/versions")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Thay đổi con số tính toán -> Giữ nguyên CHA (InvestmentProfile) cũ nhưng đẻ thêm 1 bản CON (InvestmentProfileVersion) mới tinh để lưu lịch sử")
     public ResponseEntity<ApiResponse> updateInvestmentPlan(
-            @PathVariable Integer Id,
+            @PathVariable("profileId") Integer profileId,
             @RequestBody UpdateInvestmentPlanRequest request) {
-        return investmentPlanServiceInterface.updateExistingInvestmentPlan(Id, request);
+        return investmentPlanServiceInterface.updateExistingInvestmentPlan(profileId, request);
     }
 
-    @DeleteMapping("/version/{Id}")
+    @DeleteMapping("/versions/{versionId}")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xóa 1 bản CON (InvestmentProfileVersion) cụ thể ra khỏi danh sách lịch sử")
-    public ResponseEntity<ApiResponse> deleteInvestmentProfileVersion(@PathVariable Integer Id){
-        return investmentPlanServiceInterface.deleteInvestmentPlanVersion(Id);
+    public ResponseEntity<ApiResponse> deleteInvestmentProfileVersion(@PathVariable("versionId") Integer versionId){
+        return investmentPlanServiceInterface.deleteInvestmentPlanVersion(versionId);
     }
 
-    @DeleteMapping("/{Id}")
+    @DeleteMapping("/{profileId}")
+    @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xóa mềm thực thể CHA (InvestmentProfile) và tất cả các phiên bản con liên quan")
-    @PreAuthorize("hasRole('Investor')")
-    public ResponseEntity<ApiResponse> deleteInvestmentProfile(@PathVariable Integer Id){
-        return investmentPlanServiceInterface.deleteInvestmentPlan(Id);
+    public ResponseEntity<ApiResponse> deleteInvestmentProfile(@PathVariable("profileId") Integer profileId){
+        return investmentPlanServiceInterface.deleteInvestmentPlan(profileId);
     }
 
-    @PutMapping("/{Id}/name")
+    @PatchMapping("/{profileId}")
+    @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Cập nhật duy nhất trường Name cho thực thể CHA (InvestmentProfile)")
-    @PreAuthorize("hasRole('Investor')")
     public ResponseEntity<ApiResponse> updateProfileName(
-            @PathVariable("Id") Integer id,
+            @PathVariable("profileId") Integer profileId,
             @RequestBody NameUpdateRequest request) {
-        return investmentPlanServiceInterface.updateProfileName(id, request.getName());
+        return investmentPlanServiceInterface.updateProfileName(profileId, request.getName());
     }
 
-    @PutMapping("/versions/{Id}/name")
-    @Operation(summary = "Investor: Cập nhật duy nhất trường Name cho thực thể CON (InvestmentProfileVersion)")
+    @PatchMapping("/versions/{versionId}")
     @PreAuthorize("hasRole('Investor')")
+    @Operation(summary = "Investor: Cập nhật duy nhất trường Name cho thực thể CON (InvestmentProfileVersion)")
     public ResponseEntity<ApiResponse> updateVersionName(
-            @PathVariable("Id") Integer id,
+            @PathVariable("versionId") Integer versionId,
             @RequestBody NameUpdateRequest request) {
-        return investmentPlanServiceInterface.updateVersionName(id, request.getName());
+        return investmentPlanServiceInterface.updateVersionName(versionId, request.getName());
     }
-
-//    @PostMapping("/save")
-//    @PreAuthorize("hasAnyRole('Investor')")
-//    public ResponseEntity<ApiResponse> saveInvestmentPlan(@RequestBody SaveInvestmentPlanRequest request) {
-//        return investmentPlanServiceInterface.savePlanToDatabaseDirectly(request);
-//    }
 }

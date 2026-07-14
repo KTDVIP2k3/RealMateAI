@@ -11,31 +11,33 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/posting-package-orders")
 @Tag(name = "Posting Package Order", description = "Seller: Quản lý và thanh toán các gói dịch vụ đăng tin")
 public class PostingPackageOrderController {
 
     @Autowired
     private PostingPackageOrderServiceInterface postingPackageOrderServiceInterface;
 
-    @GetMapping
+    @GetMapping("/posting-package-orders")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Lấy danh sách lịch sử đơn hàng mua gói dịch vụ đăng tin của cá nhân")
-    public ResponseEntity<ApiResponse> getPostingPackageOrders() {
-        return postingPackageOrderServiceInterface.getPostingPackageOrders();
+    public ResponseEntity<ApiResponse> getPostingPackageOrders (
+            @RequestParam(name = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(name = "size", required = false, defaultValue = "0") int size)
+    {
+        return postingPackageOrderServiceInterface.getPostingPackageOrders(page, size);
     }
 
-    @PostMapping("/pay")
+    @PostMapping("/posting-package-orders")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Thanh toán mua mới một gói dịch vụ đăng tin cho bài viết cụ thể bằng số dư ví")
     public ResponseEntity<ApiResponse> payPostingPackage(@RequestBody PostingPackageOrderRequest request) {
         return postingPackageOrderServiceInterface.payPostingPackage(request);
     }
 
-    @PutMapping("/{id}/renew")
+    @PostMapping("/posting-package-orders/{orderId}/renew")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Gia hạn gói dịch vụ đăng tin đã mua trước đó cho bài viết bằng số dư ví")
-    public ResponseEntity<ApiResponse> renewPostingPackage(@PathVariable("id") Integer postingPackageOrderId) {
-        return postingPackageOrderServiceInterface.renewPostingPackage(postingPackageOrderId);
+    public ResponseEntity<ApiResponse> renewPostingPackage(@PathVariable("orderId") Integer orderId) {
+        return postingPackageOrderServiceInterface.renewPostingPackage(orderId);
     }
 }

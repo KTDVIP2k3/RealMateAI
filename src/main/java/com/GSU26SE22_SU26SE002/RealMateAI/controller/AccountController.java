@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
-
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminCreateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminUpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
@@ -17,35 +16,21 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 @RestController
-@RequestMapping("/accounts")
 public class AccountController {
+
     @Autowired
     AccountServiceInterface accountServiceInterface;
+
     @Autowired
     AdminAccountServiceInterface adminAccountServiceInterface;
 
-    @GetMapping("/me")
+    @GetMapping("/accounts/me")
     public ResponseEntity<ApiResponse> getAccountProfile() {
         return accountServiceInterface.getAccountProfile();
     }
 
-
-    @PostMapping(value = "/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('Admin')")
-    public ResponseEntity<ApiResponse> createAccountStaff(@ModelAttribute CreateAccountRequest createAccountRequest) {
-        return accountServiceInterface.createAccountByAdmin(createAccountRequest);
-    }
-
-    @PostMapping(value = "/admin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse> createAccountAdmin(@ModelAttribute CreateAccountRequest createAccountRequest) {
-        return accountServiceInterface.createAccountAdmin(createAccountRequest);
-    }
-
-    // ===================== ADMIN MANAGEMENT =====================
-
-    @GetMapping("/admin/list")
+    @GetMapping("/admin/accounts")
     @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Danh sách tài khoản ")
     public ResponseEntity<ApiResponse> getAllAccounts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -55,58 +40,59 @@ public class AccountController {
         return adminAccountServiceInterface.getAllAccounts(pageable, role, keyword);
     }
 
-    @GetMapping("/admin/{accountId}")
+    @GetMapping("/admin/accounts/{accountId}")
     @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Chi tiết tài khoản theo ID")
     public ResponseEntity<ApiResponse> getAccountById(@PathVariable Integer accountId) {
         return adminAccountServiceInterface.getAccountById(accountId);
     }
 
-    @PostMapping(value = "/admin/create/investor", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/admin/accounts/{accountId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Tạo tài khoản Investor ")
-    public ResponseEntity<ApiResponse> adminCreateInvestor(
-            @ModelAttribute AdminCreateAccountRequest request) {
-        return adminAccountServiceInterface.createInvestorAccount(request);
-    }
-
-    @PostMapping(value = "/admin/create/seller", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Tạo tài khoản Seller")
-    public ResponseEntity<ApiResponse> adminCreateSeller(
-            @ModelAttribute AdminCreateAccountRequest request) {
-        return adminAccountServiceInterface.createSellerAccount(request);
-    }
-
-    @PutMapping(value = "/admin/{accountId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Cập nhật thông tin tài khoản")
     public ResponseEntity<ApiResponse> adminUpdateAccount(
             @PathVariable Integer accountId,
             @ModelAttribute AdminUpdateAccountRequest request) {
         return adminAccountServiceInterface.updateAccount(accountId, request);
     }
 
-    @PatchMapping("/admin/{accountId}/role")
+    @PostMapping(value = "/admin/accounts/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('Admin')")
+    public ResponseEntity<ApiResponse> createAccountStaff(@ModelAttribute CreateAccountRequest createAccountRequest) {
+        return accountServiceInterface.createAccountByAdmin(createAccountRequest);
+    }
+
+    @PostMapping(value = "/admin/accounts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Đổi role tài khoản")
+    public ResponseEntity<ApiResponse> createAccountAdmin(@ModelAttribute CreateAccountRequest createAccountRequest) {
+        return accountServiceInterface.createAccountAdmin(createAccountRequest);
+    }
+
+    @PostMapping(value = "/admin/accounts/sellers", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('Admin')")
+    public ResponseEntity<ApiResponse> adminCreateSeller(
+            @ModelAttribute AdminCreateAccountRequest request) {
+        return adminAccountServiceInterface.createSellerAccount(request);
+    }
+
+    @PostMapping(value = "/admin/accounts/investors", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('Admin')")
+    public ResponseEntity<ApiResponse> adminCreateInvestor(
+            @ModelAttribute AdminCreateAccountRequest request) {
+        return adminAccountServiceInterface.createInvestorAccount(request);
+    }
+
+    @PatchMapping("/admin/accounts/{accountId}/role")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse> adminChangeRole(
             @PathVariable Integer accountId,
             @RequestParam String role) {
         return adminAccountServiceInterface.changeRole(accountId, role);
     }
 
-    @PatchMapping("/admin/{accountId}/activate")
+    @PatchMapping("/admin/accounts/{accountId}/status")
     @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Kích hoạt tài khoản")
-    public ResponseEntity<ApiResponse> adminActivate(@PathVariable Integer accountId) {
-        return adminAccountServiceInterface.setAccountStatus(accountId, true);
-    }
-
-    @PatchMapping("/admin/{accountId}/deactivate")
-    @PreAuthorize("hasRole('Admin')")
-    @Operation(summary = "[Admin] Vô hiệu hoá tài khoản")
-    public ResponseEntity<ApiResponse> adminDeactivate(@PathVariable Integer accountId) {
-        return adminAccountServiceInterface.setAccountStatus(accountId, false);
+    public ResponseEntity<ApiResponse> adminChangeStatus(
+            @PathVariable Integer accountId,
+            @RequestParam boolean isActive) {
+        return adminAccountServiceInterface.setAccountStatus(accountId, isActive);
     }
 }

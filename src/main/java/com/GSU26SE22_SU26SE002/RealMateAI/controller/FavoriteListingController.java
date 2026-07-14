@@ -12,42 +12,28 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/favorites")
+@RequestMapping("/favorites")
 @RequiredArgsConstructor
-@Tag(name = "Favorites", description = "API quản lý danh sách yêu thích BĐS")
+@Tag(name = "Favorites")
 public class FavoriteListingController {
 
     private final FavoriteListingServiceInterface favoriteListingService;
 
-    // ─────────────────────────────────────────────────────
-    // POST /api/v1/favorites
-    // Body: { "listingId": 42 }
-    // ─────────────────────────────────────────────────────
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Thêm BĐS vào danh sách yêu thích")
     public ResponseEntity<ApiResponse> addFavorite(@Valid @RequestBody AddFavoriteRequest request) {
         return favoriteListingService.addFavorite(request);
     }
 
-    // ─────────────────────────────────────────────────────
-    // GET /api/v1/favorites
-    // ─────────────────────────────────────────────────────
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Lấy danh sách tin đăng quan tâm cá nhân")
     public ResponseEntity<ApiResponse> getMyFavorites() {
         return favoriteListingService.getMyFavorites();
     }
 
-    // ─────────────────────────────────────────────────────
-    // DELETE /api/v1/favorites/{id}
-    // {id} = favoriteListingId
-    // ─────────────────────────────────────────────────────
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{listingId}")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Bỏ BĐS khỏi danh mục yêu thích")
-    public ResponseEntity<ApiResponse> removeFavorite(@PathVariable("id") Integer favoriteListingId) {
-        return favoriteListingService.removeFavorite(favoriteListingId);
+    public ResponseEntity<ApiResponse> removeFavorite(@PathVariable("listingId") Integer listingId) {
+        return favoriteListingService.removeFavorite(listingId);
     }
 }

@@ -1,9 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithNewPropertyRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingStatusRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -173,5 +170,45 @@ public class ListingController {
             @PathVariable("id") Integer listingId,
             @RequestBody UpdateListingRequest request) {
         return listingService.updateListing(listingId, request);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /listings/generate-content — NEW: Seller: AI sinh tiêu đề + mô tả
+    // ─────────────────────────────────────────────────────────────────────────
+    @PostMapping(
+            value = "/listings/generate-content",
+            consumes = MediaType.APPLICATION_JSON_VALUE
+    )
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: AI (Gemini) sinh tiêu đề + mô tả bài đăng dựa trên thông số tài sản")
+    public ResponseEntity<ApiResponse> generateListingContent(
+            @Valid @RequestBody GenerateListingContentRequest request) {
+        return listingService.generateListingContent(request);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /listings/price-suggestion — NEW: Seller: AI đề xuất khoảng giá bán
+    // ─────────────────────────────────────────────────────────────────────────
+    @PostMapping(
+            value = "/listings/price-suggestion",
+            consumes = MediaType.APPLICATION_JSON_VALUE
+    )
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Đề xuất khoảng giá bán dựa trên tin đăng tương đồng + AI")
+    public ResponseEntity<ApiResponse> suggestListingPrice(
+            @Valid @RequestBody PriceSuggestionRequest request) {
+        return listingService.suggestListingPrice(request);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /listings/search — NEW: Tìm kiếm nâng cao tin đăng công khai
+    // ─────────────────────────────────────────────────────────────────────────
+    @PostMapping(
+            value = "/listings/search",
+            consumes = MediaType.APPLICATION_JSON_VALUE
+    )
+    @Operation(summary = "Tìm kiếm nâng cao tin đăng công khai (từ khoá, vị trí, khoảng giá, diện tích, số phòng...)")
+    public ResponseEntity<ApiResponse> searchListings(
+            @RequestBody(required = false) ListingSearchRequest request) {
+        return listingService.searchListings(request != null ? request : new ListingSearchRequest());
     }
 }

@@ -6,7 +6,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import org.springframework.http.ResponseEntity;
 
 public interface PostingPackageOrderServiceInterface {
-    ResponseEntity<ApiResponse> getPostingPackageOrders();
+    ResponseEntity<ApiResponse> getPostingPackageOrders(int page, int size);
     ResponseEntity<ApiResponse> payPostingPackage(PostingPackageOrderRequest postingPackageOrderRequest);
     ResponseEntity<ApiResponse> renewPostingPackage(Integer postingPackageOrderId);
 }

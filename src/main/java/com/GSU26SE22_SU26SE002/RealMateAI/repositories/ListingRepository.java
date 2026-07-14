@@ -2,7 +2,9 @@ package com.GSU26SE22_SU26SE002.RealMateAI.repositories;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,22 +13,62 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
 @Repository
-public interface ListingRepository extends JpaRepository<Listing, Integer> {
+
+public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaSpecificationExecutor<Listing> {
+
     /**
-     * BĐS — chỉ lấy bài đã duyệt (isActive=true), phân trang.
-     * JOIN FETCH property + propertyType + location + propertyImages, tránh N+1.
+     * KHÔNG override findAll(Specification, Pageable) nữa (trước đây có gắn thêm
+     * @EntityGraph fetch "property.propertyImages" — 1 collection @OneToMany kết hợp
+     * Pageable khiến Hibernate phải phân trang TRONG MEMORY thay vì LIMIT/OFFSET ở DB,
+     * rất chậm khi dữ liệu lớn dần).
+     * Dùng lại method mặc định của JpaSpecificationExecutor: chỉ trả Listing "trần"
+     * (không kèm collection) nhưng phân trang CHUẨN ở tầng DB — dùng làm QUERY 1 (lấy
+     * ID đã phân trang) trong pattern 2-query cùng với {@link #findAllByListingIdInWithDetails}.
+     * Xem cách dùng đầy đủ trong TwoStepPaginationUtil + ListingServiceImplement#searchListings.
      */
-    @Query(value = """
+
+    /**
+     * Tin đăng tương đồng đang hoạt động (cùng loại BĐS + cùng phường/xã) — dùng làm
+     * dữ liệu thị trường tham chiếu cho POST /listings/price-suggestion.
+     * Chỉ cần price + area của Property nên JOIN FETCH tối thiểu, không kéo ảnh/mô tả.
+     */
+    @Query("""
             SELECT l FROM Listing l
+            JOIN FETCH l.property p
+            WHERE l.isActive = true
+              AND p.isActive = true
+              AND p.propertyType.propertyTypeId = :propertyTypeId
+              AND p.location.ward.ward_code = :wardCode
+            ORDER BY l.createdAt DESC
+            """)
+    List<Listing> findComparableActiveListings(@Param("propertyTypeId") Integer propertyTypeId,
+                                               @Param("wardCode") String wardCode);
+
+    /**
+     * QUERY 1 của pattern 2-query cho GET /listings (getMarketListings) — chỉ trả Listing
+     * "trần" (không JOIN FETCH collection nào), để Hibernate phân trang CHUẨN ở tầng DB
+     * bằng LIMIT/OFFSET. Kết hợp với {@link #findAllByListingIdInWithDetails} (QUERY 2)
+     * qua {@code TwoStepPaginationUtil.paginate(...)}.
+     */
+    Page<Listing> findByIsActiveTrue(Pageable pageable);
+
+    /**
+     * QUERY 2 DÙNG CHUNG của pattern 2-query — fetch chi tiết đầy đủ (property,
+     * propertyType, location, propertyImages) cho ĐÚNG danh sách listingId đã phân
+     * trang sẵn ở QUERY 1 (findByIsActiveTrue hoặc findAll(Specification, Pageable)).
+     * KHÔNG nhận Pageable — số lượng đã được giới hạn bởi kích thước danh sách "ids"
+     * truyền vào, nên không có rủi ro in-memory pagination dù có JOIN FETCH collection.
+     * DISTINCT để tránh nhân bản dòng do JOIN FETCH propertyImages (1-N).
+     */
+    @Query("""
+            SELECT DISTINCT l FROM Listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.location loc
             LEFT JOIN FETCH p.propertyImages pi
-            WHERE l.isActive = true
-            ORDER BY l.createdAt DESC
-            """,
-            countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.isActive = true")
-    Page<Listing> findAllActiveWithDetails(Pageable pageable);
+            WHERE l.listingId IN :ids
+            """)
+    List<Listing> findAllByListingIdInWithDetails(@Param("ids") List<Integer> ids);
 
     /**
      * Chi tiết 1 bài đăng công khai — JOIN FETCH toàn bộ liên kết cần thiết.
