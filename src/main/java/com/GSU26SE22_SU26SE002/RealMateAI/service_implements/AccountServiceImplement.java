@@ -4,6 +4,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.AccountProfileDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AccountServiceInterface;
@@ -106,6 +107,36 @@ public class AccountServiceImplement implements AccountServiceInterface {
             account.setCreateAt(LocalDateTime.now());
             accountRepository.save(account);
             emailServiceVerificationImplement.sendInfoAccountStaff(createAccountRequest.getEmail(), createAccountRequest.getUserName(), createAccountRequest.getPassword());
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create account successfully"));
+        }catch (Exception e)    {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> createAccount(CreateAccountRequestV2 createAccountRequestV2) {
+        try{
+            List<Account> accounts = accountRepository.findAll().stream().toList();
+            boolean existName = accounts.stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(createAccountRequestV2.getUserName()));
+
+            if(existName){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "User Name exists"));
+            }
+
+
+
+            Account account = new Account();
+            account.setUserName(createAccountRequestV2.getUserName());
+            account.setPassword(new BCryptPasswordEncoder(12).encode(createAccountRequestV2.getPassword()));
+            account.setEmail(createAccountRequestV2.getEmail());
+            account.setFull_name(createAccountRequestV2.getFullName());
+            account.setGender(createAccountRequestV2.getGender());
+            account.setPhone(createAccountRequestV2.getPhone());
+            account.setRole(createAccountRequestV2.getRole());
+            account.setBirth_date(createAccountRequestV2.getBirthDate());
+            account.setIsActive(true);
+            account.setCreateAt(LocalDateTime.now());
+            accountRepository.save(account);
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create account successfully"));
         }catch (Exception e)    {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
