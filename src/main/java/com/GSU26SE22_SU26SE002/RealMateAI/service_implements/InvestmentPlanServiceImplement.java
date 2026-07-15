@@ -648,8 +648,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         int totalTypes = criteriaList.size();
         String ward = request.getWard();
 
+        double totalCapital = (request.getEquity() != null ? request.getEquity() : 0.0)
+                + (request.getLoanCapital() != null ? request.getLoanCapital() : 0.0);
+
         for (InvestmentPortfolioDTO portfolio : portfolios) {
-            double capitalPerType = portfolio.getCapital() / totalTypes;
             List<PortfolioAllocationDTO> allocations = new ArrayList<>(totalTypes);
 
             for (CriteriaRequest crit : criteriaList) {
@@ -662,7 +664,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .build();
 
                 List<PortfolioAllocationPropertyDTO> dbRealProperties = queryRealWarehouseProperties(
-                        capitalPerType,
+                        totalCapital,
                         ward,
                         typeId
                 );
@@ -674,30 +676,46 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         }
     }
 
-    private List<PortfolioAllocationPropertyDTO> queryRealWarehouseProperties(Double capitalPerType, String ward, Integer propertyTypeId) {
-        Long maxPriceAllowed = capitalPerType.longValue();
+    private List<PortfolioAllocationPropertyDTO> queryRealWarehouseProperties(Double totalCapital, String ward, Integer propertyTypeId) {
+        Long maxPriceAllowed = totalCapital.longValue();
 
         List<Listing> matchedListings = listingRepository.findRealPropertiesByAiStrategy(
                 ward, propertyTypeId, maxPriceAllowed
         );
 
-        if (matchedListings.isEmpty()) {
-//            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
-//                    .portfolioAllocationPropertyId(null)
-//                    .propertyProjectName(null)
-//                    .area(0)
-//                    .valuePrice(0.0)
-//                    .description(null)
-//                    .build());
+        if (matchedListings.isEmpty() && ward != null) {
+            matchedListings = listingRepository.findRealPropertiesByAiStrategy(
+                    null, propertyTypeId, maxPriceAllowed
+            );
+        }
 
+        if (matchedListings.isEmpty()) {
             return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
                     .portfolioAllocationPropertyId(null)
-                    .propertyProjectName(null)
+                    .propertyProjectName("Không tìm thấy sản phẩm phù hợp dưới mức vốn " + maxPriceAllowed)
                     .area(null)
                     .valuePrice(null)
                     .description(null)
                     .build());
         }
+
+//        if (matchedListings.isEmpty()) {
+////            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
+////                    .portfolioAllocationPropertyId(null)
+////                    .propertyProjectName(null)
+////                    .area(0)
+////                    .valuePrice(0.0)
+////                    .description(null)
+////                    .build());
+//
+//            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
+//                    .portfolioAllocationPropertyId(null)
+//                    .propertyProjectName(null)
+//                    .area(null)
+//                    .valuePrice(null)
+//                    .description(null)
+//                    .build());
+//        }
 
         int limit = Math.min(matchedListings.size(), 2);
         List<PortfolioAllocationPropertyDTO> resultList = new ArrayList<>(limit);

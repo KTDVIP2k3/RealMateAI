@@ -81,6 +81,7 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
     public ResponseEntity<ApiResponse> createPostingPackage(PostingPackageRequest postingPackageRequest) {
         try{
             boolean existName = postingPackageRepository.findAll().stream()
+                    .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted()))
                     .anyMatch(postingPackage -> postingPackage.getName().trim().toLowerCase().equals(postingPackageRequest.getName().trim().toLowerCase()));
 
             if(existName){
