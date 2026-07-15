@@ -3,6 +3,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminCreateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminUpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AccountServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AdminAccountServiceInterface;
@@ -78,6 +79,14 @@ public class AccountController {
     public ResponseEntity<ApiResponse> adminCreateInvestor(
             @ModelAttribute AdminCreateAccountRequest request) {
         return adminAccountServiceInterface.createInvestorAccount(request);
+    }
+
+    @PostMapping(value = "/admin/accounts/v2", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Admin có thể tạo account tuỳ chọn theo role")
+    @PreAuthorize("hasRole('Admin')")
+    public ResponseEntity<ApiResponse> createAccount(
+            @ModelAttribute CreateAccountRequestV2 createAccountRequestV2) {
+        return accountServiceInterface.createAccount(createAccountRequestV2);
     }
 
     @PatchMapping("/admin/accounts/{accountId}/role")
