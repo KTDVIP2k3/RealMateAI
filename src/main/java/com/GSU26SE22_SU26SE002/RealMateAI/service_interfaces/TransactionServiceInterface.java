@@ -6,4 +6,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface TransactionServiceInterface {
     ResponseEntity<ApiResponse> getMyTransactions(int page, int size);
+
+    ResponseEntity<ApiResponse> getTransactionsByAdminOrStaff(int page, int size);
 }

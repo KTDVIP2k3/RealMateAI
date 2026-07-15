@@ -26,4 +26,13 @@ public class TransactionController {
     {
         return transactionService.getMyTransactions(page, size);
     }
+
+    @GetMapping()
+    @PreAuthorize("hasAnyRole('Admin', 'Staff')")
+    @Operation(summary = "[FE CALL]Admin, Staff lấy danh sách toàn bộ lịch sử giao dịch của tôi")
+    public ResponseEntity<ApiResponse> getTransactionByAdminOrStaff(@RequestParam(name = "page", required = false, defaultValue = "0") int page,
+                                                         @RequestParam(name = "size", required = false, defaultValue = "0") int size)
+    {
+        return transactionService.getTransactionsByAdminOrStaff(page, size);
+    }
 }
