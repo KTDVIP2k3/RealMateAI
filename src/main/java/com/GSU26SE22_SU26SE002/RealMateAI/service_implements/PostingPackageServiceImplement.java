@@ -111,6 +111,14 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
 
+            boolean existPostingPackageName = postingPackageRepository.findAll().stream()
+                    .filter(p -> !p.getPostingPackageId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted()))
+                    .anyMatch(p -> p.getName().trim().toLowerCase().equalsIgnoreCase(postingPackageRequest.getName().trim().toLowerCase()));
+
+            if(existPostingPackageName){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
+            }
+
 //            boolean existName = postingPackageRepository.findAll().stream()
 //                    .anyMatch(p -> p.getName().trim().toLowerCase().equals(postingPackageRequest.getName().trim().toLowerCase()));
 //
