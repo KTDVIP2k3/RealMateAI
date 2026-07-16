@@ -132,7 +132,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
             }
 
             boolean existName = membershipPlanRepository.findAll().stream()
-                    .filter(p -> !p.getMembershipPlanId().equals(id)) // Tránh tự trùng với chính nó khi không đổi tên
+                    .filter(p -> !p.getMembershipPlanId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted())) // Tránh tự trùng với chính nó khi không đổi tên
                     .anyMatch(p -> p.getName().trim().toLowerCase().equals(membershipPlanRequest.getName().trim().toLowerCase()));
 
             if (existName) {
