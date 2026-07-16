@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -247,5 +248,70 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
                 .entityId(a.getEntityId())
                 .uploadedAt(a.getUploadedAt())
                 .build();
+    }
+
+
+    public String uploadImage(MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File is null or empty.");
+        }
+
+        String folder = ROOT_FOLDER + "/general";
+        String publicId = buildPublicId(folder, file.getOriginalFilename());
+        boolean isImage = isImageFile(file);
+        String resourceType = isImage ? "image" : "raw";
+
+        Map uploadParams = ObjectUtils.asMap(
+                "public_id",     publicId,
+                "folder",        folder,
+                "resource_type", resourceType,
+                "overwrite",     true,
+                "quality",       "auto",
+                "fetch_format",  "auto"
+        );
+
+        Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), uploadParams);
+        return result.get("secure_url").toString();
+    }
+
+    public String updateImage(MultipartFile file, String oldUrl) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File is null or empty.");
+        }
+
+        if (oldUrl != null && !oldUrl.isBlank()) {
+            try {
+                String publicId = extractPublicId(oldUrl);
+                if (publicId != null && !publicId.isBlank()) {
+                    cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("invalidate", true));
+                }
+            } catch (Exception e) {
+                log.error("Error deleting old image: {}", e.getMessage());
+            }
+        }
+
+        return uploadImage(file);
+    }
+
+    private String extractPublicId(String url) {
+        if (url == null || url.isBlank()) return "";
+        try {
+            URI uri = new URI(url);
+            String path = uri.getPath();
+            int uploadIndex = path.indexOf("/upload/");
+            if (uploadIndex == -1) return url;
+
+            String publicIdWithExt = path.substring(uploadIndex + 8);
+            if (publicIdWithExt.startsWith("v")) {
+                int firstSlash = publicIdWithExt.indexOf("/");
+                if (firstSlash != -1) {
+                    publicIdWithExt = publicIdWithExt.substring(firstSlash + 1);
+                }
+            }
+            int dotIndex = publicIdWithExt.lastIndexOf(".");
+            return (dotIndex != -1) ? publicIdWithExt.substring(0, dotIndex) : publicIdWithExt;
+        } catch (Exception e) {
+            return url;
+        }
     }
 }
