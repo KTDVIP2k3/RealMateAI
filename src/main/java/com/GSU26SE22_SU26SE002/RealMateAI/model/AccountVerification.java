@@ -21,7 +21,7 @@ public class AccountVerification {
     private Account account;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seller_id", nullable = false)
+    @JoinColumn(name = "seller_id", nullable = true)
     private Seller seller;
     /** Căn cước công dân mặt trước */
     private String cccdmt;
