@@ -49,26 +49,30 @@ public class AccountVerificationController {
     }
 
     @GetMapping("/account-verifications/me")
-    @Operation(summary = "User lấy danh sách các yêu cầu xác thực tài khoản của cá nhân mình")
+    @Operation(summary = "Seller lấy danh sách các yêu cầu xác thực tài khoản của cá nhân mình")
+    @PreAuthorize("hasAnyRole('Seller')")
     public ResponseEntity<ApiResponse> getAccountVerificationForUser() {
         return accountVerificationServiceInterface.getAccountVerificationForUser();
     }
 
     @GetMapping("/account-verifications/me/{id}")
-    @Operation(summary = "User xem thông tin chi tiết một yêu cầu xác thực tài khoản của cá nhân mình")
+    @PreAuthorize("hasAnyRole('Seller')")
+    @Operation(summary = "Seller xem thông tin chi tiết một yêu cầu xác thực tài khoản của cá nhân mình")
     public ResponseEntity<ApiResponse> getAccountVerificationDetailForUser(@PathVariable Integer id) {
         return accountVerificationServiceInterface.getAccountVerificationDetailForUser(id);
     }
 
     @PostMapping(value = "/account-verifications", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "User tạo mới yêu cầu xác thực tài khoản (Hỗ trợ tải lên hình ảnh dạng file)")
+    @PreAuthorize("hasAnyRole('Seller')")
+    @Operation(summary = "Seller tạo mới yêu cầu xác thực tài khoản (Hỗ trợ tải lên hình ảnh dạng file)")
     public ResponseEntity<ApiResponse> createAccountVerification(
             @ModelAttribute AccountVerificationRequest request) {
         return accountVerificationServiceInterface.createAccountVerification(request);
     }
 
     @PutMapping(value = "/account-verifications", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "User cập nhật lại yêu cầu xác thực tài khoản (Hỗ trợ tải lên hình ảnh dạng file)")
+    @PreAuthorize("hasAnyRole('Seller')")
+    @Operation(summary = "Seller cập nhật lại yêu cầu xác thực tài khoản (Hỗ trợ tải lên hình ảnh dạng file)")
     public ResponseEntity<ApiResponse> updateAccountVerification(
             @ModelAttribute AccountVerificationUpdateRequest request) {
         return accountVerificationServiceInterface.updateAccountVerification(request);

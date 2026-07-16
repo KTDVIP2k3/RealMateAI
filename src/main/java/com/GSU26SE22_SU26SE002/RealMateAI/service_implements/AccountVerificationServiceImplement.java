@@ -3,7 +3,9 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.VerificationStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.AccountVerification;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.Seller;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountVerificationRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.SellerRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AccountVerificationRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AccountVerificationUpdateRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.AccountVerificationDTO;
@@ -35,6 +37,9 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
 
     @Autowired
     private ModelMapper modelMapper;
+
+    @Autowired
+    private SellerRepository sellerRepository;
 
     @Override
     public ResponseEntity<ApiResponse> getAccountVerificationByStaffOrAdmin() {
@@ -91,6 +96,15 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
 
             if (currentAccount.getSeller() != null) {
                 verificationBuilder.seller(currentAccount.getSeller());
+            }else {
+                Seller seller = new Seller();
+                seller.setIsActive(true);
+                seller.setCreatedAt(LocalDateTime.now());
+                seller.setAccount(currentAccount);
+                seller = sellerRepository.save(seller);
+
+                currentAccount.setSeller(seller);
+                verificationBuilder.seller(seller);
             }
 
             AccountVerification verification = verificationBuilder.build();
