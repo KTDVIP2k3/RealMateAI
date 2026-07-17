@@ -102,7 +102,7 @@ public class AccountController {
         return adminAccountServiceInterface.setAccountStatus(accountId, isActive);
     }
 
-    @PutMapping("/account/me")
+    @PutMapping(value = "/account/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Cập nhật tài khoản hồ sơ chính mình")
     public ResponseEntity<ApiResponse> updateAccountProfile(@ModelAttribute UpdateAccountRequest updateAccountRequest){
         return accountServiceInterface.updateAccount(updateAccountRequest);
