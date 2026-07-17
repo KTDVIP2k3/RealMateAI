@@ -14,7 +14,7 @@ public class AccountProfileDTO {
     private String userName;
     private String password;
     private String email;
-    private String fullName;
+    private String full_name;
     private String phone;
     private String avatar;
     private GenderEnum genderEnum;
