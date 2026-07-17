@@ -138,8 +138,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .latestVersionId(latestVersion.getProfileVersionId())
                         .matchScore(matchScore)
                         .name(profile.getName())
-                        .conscious(conscious)
-                        .ward(ward)
+                        .consciousName(conscious)
+                        .wardName(ward)
                         .isActive(latestVersion.getIsActive())
                         .equity(equity)
                         .expectedRoi(expectedRoi)
@@ -199,8 +199,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                 .investmentProfileVersionId(version.getProfileVersionId())
                                 .matchScore(vMatchScore)
                                 .name(version.getProfileVersionName())
-                                .conscious(version.getConscious())
-                                .ward(version.getWard())
+                                .consciousName(version.getConscious())
+                                .wardName(version.getWard())
                                 .isActive(version.getIsActive())
                                 .equity(version.getEquity() != null ? version.getEquity() : 0L)
                                 .expectedRoi(version.getExpectedRoi() != null ? version.getExpectedRoi() : 0L)
@@ -288,8 +288,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .equity(profileVersion.getEquity())
                     .loanCapital(profileVersion.getLoanCapital())
                     .reserveFund(profileVersion.getReserveFund())
-                    .conscious(profileVersion.getConscious())
-                    .ward(profileVersion.getWard())
+                    .consciousName(profileVersion.getConscious())
+                    .wardName(profileVersion.getWard())
                     .expectedRoi(profileVersion.getExpectedRoi())
 //                    .minProfit(profileVersion.getMinProfit())
                     .riskToleranceLevel(profileVersion.getRiskToleranceLevel())
@@ -646,12 +646,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .collect(Collectors.toMap(PropertyType::getPropertyTypeId, PropertyType::getName, (v1, v2) -> v1));
 
         int totalTypes = criteriaList.size();
-        String ward = request.getWard();
-
-        double totalCapital = (request.getEquity() != null ? request.getEquity() : 0.0)
-                + (request.getLoanCapital() != null ? request.getLoanCapital() : 0.0);
+        String ward = request.getWardName();
 
         for (InvestmentPortfolioDTO portfolio : portfolios) {
+            double capitalPerType = portfolio.getCapital() / totalTypes;
             List<PortfolioAllocationDTO> allocations = new ArrayList<>(totalTypes);
 
             for (CriteriaRequest crit : criteriaList) {
@@ -664,7 +662,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .build();
 
                 List<PortfolioAllocationPropertyDTO> dbRealProperties = queryRealWarehouseProperties(
-                        totalCapital,
+                        capitalPerType,
                         ward,
                         typeId
                 );
@@ -676,46 +674,30 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         }
     }
 
-    private List<PortfolioAllocationPropertyDTO> queryRealWarehouseProperties(Double totalCapital, String ward, Integer propertyTypeId) {
-        Long maxPriceAllowed = totalCapital.longValue();
+    private List<PortfolioAllocationPropertyDTO> queryRealWarehouseProperties(Double capitalPerType, String ward, Integer propertyTypeId) {
+        Long maxPriceAllowed = capitalPerType.longValue();
 
         List<Listing> matchedListings = listingRepository.findRealPropertiesByAiStrategy(
                 ward, propertyTypeId, maxPriceAllowed
         );
 
-        if (matchedListings.isEmpty() && ward != null) {
-            matchedListings = listingRepository.findRealPropertiesByAiStrategy(
-                    null, propertyTypeId, maxPriceAllowed
-            );
-        }
-
         if (matchedListings.isEmpty()) {
+//            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
+//                    .portfolioAllocationPropertyId(null)
+//                    .propertyProjectName(null)
+//                    .area(0)
+//                    .valuePrice(0.0)
+//                    .description(null)
+//                    .build());
+
             return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
                     .portfolioAllocationPropertyId(null)
-                    .propertyProjectName("Không tìm thấy sản phẩm phù hợp dưới mức vốn " + maxPriceAllowed)
+                    .propertyProjectName(null)
                     .area(null)
                     .valuePrice(null)
                     .description(null)
                     .build());
         }
-
-//        if (matchedListings.isEmpty()) {
-////            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
-////                    .portfolioAllocationPropertyId(null)
-////                    .propertyProjectName(null)
-////                    .area(0)
-////                    .valuePrice(0.0)
-////                    .description(null)
-////                    .build());
-//
-//            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
-//                    .portfolioAllocationPropertyId(null)
-//                    .propertyProjectName(null)
-//                    .area(null)
-//                    .valuePrice(null)
-//                    .description(null)
-//                    .build());
-//        }
 
         int limit = Math.min(matchedListings.size(), 2);
         List<PortfolioAllocationPropertyDTO> resultList = new ArrayList<>(limit);
@@ -919,8 +901,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .equity(request.getEquity())
                 .loanCapital(request.getLoanCapital())
                 .reserveFund(request.getReserveFund())
-                .conscious(request.getConscious())
-                .ward(request.getWard())
+                .conscious(request.getConsciousName())
+                .ward(request.getWardName())
                 .expectedRoi(request.getExpectedRoi())
                 .minProfit(null)
                 .riskToleranceLevel(request.getRiskToleranceLevel())
@@ -1102,8 +1084,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             internalRequest.setEquity(request.getEquity());
             internalRequest.setLoanCapital(request.getLoanCapital());
             internalRequest.setReserveFund(request.getReserveFund());
-            internalRequest.setConscious(request.getConscious());
-            internalRequest.setWard(request.getWard());
+            internalRequest.setConsciousName(request.getConsciousName());
+            internalRequest.setWardName(request.getWardName());
             internalRequest.setExpectedRoi(request.getExpectedRoi());
 //            internalRequest.setMinProfit(request.getMinProfit());
             internalRequest.setRiskToleranceLevel(request.getRiskToleranceLevel());
@@ -1171,8 +1153,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .equity(request.getEquity())
                 .loanCapital(request.getLoanCapital())
                 .reserveFund(request.getReserveFund())
-                .conscious(request.getConscious())
-                .ward(request.getWard())
+                .conscious(request.getConsciousName())
+                .ward(request.getWardName())
                 .expectedRoi(request.getExpectedRoi())
 //                .minProfit(request.getMinProfit())
                 .riskToleranceLevel(request.getRiskToleranceLevel())

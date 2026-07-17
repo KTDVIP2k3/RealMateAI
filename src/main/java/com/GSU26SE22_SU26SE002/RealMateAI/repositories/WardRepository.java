@@ -6,10 +6,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface WardRepository extends JpaRepository<Ward, String> {
     @Query("SELECT w FROM Ward w WHERE w.fullName = :wardName AND w.province.fullName = :provinceName")
     Optional<Ward> findByFullNameAndProvinceName(@Param("wardName") String wardName, @Param("provinceName") String provinceName);
+
+    @Query("SELECT w FROM Ward w LEFT JOIN FETCH w.province")
+    List<Ward> findAllWithProvince();
+
+    @Query("SELECT w FROM Ward w LEFT JOIN FETCH w.province WHERE w.province.province_code IN :provinceCodes")
+    List<Ward> findWardsBySpecificProvinces(@Param("provinceCodes") List<String> provinceCodes);
+
+    @Query("SELECT w FROM Ward w LEFT JOIN FETCH w.province WHERE w.province.province_code = '79'")
+    List<Ward> findWardsOnlyInHCM();
+
 }

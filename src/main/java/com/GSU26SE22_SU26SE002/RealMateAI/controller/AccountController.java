@@ -1,9 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminCreateAccountRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminUpdateAccountRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AccountServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AdminAccountServiceInterface;
@@ -103,5 +100,11 @@ public class AccountController {
             @PathVariable Integer accountId,
             @RequestParam boolean isActive) {
         return adminAccountServiceInterface.setAccountStatus(accountId, isActive);
+    }
+
+    @PutMapping(value = "/account/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Cập nhật tài khoản hồ sơ chính mình")
+    public ResponseEntity<ApiResponse> updateAccountProfile(@ModelAttribute UpdateAccountRequest updateAccountRequest){
+        return accountServiceInterface.updateAccount(updateAccountRequest);
     }
 }

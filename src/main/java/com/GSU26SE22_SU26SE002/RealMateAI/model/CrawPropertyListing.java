@@ -5,8 +5,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @NoArgsConstructor
@@ -30,6 +32,14 @@ public class CrawPropertyListing {
 
     @Column(name = "price_per_m2", precision = 18, scale = 2)
     private BigDecimal pricePerM2;
+
+    private BigDecimal latitude;
+
+    private BigDecimal longitude;
+
+    private Date posted_date;
+
+    private Timestamp craw_date;
 
     @OneToMany(mappedBy = "crawPropertyListing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<HeatmapZone> heatmapZones = new ArrayList<>();
