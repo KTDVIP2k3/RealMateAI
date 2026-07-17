@@ -21,8 +21,8 @@ public class InvestmentProfileVersionDTO {
     private Long equity;
     private Long loanCapital;
     private Long reserveFund;
-    private String conscious;
-    private String ward;
+    private String consciousName;
+    private String wardName;
     private Long expectedRoi;
 //    private Long minProfit;
     private String riskToleranceLevel;

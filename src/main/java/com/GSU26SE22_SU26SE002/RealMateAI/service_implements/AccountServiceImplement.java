@@ -5,6 +5,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.AccountProfileDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AccountServiceInterface;
@@ -29,6 +30,9 @@ public class AccountServiceImplement implements AccountServiceInterface {
 
     @Autowired
     ModelMapper modelMapper;
+
+    @Autowired
+    private CloudinaryMediaServiceImplement cloudinaryMediaServiceImplement;
 
     @Autowired
     EmailServiceVerificationImplement emailServiceVerificationImplement;
@@ -139,6 +143,31 @@ public class AccountServiceImplement implements AccountServiceInterface {
             accountRepository.save(account);
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create account successfully"));
         }catch (Exception e)    {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> updateAccount(UpdateAccountRequest updateAccountRequest) {
+        try{
+            Account account = authenUntil.getCurrentUSer();
+            if(account == null){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
+            }
+
+            if(account.getAvatar() == null){
+                account.setAvatar(cloudinaryMediaServiceImplement.uploadImage(updateAccountRequest.getAvatar()));
+            }
+            account.setFull_name(updateAccountRequest.getFull_name());
+            account.setBirth_date(updateAccountRequest.getBirth_date());
+            account.setAvatar(cloudinaryMediaServiceImplement.updateImage(updateAccountRequest.getAvatar(), account.getAvatar()));
+            account.setPhone(updateAccountRequest.getPhone());
+            account.setUpdateAt(LocalDateTime.now());
+            accountRepository.save(account);
+
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Update account profile successfully"));
+
+        }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
