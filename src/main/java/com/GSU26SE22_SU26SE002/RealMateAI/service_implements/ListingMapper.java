@@ -1,10 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.ListingDetailResponse;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.ListingSummaryResponse;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.PropertyDetailResponse;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.PropertyImageResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -20,22 +17,25 @@ import java.util.stream.Collectors;
  * Tách thành @Component riêng để tránh trùng lặp code map Listing/Property/Image
  * giữa 2 service — đảm bảo mọi nơi hiển thị "chi tiết bài đăng" (kể cả màn hình
  * duyệt tin của Staff) đều thấy đúng 1 cấu trúc dữ liệu, không bị lệch nhau.
+ *
+ * LƯU Ý (sau khi tách ảnh khỏi Property): ảnh nay thuộc về Listing
+ * (Listing#listingImages), Property CHỈ còn thông số bất động sản thuần tuý.
+ * Ảnh thumbnail (isThumbnail = true) LUÔN được xếp lên đầu danh sách "images",
+ * sau đó mới theo displayOrder.
  */
 @Component
 public class ListingMapper {
+
+    /** Sắp xếp: ảnh thumbnail lên đầu, còn lại theo displayOrder tăng dần. */
+    private static final Comparator<ListingImage> THUMBNAIL_FIRST_ORDER =
+            Comparator.comparing((ListingImage img) -> !Boolean.TRUE.equals(img.getIsThumbnail()))
+                    .thenComparing(ListingImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder()));
+
     public ListingDetailResponse toListingDetail(Listing l, Property p) {
 
-        List<PropertyImageResponse> propertyImages = (p == null || p.getPropertyImages() == null)
-                ? Collections.emptyList()
-                : p.getPropertyImages().stream()
-                .sorted(Comparator.comparing(PropertyImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(this::toPropertyImageResponse)
-                .collect(Collectors.toList());
+        List<ListingImageResponse> images = toListingImageResponses(l);
 
-        PropertyDetailResponse propertyDetail = null;
-        if (p != null) {
-            propertyDetail = toPropertyDetail(p, propertyImages, null);
-        }
+        PropertyDetailResponse propertyDetail = p != null ? toPropertyDetail(p, null) : null;
 
         Seller seller = l.getSeller();
         Account sellerAccount = seller != null ? seller.getAccount() : null;
@@ -55,9 +55,11 @@ public class ListingMapper {
                 .startTime(l.getStartTime())
                 .endTime(l.getEndTime())
                 .isActive(l.getIsActive())
+                .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .reviewerNote(lv != null ? lv.getReviewerNote() : null)
                 .property(propertyDetail)
+                .images(images)
                 .sellerId(seller != null ? seller.getSellerId() : null)
                 .sellerName(sellerAccount != null ? sellerAccount.getFull_name() : null)
                 .sellerAvatar(sellerAccount != null ? sellerAccount.getAvatar() : null)
@@ -67,16 +69,13 @@ public class ListingMapper {
                 .build();
     }
 
-    public PropertyDetailResponse toPropertyDetail(Property p, List<PropertyImageResponse> images, Integer activeListingCount) {
+    /**
+     * @param activeListingCount số Listing đang tham chiếu tới Property (có thể null nếu
+     *                           không cần hiển thị, ví dụ khi map lồng trong ListingDetailResponse)
+     */
+    public PropertyDetailResponse toPropertyDetail(Property p, Integer activeListingCount) {
         Location loc = p.getLocation();
         Ward ward = loc != null ? loc.getWard() : null;
-
-        List<PropertyImageResponse> resolvedImages = images != null ? images
-                : (p.getPropertyImages() == null ? Collections.emptyList()
-                : p.getPropertyImages().stream()
-                .sorted(Comparator.comparing(PropertyImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(this::toPropertyImageResponse)
-                .collect(Collectors.toList()));
 
         return PropertyDetailResponse.builder()
                 .propertyId(p.getPropertyId())
@@ -100,7 +99,6 @@ public class ListingMapper {
                 .postalCode(loc != null ? loc.getPostalCode() : null)
                 .wardCode(ward != null ? ward.getWard_code() : null)
                 .wardName(ward != null ? ward.getName() : null)
-                .images(resolvedImages)
                 .isActive(p.getIsActive())
                 .activeListingCount(activeListingCount)
                 .createdAt(p.getCreatedAt())
@@ -111,16 +109,7 @@ public class ListingMapper {
     public ListingSummaryResponse toListingSummary(Listing l, boolean isFavorited) {
         Property p = l.getProperty();
 
-        String thumbnail = (p == null || p.getPropertyImages() == null || p.getPropertyImages().isEmpty())
-                ? null
-                : p.getPropertyImages().stream()
-                .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
-                .map(PropertyImage::getImageUrl)
-                .findFirst()
-                .orElseGet(() -> p.getPropertyImages().stream()
-                        .min(Comparator.comparing(PropertyImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
-                        .map(PropertyImage::getImageUrl)
-                        .orElse(null));
+        String thumbnail = resolveThumbnailUrl(l);
 
         ListingVerification lv = l.getListingVerification();
 
@@ -134,17 +123,42 @@ public class ListingMapper {
                 .propertyTypeName(p != null && p.getPropertyType() != null ? p.getPropertyType().getName() : null)
                 .thumbnailUrl(thumbnail)
                 .isActive(l.getIsActive())
+                .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
                 .createdAt(l.getCreatedAt())
                 .isFavorited(isFavorited)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .build();
     }
 
-    public PropertyImageResponse toPropertyImageResponse(PropertyImage img) {
-        return PropertyImageResponse.builder()
-                .propertyImageId(img.getPropertyImageId())
+    /** Ảnh đại diện: ưu tiên isThumbnail=true, fallback ảnh có displayOrder nhỏ nhất. */
+    public String resolveThumbnailUrl(Listing l) {
+        List<ListingImage> imgs = l.getListingImages();
+        if (imgs == null || imgs.isEmpty()) return null;
+        return imgs.stream()
+                .filter(img -> Boolean.TRUE.equals(img.getIsThumbnail()))
+                .map(ListingImage::getImageUrl)
+                .findFirst()
+                .orElseGet(() -> imgs.stream()
+                        .min(Comparator.comparing(ListingImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .map(ListingImage::getImageUrl)
+                        .orElse(null));
+    }
+
+    public List<ListingImageResponse> toListingImageResponses(Listing l) {
+        if (l.getListingImages() == null || l.getListingImages().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return l.getListingImages().stream()
+                .sorted(THUMBNAIL_FIRST_ORDER)
+                .map(this::toListingImageResponse)
+                .collect(Collectors.toList());
+    }
+
+    public ListingImageResponse toListingImageResponse(ListingImage img) {
+        return ListingImageResponse.builder()
+                .listingImageId(img.getListingImageId())
                 .imageUrl(img.getImageUrl())
-                .isMain(img.getIsMain())
+                .isThumbnail(img.getIsThumbnail())
                 .displayOrder(img.getDisplayOrder())
                 .build();
     }

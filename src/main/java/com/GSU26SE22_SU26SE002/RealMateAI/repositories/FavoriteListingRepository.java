@@ -25,7 +25,7 @@ public interface FavoriteListingRepository extends JpaRepository<FavoriteListing
             JOIN FETCH fl.listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             WHERE fl.investor.investorId = :investorId
             ORDER BY fl.createdAt DESC
             """)

@@ -60,8 +60,6 @@ public class Property {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<PropertyImage> propertyImages = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<PropertyValuation> propertyValuations = new ArrayList<>();

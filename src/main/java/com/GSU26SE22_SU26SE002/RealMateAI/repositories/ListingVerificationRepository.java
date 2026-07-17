@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+
 @Repository
 public interface ListingVerificationRepository extends JpaRepository<ListingVerification, Integer> {
 
@@ -25,7 +26,7 @@ public interface ListingVerificationRepository extends JpaRepository<ListingVeri
             SELECT lv FROM ListingVerification lv
             JOIN FETCH lv.listing l
             JOIN FETCH l.property p
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH p.propertyType pt
             WHERE lv.status = :status
             ORDER BY lv.listingVerificationId ASC

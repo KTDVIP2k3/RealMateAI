@@ -127,23 +127,24 @@ public class ListingController {
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    // DELETE /seller/listings/{id}  — NEW (soft delete)
+    // DELETE /seller/listings/{id}  — Xoá mềm VĨNH VIỄN (status = DELETED)
     // ─────────────────────────────────────────────────────────────────────────
     @DeleteMapping("/seller/listings/{id}")
     @PreAuthorize("hasRole('Seller')")
-    @Operation(summary = "Seller: Xoá mềm tin đăng (đặt isActive = false)")
+    @Operation(summary = "Seller: Xoá tin đăng vĩnh viễn (status = DELETED — không thể sửa/mở lại)")
     public ResponseEntity<ApiResponse> deleteMyListing(
             @PathVariable("id") Integer listingId) {
         return listingService.softDeleteListing(listingId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PATCH /seller/listings/{id}  — NEW: Seller tự đổi trạng thái hiển thị
-    // (PAUSE/RESUME). RESUME chỉ hợp lệ khi bài đăng đã được Staff APPROVED.
+    // PATCH /seller/listings/{id}  — Seller tự đổi trạng thái hiển thị bằng
+    // cách gửi "status" ĐÍCH (ACTIVE/HIDDEN/DELETED). Chuyển sang ACTIVE chỉ
+    // hợp lệ khi bài đăng đã được Staff APPROVED.
     // ─────────────────────────────────────────────────────────────────────────
     @PatchMapping("/seller/listings/{id}")
     @PreAuthorize("hasRole('Seller')")
-    @Operation(summary = "Seller: Đổi trạng thái hiển thị tin đăng (PAUSE/RESUME)")
+    @Operation(summary = "Seller: Đổi trạng thái hiển thị tin đăng (status: ACTIVE / HIDDEN / DELETED)")
     public ResponseEntity<ApiResponse> updateMyListingStatus(
             @PathVariable("id") Integer listingId,
             @Valid @RequestBody UpdateListingStatusRequest request) {

@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -43,8 +44,8 @@ public class PropertyDetailResponse {
     private String wardCode;
     private String wardName;
 
-    // Ảnh thực tế tài sản
-    private List<PropertyImageResponse> images;
+    // Property KHÔNG còn giữ ảnh — ảnh nay thuộc về Listing (xem
+    // ListingDetailResponse#images / ListingSummaryResponse#thumbnailUrl).
 
     private Boolean isActive;
 

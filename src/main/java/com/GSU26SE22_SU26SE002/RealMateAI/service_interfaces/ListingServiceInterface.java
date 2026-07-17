@@ -36,11 +36,20 @@ public interface ListingServiceInterface {
 
     ResponseEntity<ApiResponse> getMyListingDetail(Integer listingId);
 
+    /**
+     * Seller xoá mềm VĨNH VIỄN bài đăng của mình (status → DELETED). Khác
+     * chuyển sang HIDDEN: một khi đã xoá thì không thể sửa/mở lại/xem lại
+     * trong các API quản lý của Seller nữa. Về bản chất đây là 1 lối gọi tắt
+     * của {@link #updateListingStatus} với status = DELETED — giữ lại để
+     * tương thích với endpoint DELETE /seller/listings/{id} cũ.
+     */
     ResponseEntity<ApiResponse> softDeleteListing(Integer listingId);
 
     /**
-     * Seller tự đổi trạng thái hiển thị (PAUSE/RESUME) cho bài đăng của mình.
-     * RESUME chỉ được phép khi verification hiện tại = APPROVED.
+     * Seller tự đổi trạng thái hiển thị bài đăng của mình bằng cách gửi lên
+     * status ĐÍCH: HIDDEN (tạm ẩn), DELETED (xoá mềm vĩnh viễn — không thể
+     * sửa/mở lại), ACTIVE (mở lại từ HIDDEN). Chuyển sang ACTIVE chỉ được
+     * phép khi verification hiện tại = APPROVED.
      */
     ResponseEntity<ApiResponse> updateListingStatus(Integer listingId, UpdateListingStatusRequest request);
 

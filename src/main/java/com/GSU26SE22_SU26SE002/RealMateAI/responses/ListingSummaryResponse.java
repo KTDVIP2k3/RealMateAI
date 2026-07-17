@@ -27,6 +27,10 @@ public class ListingSummaryResponse {
     private String thumbnailUrl;
 
     private Boolean isActive;
+
+    /** Trạng thái Seller tự quản lý: ACTIVE / HIDDEN / DELETED */
+    private String sellerStatus;
+
     private LocalDateTime createdAt;
 
     /** true nếu user hiện tại đã yêu thích bài đăng này */

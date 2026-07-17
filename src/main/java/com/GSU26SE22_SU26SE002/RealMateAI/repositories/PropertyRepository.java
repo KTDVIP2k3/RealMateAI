@@ -24,9 +24,8 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
             LEFT JOIN FETCH loc.ward w
-            LEFT JOIN FETCH p.propertyImages pi
             WHERE p.seller.sellerId = :sellerId
-            ORDER BY p.createdAt DESC NULLS LAST
+            ORDER BY p.createdAt DESC NULLS LAST    
             """)
     List<Property> findBySellerIdWithDetails(@Param("sellerId") Integer sellerId);
 
@@ -40,7 +39,6 @@ public interface PropertyRepository extends JpaRepository<Property, Integer> {
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
             LEFT JOIN FETCH loc.ward w
-            LEFT JOIN FETCH p.propertyImages pi
             WHERE p.propertyId = :propertyId
             """)
     Optional<Property> findByIdWithDetails(@Param("propertyId") Integer propertyId);

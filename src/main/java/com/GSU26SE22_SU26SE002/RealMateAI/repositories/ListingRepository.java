@@ -54,18 +54,18 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
 
     /**
      * QUERY 2 DÙNG CHUNG của pattern 2-query — fetch chi tiết đầy đủ (property,
-     * propertyType, location, propertyImages) cho ĐÚNG danh sách listingId đã phân
+     * propertyType, location, listingImages) cho ĐÚNG danh sách listingId đã phân
      * trang sẵn ở QUERY 1 (findByIsActiveTrue hoặc findAll(Specification, Pageable)).
      * KHÔNG nhận Pageable — số lượng đã được giới hạn bởi kích thước danh sách "ids"
      * truyền vào, nên không có rủi ro in-memory pagination dù có JOIN FETCH collection.
-     * DISTINCT để tránh nhân bản dòng do JOIN FETCH propertyImages (1-N).
+     * DISTINCT để tránh nhân bản dòng do JOIN FETCH listingImages (1-N).
      */
     @Query("""
             SELECT DISTINCT l FROM Listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.location loc
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             WHERE l.listingId IN :ids
             """)
     List<Listing> findAllByListingIdInWithDetails(@Param("ids") List<Integer> ids);
@@ -79,7 +79,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.seller s
             LEFT JOIN FETCH s.account a
             WHERE l.listingId = :listingId AND l.isActive = true
@@ -87,23 +87,30 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
     Optional<Listing> findActiveById(@Param("listingId") Integer listingId);
 
     /**
-     * Seller xem tất cả bài đăng của mình — bao gồm cả chưa duyệt.
+     * Seller xem tất cả bài đăng của mình — bao gồm cả chưa duyệt và đang ẩn (HIDDEN).
+     * KHÔNG bao gồm bài đăng đã bị xoá mềm vĩnh viễn (status = DELETED) — 1 khi đã
+     * DELETE thì tin đăng biến mất hoàn toàn khỏi danh sách quản lý của Seller, kể cả
+     * chính chủ sở hữu cũng không còn thấy/sửa/dùng lại được nữa.
      * Vì 1 Property có thể được đăng lại bởi nhiều Listing,
-     * propertyImages luôn lấy từ property (không phụ thuộc listing).
+     * ảnh luôn lấy từ chính Listing đó (listingImages), không phụ thuộc property.
      */
     @Query("""
             SELECT l FROM Listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.listingVerification lv
             WHERE l.seller.sellerId = :sellerId
+              AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
             ORDER BY l.createdAt DESC
             """)
     List<Listing> findBySellerId(@Param("sellerId") Integer sellerId);
 
     /**
      * Lấy chi tiết Listing kèm Property + Location (dùng cho update / ownership check).
+     * Bao gồm cả DELETED — service layer (ListingServiceImplement#updateListing) sẽ tự
+     * kiểm tra status = DELETED và chặn thao tác sửa nếu cần (dùng cho path Admin/Staff
+     * hoặc PUT /listings/{id} không lọc theo seller).
      */
     @Query("""
             SELECT l FROM Listing l
@@ -111,14 +118,15 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             LEFT JOIN FETCH p.location loc
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.listingVerification lv
             WHERE l.listingId = :listingId
             """)
     Optional<Listing> findByIdWithDetails(@Param("listingId") Integer listingId);
     /**
-     * Seller xem chi tiết 1 listing của chính mình (kể cả chưa duyệt).
+     * Seller xem chi tiết 1 listing của chính mình (kể cả chưa duyệt, kể cả HIDDEN).
      * Ownership được xác thực ngay trong query (AND l.seller.sellerId = :sellerId).
+     * KHÔNG trả về bài đăng đã DELETED — xem giải thích ở {@link #findBySellerId}.
      */
     @Query("""
             SELECT l FROM Listing l
@@ -126,16 +134,33 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
-            LEFT JOIN FETCH p.propertyImages pi
+            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.seller s
             LEFT JOIN FETCH s.account a
             LEFT JOIN FETCH l.listingVerification lv
             WHERE l.listingId = :listingId
               AND l.seller.sellerId = :sellerId
+              AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
             """)
     Optional<Listing> findByIdAndSellerId(@Param("listingId") Integer listingId,
                                           @Param("sellerId") Integer sellerId);
 
+    /**
+     * Các Listing KHÁC (không tính chính nó) đang tham chiếu tới cùng 1 Property,
+     * kèm sẵn listingImages — dùng để COPY lại ảnh khi Seller đăng lại tài sản đã có
+     * (luồng ①: createListingWithExistingProperty) mà không upload ảnh mới, giúp
+     * bài đăng mới vẫn có ảnh ngay mà không bắt Seller chụp/upload lại từ đầu.
+     * Sắp xếp mới nhất trước để ưu tiên bộ ảnh gần đây nhất.
+     */
+    @Query("""
+            SELECT DISTINCT l FROM Listing l
+            LEFT JOIN FETCH l.listingImages li
+            WHERE l.property.propertyId = :propertyId
+              AND l.listingId <> :excludeListingId
+            ORDER BY l.createdAt DESC
+            """)
+    List<Listing> findOtherListingsOfPropertyWithImages(@Param("propertyId") Integer propertyId,
+                                                        @Param("excludeListingId") Integer excludeListingId);
 
 
 
