@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
+
 @Repository
 
 public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaSpecificationExecutor<Listing> {
@@ -54,24 +55,31 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
 
     /**
      * QUERY 2 DÙNG CHUNG của pattern 2-query — fetch chi tiết đầy đủ (property,
-     * propertyType, location, listingImages) cho ĐÚNG danh sách listingId đã phân
-     * trang sẵn ở QUERY 1 (findByIsActiveTrue hoặc findAll(Specification, Pageable)).
-     * KHÔNG nhận Pageable — số lượng đã được giới hạn bởi kích thước danh sách "ids"
-     * truyền vào, nên không có rủi ro in-memory pagination dù có JOIN FETCH collection.
-     * DISTINCT để tránh nhân bản dòng do JOIN FETCH listingImages (1-N).
+     * propertyType, location) cho ĐÚNG danh sách listingId đã phân trang sẵn ở
+     * QUERY 1 (findByIsActiveTrue hoặc findAll(Specification, Pageable)).
+     * KHÔNG JOIN FETCH listingImages (xem lý do ở Listing#listingImages —
+     * @BatchSize đảm nhiệm việc load ảnh theo batch, KHÔNG dùng JOIN FETCH vì
+     * sẽ cần DISTINCT, mà DISTINCT trên các cột json (property_attribute,
+     * property_purpose) khiến Postgres báo lỗi "could not identify an
+     * equality operator for type json" — đây chính là nguyên nhân lỗi 500 ở
+     * GET /listings trước khi sửa). property/propertyType/location đều là
+     * quan hệ *ToOne nên JOIN FETCH các quan hệ này không làm nhân bản dòng,
+     * không cần DISTINCT.
      */
     @Query("""
-            SELECT DISTINCT l FROM Listing l
+            SELECT l FROM Listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.location loc
-            LEFT JOIN FETCH l.listingImages li
             WHERE l.listingId IN :ids
             """)
     List<Listing> findAllByListingIdInWithDetails(@Param("ids") List<Integer> ids);
 
     /**
-     * Chi tiết 1 bài đăng công khai — JOIN FETCH toàn bộ liên kết cần thiết.
+     * Chi tiết 1 bài đăng công khai — JOIN FETCH toàn bộ liên kết *ToOne cần
+     * thiết. listingImages KHÔNG fetch join ở đây (xem giải thích ở
+     * {@link #findAllByListingIdInWithDetails}) — sẽ được load lazy theo
+     * batch (@BatchSize) khi service/mapper truy cập l.getListingImages().
      */
     @Query("""
             SELECT l FROM Listing l
@@ -79,7 +87,6 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
-            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.seller s
             LEFT JOIN FETCH s.account a
             WHERE l.listingId = :listingId AND l.isActive = true
@@ -91,14 +98,14 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
      * KHÔNG bao gồm bài đăng đã bị xoá mềm vĩnh viễn (status = DELETED) — 1 khi đã
      * DELETE thì tin đăng biến mất hoàn toàn khỏi danh sách quản lý của Seller, kể cả
      * chính chủ sở hữu cũng không còn thấy/sửa/dùng lại được nữa.
-     * Vì 1 Property có thể được đăng lại bởi nhiều Listing,
-     * ảnh luôn lấy từ chính Listing đó (listingImages), không phụ thuộc property.
+     * Vì 1 Property có thể được đăng lại bởi nhiều Listing, ảnh luôn lấy từ
+     * chính Listing đó (listingImages, load lazy theo batch — không JOIN
+     * FETCH ở đây, xem giải thích ở {@link #findAllByListingIdInWithDetails}).
      */
     @Query("""
             SELECT l FROM Listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
-            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.listingVerification lv
             WHERE l.seller.sellerId = :sellerId
               AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
@@ -118,7 +125,6 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             LEFT JOIN FETCH p.location loc
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
-            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.listingVerification lv
             WHERE l.listingId = :listingId
             """)
@@ -134,7 +140,6 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             LEFT JOIN FETCH p.propertyType pt
             LEFT JOIN FETCH p.propertyCondition pc
             LEFT JOIN FETCH p.location loc
-            LEFT JOIN FETCH l.listingImages li
             LEFT JOIN FETCH l.seller s
             LEFT JOIN FETCH s.account a
             LEFT JOIN FETCH l.listingVerification lv
@@ -146,15 +151,15 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
                                           @Param("sellerId") Integer sellerId);
 
     /**
-     * Các Listing KHÁC (không tính chính nó) đang tham chiếu tới cùng 1 Property,
-     * kèm sẵn listingImages — dùng để COPY lại ảnh khi Seller đăng lại tài sản đã có
-     * (luồng ①: createListingWithExistingProperty) mà không upload ảnh mới, giúp
-     * bài đăng mới vẫn có ảnh ngay mà không bắt Seller chụp/upload lại từ đầu.
+     * Các Listing KHÁC (không tính chính nó) đang tham chiếu tới cùng 1 Property
+     * — dùng để COPY lại ảnh khi Seller đăng lại tài sản đã có (luồng ①:
+     * createListingWithExistingProperty) mà không upload ảnh mới. listingImages
+     * KHÔNG fetch join (xem giải thích ở {@link #findAllByListingIdInWithDetails}) —
+     * truy cập l.getListingImages() trong service sẽ tự batch-load lazy.
      * Sắp xếp mới nhất trước để ưu tiên bộ ảnh gần đây nhất.
      */
     @Query("""
-            SELECT DISTINCT l FROM Listing l
-            LEFT JOIN FETCH l.listingImages li
+            SELECT l FROM Listing l
             WHERE l.property.propertyId = :propertyId
               AND l.listingId <> :excludeListingId
             ORDER BY l.createdAt DESC
