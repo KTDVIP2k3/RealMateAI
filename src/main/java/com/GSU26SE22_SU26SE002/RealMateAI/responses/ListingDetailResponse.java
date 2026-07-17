@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -28,14 +29,26 @@ public class ListingDetailResponse {
     private LocalTime endTime;
     private Boolean isActive;
 
+    /**
+     * Trạng thái Seller tự quản lý: ACTIVE / HIDDEN / DELETED.
+     * Khác verificationStatus (đó là quyết định của Staff/Admin).
+     */
+    private String sellerStatus;
+
     /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
     private String verificationStatus;
 
     /** Lý do từ chối / ghi chú của Staff (nếu có) */
     private String reviewerNote;
 
-    /** Thông số BĐS đầy đủ, kèm danh sách ảnh thực tế (property.images) */
+    /** Thông số BĐS đầy đủ (property KHÔNG còn kèm ảnh — xem field "images" bên dưới) */
     private PropertyDetailResponse property;
+
+    /**
+     * Ảnh của CHÍNH bài đăng này (thay cho property.images cũ). Ảnh thumbnail
+     * (isThumbnail = true) luôn được xếp lên đầu danh sách.
+     */
+    private List<ListingImageResponse> images;
 
     // Thông tin Seller cơ bản
     private Integer sellerId;

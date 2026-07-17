@@ -75,6 +75,13 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
             Listing listing = listingRepository.findByIdWithDetails(listingId)
                     .orElseThrow(() -> new RuntimeException("Listing not found"));
 
+            // Bài đăng đã bị Seller xoá mềm vĩnh viễn (DELETED) — không cho Staff/Admin
+            // duyệt nữa (tránh hồi sinh 1 tin mà Seller đã chủ động xoá).
+            if (listing.getStatus() == com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ApiResponse.fail("Conflict", "Bài đăng này đã bị Seller xoá, không thể duyệt"));
+            }
+
             // Validation
             if (request.getDecision() == null) {
                 return ResponseEntity.badRequest()
@@ -88,8 +95,7 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
             }
 
             if (request.getDecision() == ListingStatusEnum.APPROVED) {
-                Property p = listing.getProperty();
-                boolean hasImage = p != null && p.getPropertyImages() != null && !p.getPropertyImages().isEmpty();
+                boolean hasImage = listing.getListingImages() != null && !listing.getListingImages().isEmpty();
                 if (!hasImage) {
                     return ResponseEntity.badRequest()
                             .body(ApiResponse.fail("Bad_Request", "Phải có ít nhất 1 ảnh thực tế"));
@@ -117,7 +123,13 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
             boolean approved = request.getDecision() == ListingStatusEnum.APPROVED;
 
             // Update listing status
-            listing.setIsActive(approved);
+            // isActive chỉ = true khi ĐƯỢC DUYỆT và Seller đang để trạng thái ACTIVE.
+            // Nếu Seller đã chủ động HIDE (ẩn) tin trước khi Staff duyệt lại, tin vẫn
+            // giữ nguyên trạng thái ẩn — quyết định duyệt không được phép "hồi sinh"
+            // hiển thị công khai ngoài ý muốn của Seller.
+            boolean sellerWantsActive = listing.getStatus() == null
+                    || listing.getStatus() == com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.ACTIVE;
+            listing.setIsActive(approved && sellerWantsActive);
             listing.setUpdatedAt(LocalDateTime.now());
             listingRepository.save(listing);
 

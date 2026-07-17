@@ -3,7 +3,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingSortEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingActionEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
@@ -39,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,7 +49,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final ListingVerificationRepository listingVerificationRepository;
     private final PropertyRepository propertyRepository;
     private final LocationRepository locationRepository;
-    private final PropertyImageRepository propertyImageRepository;
+    private final ListingImageRepository listingImageRepository;
     private final SellerRepository sellerRepository;
     private final PropertyTypeRepository propertyTypeRepository;
     private final PropertyConditionRepository propertyConditionRepository;
@@ -110,12 +111,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .body(ApiResponse.fail("Forbidden", "Tài sản này không thuộc sở hữu của bạn"));
             }
 
-            int reparented = 0;
-            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
-                reparented = reparentUploadedImagesToProperty(
-                        request.getDraftImagePublicIds(), currentUser, property, request.getMainImageIndex());
-            }
-
             LocalDateTime now = LocalDateTime.now();
             Listing listing = Listing.builder()
                     .property(property)
@@ -131,25 +126,41 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .startTime(request.getStartTime())
                     .endTime(request.getEndTime())
                     .isActive(false)
+                    .status(SellerListingStatusEnum.ACTIVE)
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
 
             Listing saved = listingRepository.save(listing);
+            listingRepository.flush();
             createPendingVerification(saved);
+
+            // Ảnh gắn theo LISTING (không còn theo Property nữa). Nếu Seller upload
+            // ảnh mới (draftImagePublicIds) thì dùng ảnh đó cho bài đăng mới; nếu
+            // không, tự động COPY lại bộ ảnh của lần đăng gần nhất (nếu có) từ
+            // cùng Property để bài đăng mới vẫn có ảnh ngay mà không bắt Seller
+            // upload lại từ đầu (giữ đúng trải nghiệm cũ của luồng "đăng lại tài sản").
+            int reparented = 0;
+            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
+                reparented = reparentUploadedImagesToListing(
+                        request.getDraftImagePublicIds(), currentUser, saved, request.getMainImageIndex());
+            } else {
+                reparented = copyImagesFromOtherListingsOfProperty(property, saved);
+            }
 
             log.info("[ListingService] Luồng①: listingId={}, propertyId={}, sellerId={}",
                     saved.getListingId(), property.getPropertyId(), seller.getSellerId());
 
             Property refreshed = propertyRepository
                     .findByIdWithDetails(property.getPropertyId()).orElse(property);
+            Listing refreshedListing = listingRepository.findByIdWithDetails(saved.getListingId()).orElse(saved);
 
             String msg = "Bài đăng tạo thành công"
-                    + (reparented > 0 ? ", thêm " + reparented + " ảnh mới" : "")
+                    + (reparented > 0 ? ", thêm " + reparented + " ảnh" : "")
                     + ", đang chờ Staff duyệt";
 
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(listingMapper.toListingDetail(saved, refreshed), msg));
+                    .body(ApiResponse.success(listingMapper.toListingDetail(refreshedListing, refreshed), msg));
 
         } catch (RuntimeException e) {
             return handleAuthException(e);
@@ -251,20 +262,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Property savedProperty = propertyRepository.save(property);
             propertyRepository.flush();
 
-            // Re-parent ảnh
-            List<String> publicIds = uploadedAssets.stream()
-                    .map(MediaAssetResponse::getPublicId)
-                    .collect(Collectors.toList());
-
-            int reparented = reparentUploadedImagesToProperty(
-                    publicIds, currentUser, savedProperty, request.getMainImageIndex());
-
-            if (reparented == 0) {
-                throw new ListingConflictException(HttpStatus.CONFLICT,
-                        "Upload ảnh thành công nhưng không thể gắn vào tài sản. Vui lòng thử lại.");
-            }
-
-            // Tạo Listing
+            // Tạo Listing TRƯỚC (ảnh nay gắn theo Listing, cần listingId để re-parent)
             Listing listing = Listing.builder()
                     .property(savedProperty)
                     .seller(seller)
@@ -279,11 +277,27 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .startTime(request.getStartTime() != null ? java.time.LocalTime.parse(request.getStartTime()) : null)
                     .endTime(request.getEndTime() != null ? java.time.LocalTime.parse(request.getEndTime()) : null)
                     .isActive(false)
+                    .status(SellerListingStatusEnum.ACTIVE)
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
 
             Listing saved = listingRepository.save(listing);
+            listingRepository.flush();
+
+            // Re-parent ảnh — gắn thẳng vào LISTING vừa tạo (không còn theo Property)
+            List<String> publicIds = uploadedAssets.stream()
+                    .map(MediaAssetResponse::getPublicId)
+                    .collect(Collectors.toList());
+
+            int reparented = reparentUploadedImagesToListing(
+                    publicIds, currentUser, saved, request.getMainImageIndex());
+
+            if (reparented == 0) {
+                throw new ListingConflictException(HttpStatus.CONFLICT,
+                        "Upload ảnh thành công nhưng không thể gắn vào bài đăng. Vui lòng thử lại.");
+            }
+
             createPendingVerification(saved);
 
             log.info("[ListingService] Luồng②: listingId={}, propertyId={}, sellerId={}, ảnh={}",
@@ -291,10 +305,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             Property refreshed = propertyRepository
                     .findByIdWithDetails(savedProperty.getPropertyId()).orElse(savedProperty);
+            Listing refreshedListing = listingRepository.findByIdWithDetails(saved.getListingId()).orElse(saved);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(
-                            listingMapper.toListingDetail(saved, refreshed),
+                            listingMapper.toListingDetail(refreshedListing, refreshed),
                             "Bài đăng tạo thành công kèm " + reparented + " ảnh, đang chờ Staff duyệt"));
 
         } catch (RuntimeException e) {
@@ -469,7 +484,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             List<PropertyDetailResponse> response = properties.stream()
                     .map(p -> {
                         int listingCount = (int) listingRepository.countByProperty_PropertyId(p.getPropertyId());
-                        return listingMapper.toPropertyDetail(p, null, listingCount);
+                        return listingMapper.toPropertyDetail(p, listingCount);
                     })
                     .collect(Collectors.toList());
 
@@ -501,6 +516,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             String roleName = currentUser.getRole() != null ? currentUser.getRole().name() : "";
             boolean isAdminOrStaff = roleName.equals("Admin") || roleName.equals("Staff");
+
+            // Tin đã bị Seller xoá mềm vĩnh viễn (DELETED) — KHÔNG ai được sửa nữa,
+            // kể cả Admin/Staff (đây là bản ghi lịch sử, không còn tái sử dụng được).
+            if (listing.getStatus() == SellerListingStatusEnum.DELETED) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ApiResponse.fail("Conflict", "Bài đăng đã bị xoá, không thể chỉnh sửa"));
+            }
 
             if (!isAdminOrStaff) {
                 Seller seller = getCurrentSeller(currentUser);
@@ -548,20 +570,21 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 propertyRepository.save(property);
             }
 
-            // Re-parent images nếu có
+            // Re-parent images nếu có — ảnh nay gắn theo LISTING, không còn theo Property
             int reparentedCount = 0;
-            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty() && property != null) {
-                reparentedCount = reparentUploadedImagesToProperty(
-                        request.getDraftImagePublicIds(), currentUser, property, request.getMainImageIndex());
+            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
+                reparentedCount = reparentUploadedImagesToListing(
+                        request.getDraftImagePublicIds(), currentUser, listing, request.getMainImageIndex());
             }
 
             Listing updated = listingRepository.save(listing);
             Property refreshed = property != null
                     ? propertyRepository.findByIdWithDetails(property.getPropertyId()).orElse(property)
                     : null;
+            Listing refreshedListing = listingRepository.findByIdWithDetails(updated.getListingId()).orElse(updated);
 
             return ResponseEntity.ok(ApiResponse.success(
-                    listingMapper.toListingDetail(updated, refreshed),
+                    listingMapper.toListingDetail(refreshedListing, refreshed),
                     "Cập nhật bài đăng thành công — cần Staff duyệt lại"));
 
         } catch (RuntimeException e) {
@@ -574,26 +597,28 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // Helper: Re-parent MediaAsset
+    // Helper: Re-parent MediaAsset — gắn ảnh draft (đang tạm ở ACCOUNT) vào
+    // đúng LISTING vừa tạo/sửa. Đây là điểm thay đổi cốt lõi: trước đây ảnh
+    // được re-parent vào Property (EntityType.PROPERTY), giờ re-parent thẳng
+    // vào Listing (EntityType.LISTING) và lưu thành bản ghi ListingImage.
     // ════════════════════════════════════════════════════════════════════════
-    private int reparentUploadedImagesToProperty(List<String> publicIds,
-                                                 Account owner,
-                                                 Property property,
-                                                 Integer mainImageIndex) {
+    private int reparentUploadedImagesToListing(List<String> publicIds,
+                                                Account owner,
+                                                Listing listing,
+                                                Integer mainImageIndex) {
         if (publicIds == null || publicIds.isEmpty()) return 0;
 
-        long existingCount = propertyImageRepository.countByProperty_PropertyId(property.getPropertyId());
+        long existingCount = listingImageRepository.countByListing_ListingId(listing.getListingId());
         int mainIdx = (mainImageIndex == null) ? 0 : mainImageIndex;
         int saved = 0;
-        Long propertyIdL = property.getPropertyId().longValue();
-        long ownerIdL = owner.getAccountId();
+        Long listingIdL = listing.getListingId().longValue();
 
         for (int i = 0; i < publicIds.size(); i++) {
             String publicId = publicIds.get(i);
 
             int claimed = mediaAssetRepository.claimDraftAsset(
-                    publicId, owner.getAccountId(), ownerIdL,
-                    EntityType.PROPERTY, propertyIdL);
+                    publicId, owner.getAccountId(), (long) owner.getAccountId(),
+                    EntityType.LISTING, listingIdL);
 
             if (claimed == 0) {
                 log.warn("[ListingService] Skip publicId={}", publicId);
@@ -603,18 +628,55 @@ public class ListingServiceImplement implements ListingServiceInterface {
             MediaAsset asset = mediaAssetRepository.findByPublicId(publicId).orElse(null);
             if (asset == null) continue;
 
-            boolean isMain = (existingCount == 0) && (i == mainIdx);
-            PropertyImage img = PropertyImage.builder()
-                    .property(property)
+            // Chỉ đánh dấu thumbnail nếu listing CHƯA có ảnh nào (existingCount == 0)
+            // VÀ đây đúng là ảnh ở vị trí mainIdx do Seller chỉ định — đảm bảo mỗi
+            // Listing luôn có DUY NHẤT 1 ảnh thumbnail.
+            boolean isThumbnail = (existingCount == 0) && (i == mainIdx);
+            ListingImage img = ListingImage.builder()
+                    .listing(listing)
                     .imageUrl(asset.getSecureUrl())
-                    .isMain(isMain)
+                    .isThumbnail(isThumbnail)
                     .displayOrder((int) existingCount + saved)
                     .build();
 
-            propertyImageRepository.save(img);
+            listingImageRepository.save(img);
             saved++;
         }
         return saved;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Helper: Khi Seller đăng lại 1 Property đã có (Luồng ①) mà KHÔNG upload ảnh
+    // mới, tự động COPY bộ ảnh của lần đăng gần nhất (Listing khác) cùng Property
+    // sang Listing mới — giữ đúng trải nghiệm cũ (không bắt Seller upload lại ảnh)
+    // dù giờ ảnh đã thuộc về Listing thay vì Property.
+    // ════════════════════════════════════════════════════════════════════════
+    private int copyImagesFromOtherListingsOfProperty(Property property, Listing newListing) {
+        List<Listing> others = listingRepository.findOtherListingsOfPropertyWithImages(
+                property.getPropertyId(), newListing.getListingId());
+
+        for (Listing other : others) {
+            List<ListingImage> sourceImages = other.getListingImages();
+            if (sourceImages == null || sourceImages.isEmpty()) continue;
+
+            List<ListingImage> sorted = sourceImages.stream()
+                    .sorted(Comparator.comparing(
+                            ListingImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .collect(Collectors.toList());
+
+            int order = 0;
+            for (ListingImage src : sorted) {
+                ListingImage copy = ListingImage.builder()
+                        .listing(newListing)
+                        .imageUrl(src.getImageUrl())
+                        .isThumbnail(src.getIsThumbnail())
+                        .displayOrder(order++)
+                        .build();
+                listingImageRepository.save(copy);
+            }
+            return sorted.size();
+        }
+        return 0;
     }
     // ════════════════════════════════════════════════════════════════════════
     // GET /seller/listings/{id} — Seller xem chi tiết 1 listing của mình
@@ -648,64 +710,56 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // DELETE /seller/listings/{id} — Xoá mềm (isActive = false)
+    // DELETE /seller/listings/{id} — Xoá mềm VĨNH VIỄN (status = DELETED)
+    // ════════════════════════════════════════════════════════════════════════
+    // TRƯỚC ĐÂY: chỉ set isActive=false — TRÙNG với hành vi tạm ẩn, không có cờ
+    // nào phân biệt "đã xoá" khỏi "đang tạm ẩn". Hậu quả: (1) GET
+    // /seller/listings & /seller/listings/{id} không lọc, Seller vẫn thấy được
+    // tin đã xoá; (2) Seller có thể mở lại 1 tin đã "xoá" vì hệ thống chỉ
+    // thấy isActive=false + verification=APPROVED, y hệt điều kiện mở lại hợp lệ.
+    // NAY: dùng SellerListingStatusEnum.DELETED riêng biệt, và mọi query
+    // findBySellerId/findByIdAndSellerId đều LOẠI TRỪ DELETED — vừa sửa triệt để
+    // lỗi "xoá mềm rồi vẫn get ra được", vừa chặn mở lại vĩnh viễn.
     // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> softDeleteListing(Integer listingId) {
-        try {
-            Account currentUser = authenUntil.getCurrentUSer();
-            Seller seller = getCurrentSeller(currentUser);
-
-            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
-                    .orElse(null);
-            if (listing == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.fail("Not_Found",
-                                "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
-            }
-
-            if (Boolean.FALSE.equals(listing.getIsActive())) {
-                // Đã inactive rồi — idempotent, trả 200 luôn
-                return ResponseEntity.ok(ApiResponse.success(null,
-                        "Bài đăng đã được xoá trước đó"));
-            }
-
-            listing.setIsActive(false);
-            listing.setUpdatedAt(LocalDateTime.now());
-            listingRepository.save(listing);
-
-            log.info("[ListingService] softDelete: listingId={} bởi sellerId={}", listingId, seller.getSellerId());
-
-            return ResponseEntity.ok(ApiResponse.success(null,
-                    "Xoá bài đăng thành công (id=" + listingId + ")"));
-
-        } catch (RuntimeException e) {
-            return handleAuthException(e);
-        } catch (Exception e) {
-            log.error("[ListingService] softDeleteListing lỗi", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
-        }
+        return changeSellerListingStatus(listingId, SellerListingStatusEnum.DELETED);
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // PATCH /seller/listings/{id} — Seller tự đổi trạng thái hiển thị
-    // (PAUSE/RESUME) cho bài đăng của mình. KHÔNG liên quan tới quyết định
-    // duyệt của Staff (APPROVED/REJECTED) — đó vẫn là verification status.
+    // PATCH /seller/listings/{id} — Seller tự đổi trạng thái hiển thị bài đăng
+    // của mình bằng cách gửi lên "status" ĐÍCH muốn chuyển tới: HIDDEN (ẩn),
+    // DELETED (xoá vĩnh viễn), ACTIVE (mở lại từ HIDDEN). Dùng CHUNG 1 enum
+    // SellerListingStatusEnum cho cả trạng thái lưu trữ lẫn giá trị Seller gửi
+    // lên — không còn enum "action" riêng (xem SellerListingStatusEnum).
+    // KHÔNG liên quan tới quyết định duyệt của Staff (APPROVED/REJECTED) — đó
+    // vẫn là verification status, quản lý riêng ở ListingVerificationService.
     // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> updateListingStatus(Integer listingId, UpdateListingStatusRequest request) {
+        if (request.getStatus() == null) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.fail("Bad_Request", "status không được để trống (ACTIVE, HIDDEN hoặc DELETED)"));
+        }
+        return changeSellerListingStatus(listingId, request.getStatus());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Helper DÙNG CHUNG cho cả softDeleteListing (DELETE HTTP verb, tương thích
+    // ngược với API cũ) và updateListingStatus (PATCH, status ACTIVE/HIDDEN/DELETED)
+    // — đảm bảo CHỈ 1 nơi duy nhất chứa logic chuyển trạng thái, tránh lệch hành
+    // vi giữa 2 endpoint như trước đây (soft-delete và tạm ẩn dùng 2 code path
+    // khác nhau nhưng cùng chỉnh isActive, sinh ra lỗ hổng).
+    // ════════════════════════════════════════════════════════════════════════
+    private ResponseEntity<ApiResponse> changeSellerListingStatus(Integer listingId, SellerListingStatusEnum targetStatus) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            if (request.getAction() == null) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.fail("Bad_Request", "action không được để trống (PAUSE hoặc RESUME)"));
-            }
-
+            // findByIdAndSellerId đã LOẠI TRỪ status=DELETED — nếu tin đã bị xoá
+            // trước đó, ở đây trả về null → 404, đúng nghĩa "không thể sửa/dùng lại".
             Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
                     .orElse(null);
             if (listing == null) {
@@ -714,49 +768,72 @@ public class ListingServiceImplement implements ListingServiceInterface {
                                 "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
             }
 
-            ListingVerification verification = listingVerificationRepository
-                    .findByListing_ListingId(listingId).orElse(null);
-            ListingStatusEnum currentStatus = verification != null ? verification.getStatus() : null;
+            SellerListingStatusEnum currentStatus = listing.getStatus() != null
+                    ? listing.getStatus() : SellerListingStatusEnum.ACTIVE;
 
-            if (request.getAction() == SellerListingActionEnum.RESUME) {
-                if (currentStatus != ListingStatusEnum.APPROVED) {
-                    return ResponseEntity.status(HttpStatus.CONFLICT)
-                            .body(ApiResponse.fail("Conflict",
-                                    "Chỉ bật lại được bài đăng đã được Staff duyệt (APPROVED). "
-                                            + "Trạng thái hiện tại: " + (currentStatus == null ? "PENDING" : currentStatus)));
+            String msg;
+            switch (targetStatus) {
+                case ACTIVE -> {
+                    if (currentStatus != SellerListingStatusEnum.HIDDEN) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(ApiResponse.fail("Conflict",
+                                        "Chỉ mở lại được bài đăng đang ở trạng thái tạm ẩn (HIDDEN). "
+                                                + "Trạng thái hiện tại: " + currentStatus));
+                    }
+                    ListingVerification verification = listingVerificationRepository
+                            .findByListing_ListingId(listingId).orElse(null);
+                    ListingStatusEnum verificationStatus = verification != null ? verification.getStatus() : null;
+                    if (verificationStatus != ListingStatusEnum.APPROVED) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(ApiResponse.fail("Conflict",
+                                        "Chỉ mở lại được bài đăng đã được Staff duyệt (APPROVED). "
+                                                + "Trạng thái duyệt hiện tại: "
+                                                + (verificationStatus == null ? "PENDING" : verificationStatus)));
+                    }
+                    listing.setStatus(SellerListingStatusEnum.ACTIVE);
+                    listing.setIsActive(true);
+                    listing.setDeletedAt(null);
+                    msg = "Bật lại bài đăng thành công";
                 }
-                if (Boolean.TRUE.equals(listing.getIsActive())) {
-                    return ResponseEntity.ok(ApiResponse.success(
-                            listingMapper.toListingDetail(listing, listing.getProperty()),
-                            "Bài đăng đang hiển thị, không có gì thay đổi"));
+                case HIDDEN -> {
+                    if (currentStatus == SellerListingStatusEnum.HIDDEN) {
+                        return ResponseEntity.ok(ApiResponse.success(
+                                listingMapper.toListingDetail(listing, listing.getProperty()),
+                                "Bài đăng đã tạm ẩn từ trước, không có gì thay đổi"));
+                    }
+                    listing.setStatus(SellerListingStatusEnum.HIDDEN);
+                    listing.setIsActive(false);
+                    msg = "Tạm ẩn bài đăng thành công";
                 }
-                listing.setIsActive(true);
-            } else { // PAUSE
-                if (Boolean.FALSE.equals(listing.getIsActive())) {
-                    return ResponseEntity.ok(ApiResponse.success(
-                            listingMapper.toListingDetail(listing, listing.getProperty()),
-                            "Bài đăng đã tạm ẩn từ trước, không có gì thay đổi"));
+                case DELETED -> {
+                    // currentStatus không bao giờ là DELETED tới đây (đã bị query lọc ra),
+                    // nên đây luôn là lần xoá đầu tiên — không cần nhánh idempotent.
+                    listing.setStatus(SellerListingStatusEnum.DELETED);
+                    listing.setIsActive(false);
+                    listing.setDeletedAt(LocalDateTime.now());
+                    msg = "Xoá bài đăng thành công (id=" + listingId + ")";
                 }
-                listing.setIsActive(false);
+                default -> throw new IllegalStateException("Trạng thái không hợp lệ: " + targetStatus);
             }
 
             listing.setUpdatedAt(LocalDateTime.now());
             Listing updated = listingRepository.save(listing);
 
-            log.info("[ListingService] updateListingStatus: listingId={} action={} bởi sellerId={}",
-                    listingId, request.getAction(), seller.getSellerId());
+            log.info("[ListingService] changeSellerListingStatus: listingId={} targetStatus={} bởi sellerId={} -> status={}",
+                    listingId, targetStatus, seller.getSellerId(), updated.getStatus());
 
-            String msg = request.getAction() == SellerListingActionEnum.RESUME
-                    ? "Bật lại bài đăng thành công"
-                    : "Tạm ẩn bài đăng thành công";
+            // Sau khi DELETE, listing đã bị loại khỏi mọi query "của Seller" nên không
+            // trả full detail nữa (tránh gây hiểu lầm là vẫn còn dùng được) — trả null.
+            Object payload = targetStatus == SellerListingStatusEnum.DELETED
+                    ? null
+                    : listingMapper.toListingDetail(updated, updated.getProperty());
 
-            return ResponseEntity.ok(ApiResponse.success(
-                    listingMapper.toListingDetail(updated, updated.getProperty()), msg));
+            return ResponseEntity.ok(ApiResponse.success(payload, msg));
 
         } catch (RuntimeException e) {
             return handleAuthException(e);
         } catch (Exception e) {
-            log.error("[ListingService] updateListingStatus lỗi", e);
+            log.error("[ListingService] changeSellerListingStatus lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }

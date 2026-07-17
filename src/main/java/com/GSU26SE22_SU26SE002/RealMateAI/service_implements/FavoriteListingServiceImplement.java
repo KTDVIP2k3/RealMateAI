@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -173,16 +174,18 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
         Listing l = fl.getListing();
         Property p = l.getProperty();
 
-        // Thumbnail: ảnh is_main hoặc ảnh đầu tiên trong property_image
-        String thumbnail = (p == null || p.getPropertyImages() == null || p.getPropertyImages().isEmpty())
+        // Thumbnail: ảnh is_thumbnail hoặc ảnh đầu tiên trong listing_image (ảnh
+        // nay thuộc về Listing, không còn thuộc Property).
+        List<ListingImage> listingImages = l.getListingImages();
+        String thumbnail = (listingImages == null || listingImages.isEmpty())
                 ? null
-                : p.getPropertyImages().stream()
-                .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
-                .map(PropertyImage::getImageUrl)
+                : listingImages.stream()
+                .filter(img -> Boolean.TRUE.equals(img.getIsThumbnail()))
+                .map(ListingImage::getImageUrl)
                 .findFirst()
-                .orElseGet(() -> p.getPropertyImages().stream()
-                        .min(Comparator.comparing(PropertyImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
-                        .map(PropertyImage::getImageUrl)
+                .orElseGet(() -> listingImages.stream()
+                        .min(Comparator.comparing(ListingImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .map(ListingImage::getImageUrl)
                         .orElse(null));
 
         ListingSummaryResponse summary = ListingSummaryResponse.builder()
@@ -195,6 +198,7 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
                 .propertyTypeName(p != null && p.getPropertyType() != null ? p.getPropertyType().getName() : null)
                 .thumbnailUrl(thumbnail)
                 .isActive(l.getIsActive())
+                .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
                 .createdAt(l.getCreatedAt())
                 .isFavorited(true) // hiển nhiên true — đây là danh sách yêu thích
                 .build();
