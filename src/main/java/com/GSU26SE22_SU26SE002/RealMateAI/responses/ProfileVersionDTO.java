@@ -15,8 +15,8 @@ public class ProfileVersionDTO {
     private Integer investmentProfileVersionId;
     private Integer matchScore;
     private String name;
-    private String conscious;
-    private String ward;
+    private String consciousName;
+    private String wardName;
     private Boolean isActive;
     private Long equity;
     private Long expectedRoi;
