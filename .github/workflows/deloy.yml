@@ -52,6 +52,9 @@ jobs:
       - name: Stop old containers
         run: docker compose down
 
+      - name: Clean up Docker disk space
+        run: docker system prune -a -f
+
       - name: Start containers
         run: docker compose up -d --build
 
