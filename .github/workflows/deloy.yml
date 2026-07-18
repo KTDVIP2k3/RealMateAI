@@ -10,18 +10,18 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # Bước 1: Dọn dẹp khẩn cấp TRƯỚC khi làm bất cứ việc gì để lấy lại tối đa dung lượng trống
+      # Bước 1: Dọn dẹp rác build cũ một cách AN TOÀN (Không động vào Plesk hay các dịch vụ khác)
       - name: Pre-clean Docker space
         run: |
-          echo "==== DỌN SẠCH LAYER RÁC TRƯỚC KHI DEPLOY ===="
-          docker system prune -a -f
-          docker builder prune -a -f
+          echo "==== DỌN SẠCH LAYER RÁC AN TOÀN TRƯỚC KHI DEPLOY ===="
+          docker image prune -f
+          docker builder prune -f
 
-      # Bước 2: Tải code về
+      # Bước 2: Tải code từ GitHub về
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Bước 3: Tạo môi trường cấu hình
+      # Bước 3: Tạo môi trường cấu hình .env
       - name: Create .env
         env:
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
@@ -58,17 +58,16 @@ jobs:
           PAYOS_CANCEL_URL=$PAYOS_CANCEL_URL
           EOF
 
-      # Bước 4: Tắt container cũ (TUYỆT ĐỐI KHÔNG dùng cờ -v để giữ DB)
+      # Bước 4: Tắt container cũ (Không kèm cờ -v để bảo vệ an toàn cho dữ liệu Database)
       - name: Stop old containers
         run: docker compose down
 
-      # Bước 5: Tiếp tục dọn dẹp các Image cũ vừa được giải phóng từ lệnh 'down'
-      # để dọn đường trống tối đa cho lệnh build kế tiếp
+      # Bước 5: Chỉ dọn dẹp các Image rác dôi ra sau khi down, KHÔNG xóa lung tung hệ thống
       - name: Mid-clean Docker space
         run: |
-          echo "==== DỌN DẸP IMAGE CŨ TRƯỚC KHI BUILD MỚI ===="
-          docker system prune -a -f
-          docker builder prune -a -f
+          echo "==== DỌN DẸP AN TOÀN TRƯỚC KHI BUILD MỚI ===="
+          docker image prune -f
+          docker builder prune -f
 
       # Bước 6: Build ứng dụng (Bật BuildKit để nén layer khôn ngoan hơn)
       - name: Start containers
