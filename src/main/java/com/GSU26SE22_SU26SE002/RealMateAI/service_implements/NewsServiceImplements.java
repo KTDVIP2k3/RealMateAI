@@ -146,7 +146,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
         }
     }
 
-    @Scheduled(cron = "0 0 2 */3 * *")
+    @Scheduled(cron = "0 0 7 * * MON", zone = "Asia/Ho_Chi_Minh")
     @Override
     public void autoCrawlNewsData() {
         this.executeCrawlLogic();
