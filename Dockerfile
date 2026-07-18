@@ -16,7 +16,9 @@ RUN --mount=type=bind,source=pom.xml,target=pom.xml \
 FROM maven:3.9.6-eclipse-temurin-17 AS package
 WORKDIR /build
 
-# ĐÃ XÓA DÒNG COPY LỖI ĐỂ TẬN DỤNG MOUNT CACHE TỰ ĐỘNG
+# Đưa mvnw và cấu hình .mvn vào để chạy được lệnh build bên dưới
+COPY --chmod=0755 mvnw mvnw
+COPY .mvn/ .mvn/
 COPY ./src src/
 
 RUN --mount=type=bind,source=pom.xml,target=pom.xml \
