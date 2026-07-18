@@ -43,6 +43,16 @@ public class SecurityConfig {
                 .cors(cors -> cors.configure(httpSecurity))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/",
+                                "/login",
+                                "/index.html",
+                                "/**/*.js",
+                                "/**/*.css",
+                                "/**/*.png",
+                                "/**/*.jpg",
+                                "/**/*.webp",
+                                "/**/*.gif",
+                                "/**/*.ico",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
