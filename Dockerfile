@@ -1,34 +1,19 @@
 ################################################################################
-# Stage 1: Build source code bằng Maven
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
-WORKDIR /build
-
-# Copy file pom.xml và tải dependencies trước để tận dụng cache
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy toàn bộ mã nguồn vào và build file JAR
-COPY src ./src
-RUN mvn clean package -DskipTests
-
-################################################################################
-# Stage 2: Giải nén file JAR thành các lớp layer (Tối ưu hóa Docker layer)
-FROM eclipse-temurin:17-jre-jammy AS extract
-WORKDIR /build
-# Copy file JAR từ Stage builder sang để giải nén
-COPY --from=builder /build/target/*.jar app.jar
-RUN java -Djarmode=layertools -jar app.jar extract --destination target/extracted
-
-################################################################################
 # Stage 3: Tầng chạy ứng dụng cuối cùng (Sử dụng JRE + Cài Playwright tối ưu)
 FROM eclipse-temurin:17-jre-jammy AS final
 WORKDIR /app
 
-# 1. Cài đặt các thư viện hệ thống cần thiết cho Playwright chạy ngầm
+# 1. Cài đặt các thư viện hệ thống cần thiết và Node.js 20 (LTS) chính thức
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Cài đặt Playwright và CHỈ tải duy nhất trình duyệt chromium (Tiết kiệm dung lượng VPS)
