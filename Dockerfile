@@ -1,49 +1,66 @@
-# STAGE 1: Build source bằng Maven
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+################################################################################
+# Stage 1: Tải dependencies của Java
+FROM eclipse-temurin:17-jdk-jammy as deps
 WORKDIR /build
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-COPY src ./src
-RUN mvn clean package -DskipTests
 
-# STAGE 2: Giải nén layer bằng layertools
-FROM eclipse-temurin:17-jre AS extract
-WORKDIR /build
-COPY --from=build /build/target/*.jar app.jar
-RUN java -Djarmode=layertools -jar app.jar extract
+COPY --chmod=0755 mvnw mvnw
+COPY .mvn/ .mvn/
+
+RUN --mount=type=bind,source=pom.xml,target=pom.xml \
+    --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline -DskipTests
 
 ################################################################################
-# STAGE 3: Môi trường chạy Spring Boot + Playwright (Bản Debian Slim ổn định)
-FROM eclipse-temurin:17-jre-jammy AS final
+# Stage 2: Đóng gói ứng dụng thành file JAR
+FROM deps as package
+WORKDIR /build
+COPY ./src src/
+RUN --mount=type=bind,source=pom.xml,target=pom.xml \
+    --mount=type=cache,target=/root/.m2 \
+    ./mvnw package -DskipTests && \
+    mv target/$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)-$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout).jar target/app.jar
 
-# 1. Cài đặt các gói bổ trợ mạng và Chromium trên môi trường Ubuntu/Debian
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium \
-    fonts-liberation \
-    libgconf-2-4 \
-    libnss3 \
-    && rm -rf /var/lib/apt/lists/*
+################################################################################
+# Stage 3: Giải nén Spring Boot Layers để tối ưu cache
+FROM package as extract
+WORKDIR /build
+RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
 
-# 2. Thiết lập biến môi trường cho Playwright dùng chung Chromium hệ thống
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+################################################################################
+# Stage 4: Stage chạy ứng dụng (Đã tích hợp Playwright + Java)
+# Sử dụng image Ubuntu của Playwright chứa sẵn mọi trình duyệt và thư viện hệ thống cần thiết
+FROM mcr.microsoft.com/playwright:v1.49.0-noble AS final
 
-# Tạo user an toàn
-RUN useradd -ms /bin/sh appuser
+# Cài đặt OpenJDK 17 JRE trên nền Ubuntu
+RUN apt-get update && apt-get install -y \
+    openjdk-17-jre-headless \
+    && rm -rf /var/list/apt/lists/*
+
 WORKDIR /app
 
-# 3. Copy các layer đã giải nén từ STAGE 2 sang đúng thư mục /app
-COPY --from=extract /build/dependencies/ ./
-COPY --from=extract /build/spring-boot-loader/ ./
-COPY --from=extract /build/snapshot-dependencies/ ./
-COPY --from=extract /build/application/ ./
+# Khởi tạo user bảo mật (Non-root)
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
 
-# Phân quyền cho appuser
-RUN chown -R appuser:appuser /app
+# Đổi quyền sở hữu thư mục làm việc cho appuser (Playwright cần quyền ghi một số file tạm nếu có)
+RUN chown appuser:appuser /app
 USER appuser
 
-EXPOSE 8080
-EXPOSE 8081
+# Copy các lớp ứng dụng Spring Boot từ stage extract
+COPY --from=extract build/target/extracted/dependencies/ ./
+COPY --from=extract build/target/extracted/spring-boot-loader/ ./
+COPY --from=extract build/target/extracted/snapshot-dependencies/ ./
+COPY --from=extract build/target/extracted/application/ ./
 
-# 4. Gọi Launcher chuẩn xác của Spring Boot 3.2+
-ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+# Biến môi trường báo cho Playwright biết các trình duyệt đã có sẵn ở đâu trong hệ thống
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+EXPOSE 8080
+
+ENTRYPOINT [ "java", "org.springframework.boot.loader.launch.JarLauncher" ]
