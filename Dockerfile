@@ -33,7 +33,7 @@ WORKDIR /build
 RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
 
 ################################################################################
-# Stage 4: Stage CHẠY CUỐI CÙNG (Đoạn bạn vừa sửa)
+# Stage 4: Stage CHẠY CUỐI CÙNG - ĐÃ THÊM LỆNH CÀI ĐẶT PLAYWRIGHT
 FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS final
 
 USER root
@@ -54,16 +54,25 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Cấp quyền cho appuser đọc thư mục chứa trình duyệt và thư mục /app
+# Copy từ stage 'extract' ở bước 3 sang trước để có file pom.xml và code chạy lệnh cài
+COPY --from=extract build/target/extracted/dependencies/ ./
+COPY --from=extract build/target/extracted/spring-boot-loader/ ./
+COPY --from=extract build/target/extracted/snapshot-dependencies/ ./
+COPY --from=extract build/target/extracted/application/ ./
+
+# Copy thêm file mvnw và pom.xml tạm thời vào Stage 4 để thực thi lệnh cài đặt của Maven
+COPY --from=extract build/mvnw ./mvnw
+COPY --from=extract build/.mvn/ ./.mvn
+COPY pom.xml ./pom.xml
+
+> 💡 **Đoạn thêm mới**: Ép hệ thống kiểm tra và tải/cấu hình chính xác các trình duyệt Playwright vào thư mục hệ thống, sau đó dọn dẹp file thừa để tiết kiệm đĩa.
+RUN ./mvnw playwright:install -DskipTests && \
+    rm -rf ./mvnw ./.mvn ./pom.xml
+
+# Cấp lại quyền chuẩn chỉnh cho appuser đọc thư mục chứa trình duyệt và thư mục /app
 RUN chmod -R 755 /ms-playwright && chown -R appuser:appuser /app
 
 USER appuser
-
-# Copy từ stage 'extract' ở bước 3 sang với quyền sở hữu của appuser
-COPY --from=extract --chown=appuser:appuser build/target/extracted/dependencies/ ./
-COPY --from=extract --chown=appuser:appuser build/target/extracted/spring-boot-loader/ ./
-COPY --from=extract --chown=appuser:appuser build/target/extracted/snapshot-dependencies/ ./
-COPY --from=extract --chown=appuser:appuser build/target/extracted/application/ ./
 
 EXPOSE 8080
 
