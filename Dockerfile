@@ -33,7 +33,7 @@ WORKDIR /build
 RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
 
 ################################################################################
-# Stage 4: Stage CHẠY CUỐI CÙNG - ĐÃ THÊM LỆNH CÀI ĐẶT PLAYWRIGHT
+# Stage 4: Stage CHẠY CUỐI CÙNG - TỐI ƯU CÀI ĐẶT PLAYWRIGHT TRỰC TIẾP
 FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS final
 
 USER root
@@ -54,20 +54,14 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Copy từ stage 'extract' ở bước 3 sang trước để có file pom.xml và code chạy lệnh cài
+# Copy các layer Spring Boot từ stage 'extract' sang
 COPY --from=extract build/target/extracted/dependencies/ ./
 COPY --from=extract build/target/extracted/spring-boot-loader/ ./
 COPY --from=extract build/target/extracted/snapshot-dependencies/ ./
 COPY --from=extract build/target/extracted/application/ ./
 
-# Copy thêm file mvnw và pom.xml tạm thời vào Stage 4 để thực thi lệnh cài đặt của Maven
-COPY --from=extract build/mvnw ./mvnw
-COPY --from=extract build/.mvn/ ./.mvn
-COPY pom.xml ./pom.xml
-
-# Chạy lệnh kiểm tra và tải/cấu hình chính xác các trình duyệt Playwright vào thư mục hệ thống, sau đó dọn dẹp file thừa để tiết kiệm đĩa.
-RUN ./mvnw playwright:install -DskipTests && \
-    rm -rf ./mvnw ./.mvn ./pom.xml
+# Kích hoạt trực tiếp Driver cài đặt của Playwright từ thư mục dependencies mà không cần Maven plugin
+RUN java -cp "dependencies/*" com.microsoft.playwright.impl.driver.jar.DriverJar main install
 
 # Cấp lại quyền chuẩn chỉnh cho appuser đọc thư mục chứa trình duyệt và thư mục /app
 RUN chmod -R 755 /ms-playwright && chown -R appuser:appuser /app
