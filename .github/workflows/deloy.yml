@@ -49,17 +49,17 @@ jobs:
           PAYOS_CANCEL_URL=$PAYOS_CANCEL_URL
           EOF
 
-      # 1. Dừng container cũ và dọn sạch các mạng/volume ẩn
+      # 1. CHỈ hạ container xuống, KHÔNG dùng cờ -v (Bảo vệ Volume của DB)
       - name: Stop old containers
-        run: docker compose down --v
+        run: docker compose down
 
-      # 2. Quét sạch tận gốc cache build cũ, ảnh thừa và volume rác để lấy lại đĩa tối đa
-      - name: Clean up Docker disk space
+      # 2. Dọn dẹp thông minh: Xóa image cũ, xóa cache build nhưng GIỮ LẠI VOLUME dữ liệu
+      - name: Clean up Docker disk space (Safe Mode)
         run: |
-          echo "==== DỌN DẸP HỆ THỐNG DOCKER ===="
-          docker system prune -a --volumes -f
+          echo "==== DỌN DẸP HỆ THỐNG DOCKER (KHÔNG XÓA DATABASE) ===="
+          docker system prune -a -f
           docker builder prune -f
 
-      # 3. Tiến hành build và chạy container mới bằng lượng đĩa vừa được giải phóng
+      # 3. Tiến hành build và chạy container mới
       - name: Start containers
         run: docker compose up -d --build
