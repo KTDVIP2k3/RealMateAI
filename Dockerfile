@@ -16,7 +16,7 @@ RUN --mount=type=bind,source=pom.xml,target=pom.xml \
 FROM maven:3.9.6-eclipse-temurin-17 AS package
 WORKDIR /build
 
-COPY --from=deps /root/.m2 /root/.m2
+# ĐÃ XÓA DÒNG COPY LỖI ĐỂ TẬN DỤNG MOUNT CACHE TỰ ĐỘNG
 COPY ./src src/
 
 RUN --mount=type=bind,source=pom.xml,target=pom.xml \
@@ -58,8 +58,6 @@ COPY --from=extract /build/target/extracted/dependencies/ ./
 COPY --from=extract /build/target/extracted/spring-boot-loader/ ./
 COPY --from=extract /build/target/extracted/snapshot-dependencies/ ./
 COPY --from=extract /build/target/extracted/application/ ./
-
-# ĐÃ LOẠI BỎ HOÀN TOÀN dòng lệnh RUN java -cp ... Playwright CLI install gây lỗi ClassNotFound
 
 # Cấp quyền chuẩn chỉnh cho appuser truy cập trình duyệt và app
 RUN chmod -R 755 /ms-playwright && chown -R appuser:appuser /app
