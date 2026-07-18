@@ -1,5 +1,39 @@
+# syntax=docker/dockerfile:1
+
 ################################################################################
-# Stage CHẠY CUỐI CÙNG: Môi trường Playwright Java
+# Stage 1: Tải các dependencies về trước sử dụng image Playwright Java
+FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy as deps
+
+WORKDIR /build
+
+COPY --chmod=0755 mvnw mvnw
+COPY .mvn/ .mvn/
+
+RUN --mount=type=bind,source=pom.xml,target=pom.xml \
+    --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline -DskipTests
+
+################################################################################
+# Stage 2: Build code Spring Boot ra file Jar
+FROM deps as package
+
+WORKDIR /build
+
+COPY ./src src/
+RUN --mount=type=bind,source=pom.xml,target=pom.xml \
+    --mount=type=cache,target=/root/.m2 \
+    ./mvnw package -DskipTests && \
+    mv target/$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)-$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout).jar target/app.jar
+
+################################################################################
+# Stage 3: Giải nén các Layer của Spring Boot (Bắt buộc phải có để Stage 4 copy)
+FROM package as extract
+
+WORKDIR /build
+
+RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
+
+################################################################################
+# Stage 4: Stage CHẠY CUỐI CÙNG (Đoạn bạn vừa sửa)
 FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS final
 
 USER root
@@ -25,7 +59,7 @@ RUN chmod -R 755 /ms-playwright && chown -R appuser:appuser /app
 
 USER appuser
 
-# THÊM --chown=appuser:appuser để tránh lỗi Permission Denied khi chạy JarLauncher
+# Copy từ stage 'extract' ở bước 3 sang với quyền sở hữu của appuser
 COPY --from=extract --chown=appuser:appuser build/target/extracted/dependencies/ ./
 COPY --from=extract --chown=appuser:appuser build/target/extracted/spring-boot-loader/ ./
 COPY --from=extract --chown=appuser:appuser build/target/extracted/snapshot-dependencies/ ./
