@@ -2,7 +2,7 @@
 
 ################################################################################
 # Stage 1: Tải các dependencies về trước sử dụng image Playwright Java
-FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS DEPS
+FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy as deps
 
 WORKDIR /build
 
@@ -14,7 +14,7 @@ RUN --mount=type=bind,source=pom.xml,target=pom.xml \
 
 ################################################################################
 # Stage 2: Build code Spring Boot ra file Jar
-FROM DEPS AS PACKAGE
+FROM deps as package
 
 WORKDIR /build
 
@@ -25,16 +25,16 @@ RUN --mount=type=bind,source=pom.xml,target=pom.xml \
     mv target/$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)-$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout).jar target/app.jar
 
 ################################################################################
-# Stage 3: Giải nén các Layer của Spring Boot
-FROM PACKAGE AS EXTRACT
+# Stage 3: Giải nén các Layer của Spring Boot (Bắt buộc phải có để Stage 4 copy)
+FROM package as extract
 
 WORKDIR /build
 
 RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
 
 ################################################################################
-# Stage 4: Stage CHẠY CUỐI CÙNG
-FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS FINAL
+# Stage 4: Stage CHẠY CUỐI CÙNG - ĐÃ THÊM LỆNH CÀI ĐẶT PLAYWRIGHT CHUẨN
+FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS final
 
 USER root
 
@@ -54,13 +54,13 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Copy các layer Spring Boot từ stage 'EXTRACT' sang (Đã đổi thành viết hoa)
-COPY --from=EXTRACT build/target/extracted/dependencies/ ./
-COPY --from=EXTRACT build/target/extracted/spring-boot-loader/ ./
-COPY --from=EXTRACT build/target/extracted/snapshot-dependencies/ ./
-COPY --from=EXTRACT build/target/extracted/application/ ./
+# Copy từ stage 'extract' ở bước 3 sang trước để có file pom.xml và code chạy lệnh cài
+COPY --from=extract build/target/extracted/dependencies/ ./
+COPY --from=extract build/target/extracted/spring-boot-loader/ ./
+COPY --from=extract build/target/extracted/snapshot-dependencies/ ./
+COPY --from=extract build/target/extracted/application/ ./
 
-# Gọi Playwright CLI thông qua JarLauncher / Classpath tổng hợp để tự động cài đặt
+# CHỈ SỬA ĐÚNG DÒNG NÀY: Dùng Java CLI quét trực tiếp qua các folder Spring Boot đã copy để cài Playwright
 RUN java -cp "dependencies/*:spring-boot-loader/*:snapshot-dependencies/*:application/*" com.microsoft.playwright.CLI install
 
 # Cấp lại quyền chuẩn chỉnh cho appuser đọc thư mục chứa trình duyệt và thư mục /app
