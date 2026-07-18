@@ -14,14 +14,28 @@ COPY --from=build /build/target/*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract
 
 ################################################################################
-# STAGE 3: Môi trường chạy Spring Boot THUẦN (Siêu nhẹ, siêu tiết kiệm ổ đĩa)
+# STAGE 3: Môi trường chạy Spring Boot + Playwright (Bản tối ưu dung lượng)
 FROM eclipse-temurin:17-jre-alpine AS final
+
+# 1. Cài đặt các thư viện C++ bắt buộc để chạy được Chromium của Playwright trên Alpine
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    fontconfig
+
+# 2. Thiết lập biến môi trường để Playwright DÙNG CHUNG Chromium của hệ thống (Không tự tải về bản nặng)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Tạo user để chạy ứng dụng an toàn (không dùng root)
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
-# Copy các layer đã giải nén từ STAGE 2 sang đúng thư mục /app
+# 3. Copy các layer đã giải nén từ STAGE 2 sang đúng thư mục /app
 COPY --from=extract /build/dependencies/ ./
 COPY --from=extract /build/spring-boot-loader/ ./
 COPY --from=extract /build/snapshot-dependencies/ ./
@@ -34,5 +48,5 @@ USER appuser
 EXPOSE 8080
 EXPOSE 8081
 
-# FIX lỗi Classpath: Sử dụng đường dẫn tuyệt đối để JarLauncher nhận đúng file cấu hình port
-ENTRYPOINT [ "java", "-cp", "/app/application:/app/dependencies:/app/spring-boot-loader:/app/snapshot-dependencies", "org.springframework.boot.loader.launch.JarLauncher" ]
+# 4. FIX lỗi sập app: Đổi loader class về bản chuẩn của bạn để nhận diện class khởi chạy chính xác
+ENTRYPOINT [ "java", "-cp", "/app/application:/app/dependencies:/app/spring-boot-loader:/app/snapshot-dependencies", "org.springframework.boot.loader.JarLauncher" ]
