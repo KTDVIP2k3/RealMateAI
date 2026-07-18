@@ -74,3 +74,10 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
         run: docker compose up -d --build
+
+      # Bước 7: Dọn sạch các layer cũ vừa bị thay thế để trả lại dung lượng trống ngay lập tức
+      - name: Post-clean Docker space
+        run: |
+          echo "==== GIẢI PHÓNG BỘ NHỚ SAU KHI DEPLOY THÀNH CÔNG ===="
+          docker image prune -f
+          docker builder prune -f
