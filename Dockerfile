@@ -66,6 +66,8 @@ RUN chmod -R 755 /ms-playwright && chown -R appuser:appuser /app
 
 USER appuser
 
+# ĐÃ MỞ CẢ 2 CỔNG ĐỂ BẠN TIỆN CẤU HÌNH VÀO WEB HOẶC PORTAINER
 EXPOSE 8080
+EXPOSE 8081
 
 ENTRYPOINT [ "java", "org.springframework.boot.loader.launch.JarLauncher" ]
