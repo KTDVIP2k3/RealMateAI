@@ -48,5 +48,5 @@ USER appuser
 EXPOSE 8080
 EXPOSE 8081
 
-# 4. FIX lỗi sập app: Đổi loader class về bản chuẩn của bạn để nhận diện class khởi chạy chính xác
-ENTRYPOINT [ "java", "-cp", "/app/application:/app/dependencies:/app/spring-boot-loader:/app/snapshot-dependencies", "org.springframework.boot.loader.JarLauncher" ]
+# 4. FIX TRIỆT ĐỂ: Sử dụng cấu trúc JarLauncher mới nhất dành cho Spring Boot 3.2+
+ENTRYPOINT [ "java", "-cp", "/app/application:/app/dependencies:/app/spring-boot-loader:/app/snapshot-dependencies", "org.springframework.boot.loader.launch.JarLauncher" ]
