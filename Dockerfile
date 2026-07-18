@@ -1,35 +1,22 @@
 ################################################################################
-# Stage 1: Tải dependencies của Java
-FROM eclipse-temurin:17-jdk-jammy as deps
-WORKDIR /build
-
-COPY --chmod=0755 mvnw mvnw
-COPY .mvn/ .mvn/
-
-RUN --mount=type=bind,source=pom.xml,target=pom.xml \
-    --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline -DskipTests
-
-################################################################################
-# Stage 2: Đóng gói ứng dụng thành file JAR
-FROM deps as package
-WORKDIR /build
-COPY ./src src/
-RUN --mount=type=bind,source=pom.xml,target=pom.xml \
-    --mount=type=cache,target=/root/.m2 \
-    ./mvnw package -DskipTests && \
-    mv target/$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)-$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout).jar target/app.jar
-
-################################################################################
-# Stage 3: Giải nén Spring Boot Layers để tối ưu cache
-FROM package as extract
-WORKDIR /build
-RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
-
-################################################################################
-# Stage 4: Stage chạy ứng dụng (Sử dụng JRE siêu nhẹ)
+# Stage 4: Stage chạy ứng dụng (Sử dụng JRE + Cài Playwright tối ưu)
 FROM eclipse-temurin:17-jre-jammy AS final
 
-# Khởi tạo user bảo mật (Non-root)
+# 1. Cài đặt các thư viện hệ thống cần thiết cho Playwright chạy ngầm
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Cài đặt Playwright và CHỈ tải duy nhất trình duyệt chromium (Tiết kiệm ~2GB rác)
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npm install -g playwright && \
+    npx playwright install chromium && \
+    npx playwright install-deps chromium && \
+    npm cache clean --force
+
+# 3. Khởi tạo user bảo mật (Non-root) và phân quyền thư mục browser
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -38,7 +25,9 @@ RUN adduser \
     --shell "/sbin/nologin" \
     --no-create-home \
     --uid "${UID}" \
-    appuser
+    appuser && \
+    chown -R appuser:appuser /ms-playwright
+
 USER appuser
 
 # Copy các lớp ứng dụng Spring Boot từ stage extract
