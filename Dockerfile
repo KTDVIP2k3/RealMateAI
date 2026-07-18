@@ -1,38 +1,35 @@
-# STAGE 1: Build source bằng Maven có sẵn cache
+# STAGE 1: Build source bằng Maven
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /build
 COPY pom.xml .
-# Download trước các thư viện để tối ưu dung lượng và thời gian build lần sau
 RUN mvn dependency:go-offline -B
 COPY src ./src
 RUN mvn clean package -DskipTests
 
 # STAGE 2: Giải nén layer bằng layertools
-FROM eclipse-temurin:17-jre-alpine AS extract
+FROM eclipse-temurin:17-jre AS extract
 WORKDIR /build
 COPY --from=build /build/target/*.jar app.jar
 RUN java -Djarmode=layertools -jar app.jar extract
 
 ################################################################################
-# STAGE 3: Môi trường chạy Spring Boot + Playwright (Bản tối ưu dung lượng)
-FROM eclipse-temurin:17-jre-alpine AS final
+# STAGE 3: Môi trường chạy Spring Boot + Playwright (Bản Debian Slim ổn định)
+FROM eclipse-temurin:17-jre-jammy AS final
 
-# 1. Cài đặt các thư viện C++ bắt buộc để chạy được Chromium của Playwright trên Alpine
-RUN apk add --no-cache \
+# 1. Cài đặt các gói bổ trợ mạng và Chromium trên môi trường Ubuntu/Debian
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    fontconfig
+    fonts-liberation \
+    libgconf-2-4 \
+    libnss3 \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2. Thiết lập biến môi trường để Playwright DÙNG CHUNG Chromium của hệ thống (Không tự tải về bản nặng)
+# 2. Thiết lập biến môi trường cho Playwright dùng chung Chromium hệ thống
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Tạo user để chạy ứng dụng an toàn (không dùng root)
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Tạo user an toàn
+RUN useradd -ms /bin/sh appuser
 WORKDIR /app
 
 # 3. Copy các layer đã giải nén từ STAGE 2 sang đúng thư mục /app
@@ -42,11 +39,11 @@ COPY --from=extract /build/snapshot-dependencies/ ./
 COPY --from=extract /build/application/ ./
 
 # Phân quyền cho appuser
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8080
 EXPOSE 8081
 
-# 4. FIX TRIỆT ĐỂ: Sử dụng cấu trúc JarLauncher mới nhất dành cho Spring Boot 3.2+
-ENTRYPOINT [ "java", "-cp", "/app/application:/app/dependencies:/app/spring-boot-loader:/app/snapshot-dependencies", "org.springframework.boot.loader.launch.JarLauncher" ]
+# 4. Gọi Launcher chuẩn xác của Spring Boot 3.2+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
