@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1
 
 ################################################################################
-# Stage 1: Tải các dependencies về trước sử dụng image Playwright Java
-FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy as deps
-
+# Stage 1: Tải các dependencies (Dùng image Maven nhẹ để cache thư viện tốt hơn)
+FROM maven:3.9.6-eclipse-temurin-17 AS deps
 WORKDIR /build
 
 COPY --chmod=0755 mvnw mvnw
@@ -13,32 +12,33 @@ RUN --mount=type=bind,source=pom.xml,target=pom.xml \
     --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline -DskipTests
 
 ################################################################################
-# Stage 2: Build code Spring Boot ra file Jar
-FROM deps as package
-
+# Stage 2: Build code Spring Boot ra file Jar (Kế thừa từ image Maven nhẹ)
+FROM maven:3.9.6-eclipse-temurin-17 AS package
 WORKDIR /build
 
+COPY --from=deps /root/.m2 /root/.m2
 COPY ./src src/
+
 RUN --mount=type=bind,source=pom.xml,target=pom.xml \
     --mount=type=cache,target=/root/.m2 \
     ./mvnw package -DskipTests && \
     mv target/$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)-$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout).jar target/app.jar
 
 ################################################################################
-# Stage 3: Giải nén các Layer của Spring Boot
-FROM package as extract
-
+# Stage 3: Giải nén các Layer của Spring Boot (Dùng JRE nhẹ để xử lý layertools)
+FROM eclipse-temurin:17-jre AS extract
 WORKDIR /build
 
+COPY --from=package /build/target/app.jar target/app.jar
 RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
 
 ################################################################################
-# Stage 4: Stage CHẠY CUỐI CÙNG - DÙNG TRÌNH DUYỆT CÓ SẴN
+# Stage 4: Stage CHẠY CUỐI CÙNG - Dùng trình duyệt tích hợp sẵn trong Microsoft Playwright
 FROM mcr.microsoft.com/playwright/java:v1.44.0-jammy AS final
 
 USER root
 
-# BƯỚC 1: Chỉ định cho Playwright dùng trình duyệt đã tích hợp sẵn trong image Microsoft
+# Chỉ định Playwright sử dụng thẳng trình duyệt có sẵn trong image gốc
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /app
@@ -53,20 +53,20 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Copy từ stage 'extract' các layer của Spring Boot sang
+# Copy các layer Spring Boot đã giải nén siêu nhẹ từ stage 'extract' sang
 COPY --from=extract /build/target/extracted/dependencies/ ./
 COPY --from=extract /build/target/extracted/spring-boot-loader/ ./
 COPY --from=extract /build/target/extracted/snapshot-dependencies/ ./
 COPY --from=extract /build/target/extracted/application/ ./
 
-# BƯỚC 2: ĐÃ XOÁ BỎ LỆNH "RUN java -cp ... com.microsoft.playwright.CLI install" GÂY LỖI VÀ CHẬM
+# ĐÃ LOẠI BỎ HOÀN TOÀN dòng lệnh RUN java -cp ... Playwright CLI install gây lỗi ClassNotFound
 
-# Cấp lại quyền chuẩn chỉnh cho appuser đọc thư mục chứa trình duyệt và thư mục /app
+# Cấp quyền chuẩn chỉnh cho appuser truy cập trình duyệt và app
 RUN chmod -R 755 /ms-playwright && chown -R appuser:appuser /app
 
 USER appuser
 
-# ĐÃ MỞ CẢ 2 CỔNG ĐỂ BẠN TIỆN CẤU HÌNH VÀO WEB HOẶC PORTAINER
+# Mở cổng ứng dụng
 EXPOSE 8080
 EXPOSE 8081
 
