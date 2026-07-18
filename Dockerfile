@@ -1,9 +1,25 @@
 ################################################################################
-# Stage 3: Tầng chạy ứng dụng cuối cùng (Sử dụng JRE + Cài Playwright tối ưu)
+# Stage 1: Build và giải nén Spring Boot Layers (Dùng Maven)
+FROM maven:3.9.6-eclipse-temurin-17 AS builder
+WORKDIR /build
+
+# Tận dụng cache của Maven dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Build dự án
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+# Giải nén file JAR ngay tại tầng này sang thư mục target/extracted
+RUN java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted
+
+################################################################################
+# Stage 2: Tầng chạy ứng dụng cuối cùng (Cài Java + Node.js + Playwright)
 FROM eclipse-temurin:17-jre-jammy AS final
 WORKDIR /app
 
-# 1. Cài đặt các thư viện hệ thống cần thiết và Node.js 20 (LTS) chính thức
+# 1. Cài đặt các thư viện hệ thống và Node.js 20 chính thức cho Playwright
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -16,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Cài đặt Playwright và CHỈ tải duy nhất trình duyệt chromium (Tiết kiệm dung lượng VPS)
+# 2. Cài đặt Playwright và CHỈ tải duy nhất trình duyệt chromium
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npm install -g playwright && \
     npx playwright install chromium && \
@@ -38,11 +54,11 @@ RUN adduser \
 
 USER appuser
 
-# 4. Sao chép các lớp ứng dụng Spring Boot đã giải nén từ Stage `extract`
-COPY --from=extract /build/target/extracted/dependencies/ ./
-COPY --from=extract /build/target/extracted/spring-boot-loader/ ./
-COPY --from=extract /build/target/extracted/snapshot-dependencies/ ./
-COPY --from=extract /build/target/extracted/application/ ./
+# 4. Sao chép trực tiếp từ tầng `builder` (Đã đổi tên nguồn từ --from=extract thành --from=builder)
+COPY --from=builder /build/target/extracted/dependencies/ ./
+COPY --from=builder /build/target/extracted/spring-boot-loader/ ./
+COPY --from=builder /build/target/extracted/snapshot-dependencies/ ./
+COPY --from=builder /build/target/extracted/application/ ./
 
 EXPOSE 8080
 
