@@ -26,16 +26,8 @@ WORKDIR /build
 RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/extracted
 
 ################################################################################
-# Stage 4: Stage chạy ứng dụng (Đã tích hợp Playwright + Java)
-# Sử dụng image Ubuntu của Playwright chứa sẵn mọi trình duyệt và thư viện hệ thống cần thiết
-FROM mcr.microsoft.com/playwright:v1.49.0-noble AS final
-
-# Cài đặt OpenJDK 17 JRE trên nền Ubuntu
-RUN apt-get update && apt-get install -y \
-    openjdk-17-jre-headless \
-    && rm -rf /var/list/apt/lists/*
-
-WORKDIR /app
+# Stage 4: Stage chạy ứng dụng (Sử dụng JRE siêu nhẹ)
+FROM eclipse-temurin:17-jre-jammy AS final
 
 # Khởi tạo user bảo mật (Non-root)
 ARG UID=10001
@@ -47,9 +39,6 @@ RUN adduser \
     --no-create-home \
     --uid "${UID}" \
     appuser
-
-# Đổi quyền sở hữu thư mục làm việc cho appuser (Playwright cần quyền ghi một số file tạm nếu có)
-RUN chown appuser:appuser /app
 USER appuser
 
 # Copy các lớp ứng dụng Spring Boot từ stage extract
@@ -57,9 +46,6 @@ COPY --from=extract build/target/extracted/dependencies/ ./
 COPY --from=extract build/target/extracted/spring-boot-loader/ ./
 COPY --from=extract build/target/extracted/snapshot-dependencies/ ./
 COPY --from=extract build/target/extracted/application/ ./
-
-# Biến môi trường báo cho Playwright biết các trình duyệt đã có sẵn ở đâu trong hệ thống
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 EXPOSE 8080
 
