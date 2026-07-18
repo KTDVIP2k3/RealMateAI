@@ -35,7 +35,7 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
-# 3. Copy các layer đã giải nén từ STAGE 2 sang
+# 3. Copy các layer đã giải nén từ STAGE 2 sang đúng thư mục /app
 COPY --from=extract /build/dependencies/ ./
 COPY --from=extract /build/spring-boot-loader/ ./
 COPY --from=extract /build/snapshot-dependencies/ ./
@@ -48,5 +48,5 @@ USER appuser
 EXPOSE 8080
 EXPOSE 8081
 
-# 4. FIX lỗi Classpath: Chuyển dấu hai chấm sang đúng chuẩn của thư mục hiện tại (.) cho JarLauncher hoạt động
-ENTRYPOINT [ "java", "-cp", ".:application:dependencies:spring-boot-loader:snapshot-dependencies", "org.springframework.boot.loader.launch.JarLauncher" ]
+# 4. FIX lỗi Classpath: Sử dụng đường dẫn tuyệt đối chính xác để JarLauncher nhận đúng file cấu hình port
+ENTRYPOINT [ "java", "-cp", "/app/application:/app/dependencies:/app/spring-boot-loader:/app/snapshot-dependencies", "org.springframework.boot.loader.launch.JarLauncher" ]
