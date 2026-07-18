@@ -65,7 +65,7 @@ COPY --from=extract build/mvnw ./mvnw
 COPY --from=extract build/.mvn/ ./.mvn
 COPY pom.xml ./pom.xml
 
-> 💡 **Đoạn thêm mới**: Ép hệ thống kiểm tra và tải/cấu hình chính xác các trình duyệt Playwright vào thư mục hệ thống, sau đó dọn dẹp file thừa để tiết kiệm đĩa.
+# Chạy lệnh kiểm tra và tải/cấu hình chính xác các trình duyệt Playwright vào thư mục hệ thống, sau đó dọn dẹp file thừa để tiết kiệm đĩa.
 RUN ./mvnw playwright:install -DskipTests && \
     rm -rf ./mvnw ./.mvn ./pom.xml
 
