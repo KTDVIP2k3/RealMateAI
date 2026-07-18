@@ -3,6 +3,8 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
+
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -46,18 +48,11 @@ public class Listing {
     private LocalTime endTime;
     private Boolean isActive;
 
-    /**
-     * Trạng thái hiển thị do Seller tự quản lý: ACTIVE / HIDDEN / DELETED.
-     * KHÁC với listingVerification.status (PENDING/APPROVED/REJECTED/EXPIRED
-     * — quyết định của Staff/Admin). Xem SellerListingStatusEnum để biết
-     * chi tiết ngữ nghĩa từng trạng thái, đặc biệt DELETED là vĩnh viễn.
-     */
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
     private SellerListingStatusEnum status = SellerListingStatusEnum.ACTIVE;
 
-    /** Thời điểm Seller xoá mềm (action DELETE) — null nếu chưa từng bị xoá. */
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -73,10 +68,7 @@ public class Listing {
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<PostingPackageOrder> postingPackageOrders = new ArrayList<>();
 
-    /**
-     * Ảnh RIÊNG của bài đăng này (thay thế Property.propertyImages cũ).
-     * Mỗi Listing có bộ ảnh độc lập, kể cả khi nhiều Listing cùng property.
-     */
+    @BatchSize(size = 30)
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<ListingImage> listingImages = new ArrayList<>();
 }
