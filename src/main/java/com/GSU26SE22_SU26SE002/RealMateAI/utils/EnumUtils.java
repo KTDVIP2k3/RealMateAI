@@ -2,6 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.utils;
 
 
 public class EnumUtils {
+
     public static <T extends Enum<T>> T fromString(Class<T> enumClass, String value) {
         if (value == null || value.trim().isEmpty()) {
             return null;

@@ -43,7 +43,17 @@ public class JwtFilterConfig extends OncePerRequestFilter {
         String requestURI = request.getRequestURI();
         String method = request.getMethod();
 
-        if (requestURI.startsWith("/swagger-ui")
+        if (requestURI.equals("/")
+                || requestURI.equals("/login")
+                || requestURI.equals("/index.html")
+                || requestURI.endsWith(".js")
+                || requestURI.endsWith(".css")
+                || requestURI.endsWith(".png")
+                || requestURI.endsWith(".jpg")
+                || requestURI.endsWith(".webp")
+                || requestURI.endsWith(".gif")
+                || requestURI.endsWith(".ico")
+                || requestURI.startsWith("/swagger-ui")
                 || requestURI.startsWith("/v3/api-docs")
                 || requestURI.startsWith("/webjars/")
                 || requestURI.equals("/auth/login")
