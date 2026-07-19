@@ -38,6 +38,16 @@ public class ListingDetailResponse {
     /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
     private String verificationStatus;
 
+    /**
+     * Badge "tích xanh" — true khi có yêu cầu xác thực giấy tờ pháp lý ĐÃ
+     * ĐƯỢC Staff duyệt cho ĐÚNG Listing này (khác verificationStatus/status
+     * duyệt nội dung ở trên). Không kế thừa khi tạo Listing mới từ cùng Property.
+     */
+    private Boolean isVerified;
+
+    /** PENDING/APPROVED/REJECTED của yêu cầu tích xanh gần nhất — null nếu chưa từng yêu cầu. */
+    private String certificationStatus;
+
     /** Lý do từ chối / ghi chú của Staff (nếu có) */
     private String reviewerNote;
 
