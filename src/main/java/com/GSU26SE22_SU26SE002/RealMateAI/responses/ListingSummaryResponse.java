@@ -38,4 +38,7 @@ public class ListingSummaryResponse {
 
     /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
     private String verificationStatus;
+
+    /** Badge "tích xanh" — xem giải thích đầy đủ ở ListingDetailResponse. */
+    private Boolean isVerified;
 }

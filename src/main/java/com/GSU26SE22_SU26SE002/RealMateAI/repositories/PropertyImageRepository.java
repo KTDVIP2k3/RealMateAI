@@ -6,14 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-/**
- * @deprecated LEGACY — xem {@link com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingImageRepository}.
- * Giữ lại chỉ để tương thích dữ liệu lịch sử, KHÔNG dùng trong luồng nghiệp vụ mới.
- */
-@Deprecated
 @Repository
 public interface PropertyImageRepository extends JpaRepository<PropertyImage, Integer> {
+
     List<PropertyImage> findByProperty_PropertyIdOrderByDisplayOrderAsc(Integer propertyId);
 
     long countByProperty_PropertyId(Integer propertyId);
+
+    List<PropertyImage> findByCertificationRequest_CertificationRequestId(Integer certificationRequestId);
 }

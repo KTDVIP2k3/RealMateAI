@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
  * Ảnh thumbnail (isThumbnail = true) LUÔN được xếp lên đầu danh sách "images",
  * sau đó mới theo displayOrder.
  */
+
 @Component
 public class ListingMapper {
 
@@ -58,6 +59,8 @@ public class ListingMapper {
                 .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .reviewerNote(lv != null ? lv.getReviewerNote() : null)
+                .isVerified(l.getIsVerified())
+                .certificationStatus(l.getCertificationStatus() != null ? l.getCertificationStatus().name() : null)
                 .property(propertyDetail)
                 .images(images)
                 .sellerId(seller != null ? seller.getSellerId() : null)
@@ -127,6 +130,7 @@ public class ListingMapper {
                 .createdAt(l.getCreatedAt())
                 .isFavorited(isFavorited)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
+                .isVerified(l.getIsVerified())
                 .build();
     }
 

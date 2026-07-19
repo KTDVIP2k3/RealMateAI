@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.CertificationStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum;
 import jakarta.persistence.*;
 import lombok.*;
@@ -56,6 +57,27 @@ public class Listing {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    /**
+     * Badge "tích xanh" — chỉ true khi CÓ 1 ListingCertificationRequest được
+     * Staff APPROVED cho ĐÚNG Listing này. Mặc định false cho MỌI Listing
+     * mới tạo, KỂ CẢ khi tạo từ 1 Property đã có Listing khác từng được tích
+     * xanh trước đó — tích xanh KHÔNG kế thừa qua Property, phải yêu cầu lại
+     * cho từng Listing (đúng yêu cầu nghiệp vụ).
+     */
+    @Builder.Default
+    @Column(name = "is_verified")
+    private Boolean isVerified = false;
+
+    /**
+     * Trạng thái yêu cầu tích xanh GẦN NHẤT — null nghĩa là CHƯA từng yêu cầu.
+     * Lưu thêm ở đây (thay vì luôn phải JOIN certificationRequests) để FE
+     * hiển thị nhanh "chưa yêu cầu / đang chờ duyệt / đã tích xanh / bị từ
+     * chối" mà không cần load toàn bộ lịch sử yêu cầu.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "certification_status", length = 20)
+    private CertificationStatusEnum certificationStatus;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -67,6 +89,9 @@ public class Listing {
 
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<PostingPackageOrder> postingPackageOrders = new ArrayList<>();
+
+    @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ListingCertificationRequest> certificationRequests = new ArrayList<>();
 
     @BatchSize(size = 30)
     @OneToMany(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
