@@ -79,16 +79,16 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
             if (request.getSelfie() != null && !request.getSelfie().isEmpty()) {
                 selfieUrl = cloudinaryMediaService.uploadImage(request.getSelfie());
             }
-            if (request.getBusinessLicense() != null && !request.getBusinessLicense().isEmpty()) {
-                businessLicenseUrl = cloudinaryMediaService.uploadImage(request.getBusinessLicense());
-            }
+//            if (request.getBusinessLicense() != null && !request.getBusinessLicense().isEmpty()) {
+//                businessLicenseUrl = cloudinaryMediaService.uploadImage(request.getBusinessLicense());
+//            }
 
             AccountVerification.AccountVerificationBuilder verificationBuilder = AccountVerification.builder()
                     .account(currentAccount)
                     .cccdmt(cccdmtUrl)
                     .cccdms(cccdmsUrl)
                     .selfie(selfieUrl)
-                    .businessLicense(businessLicenseUrl)
+//                    .businessLicense(businessLicenseUrl)
                     .verificationStatus(VerificationStatusEnum.PENDING)
                     .isActive(true)
                     .createdAt(LocalDateTime.now())
@@ -190,10 +190,10 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
                 verification.setCccdms(newCccdmsUrl);
             }
 
-            if (request.getBusinessLicense() != null && !request.getBusinessLicense().isEmpty()) {
-                String newBusinessLicenseUrl = cloudinaryMediaService.updateImage(request.getBusinessLicense(), verification.getBusinessLicense());
-                verification.setBusinessLicense(newBusinessLicenseUrl);
-            }
+//            if (request.getBusinessLicense() != null && !request.getBusinessLicense().isEmpty()) {
+//                String newBusinessLicenseUrl = cloudinaryMediaService.updateImage(request.getBusinessLicense(), verification.getBusinessLicense());
+//                verification.setBusinessLicense(newBusinessLicenseUrl);
+//            }
 
             if (request.getSelfie() != null && !request.getSelfie().isEmpty()) {
                 String newSelfieUrl = cloudinaryMediaService.updateImage(request.getSelfie(), verification.getSelfie());
@@ -206,6 +206,7 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
                 verification.setSeller(currentAccount.getSeller());
             }
 
+            verification.setVerificationStatus(VerificationStatusEnum.PENDING);
             verification.setUpdatedAt(LocalDateTime.now());
             accountVerificationRepository.save(verification);
 

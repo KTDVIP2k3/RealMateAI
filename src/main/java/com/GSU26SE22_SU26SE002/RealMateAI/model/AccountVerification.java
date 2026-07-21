@@ -28,7 +28,7 @@ public class AccountVerification {
     /** Căn cước công dân mặt sau */
     private String cccdms;
     private String selfie;
-    private String businessLicense;
+//    private String businessLicense;
 
     @Enumerated(EnumType.STRING)
     private VerificationStatusEnum verificationStatus;
