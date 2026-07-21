@@ -161,6 +161,23 @@ public class NewsServiceImplements implements NewsServiceInterface {
         try {
             List<NewsCategory> categories = newsCategoryRepository.findAll();
 
+
+            List<News> allExistingNews = newsRepository.findAll();
+
+            Set<String> existingSourceUrls = allExistingNews.stream()
+                    .map(News::getSourceUrl)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            Set<String> existingTitles = allExistingNews.stream()
+                    .map(n -> n.getTitle() != null ? n.getTitle().toLowerCase() : "")
+                    .collect(Collectors.toSet());
+
+            Set<String> existingSlugs = allExistingNews.stream()
+                    .map(News::getSlug)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
             for (NewsCategory category : categories) {
                 if (category.getIsActive() == null || !category.getIsActive()) {
                     continue;
@@ -179,81 +196,83 @@ public class NewsServiceImplements implements NewsServiceInterface {
                     continue;
                 }
 
-                if (doc == null) {
-                    continue;
-                }
+                if (doc == null) continue;
 
                 Elements postElements = doc.select(".item-news");
-                if (postElements.isEmpty()) {
-                    continue;
-                }
+                if (postElements.isEmpty()) continue;
 
-                int savedCount = 0;
 
-                for (Element element : postElements) {
-                    if (savedCount >= 5) {
-                        break;
-                    }
+                List<News> newsToSaveList = postElements.stream()
+                        .map(element -> parseElementToNews(element, category, existingSourceUrls, existingTitles, existingSlugs))
+                        .filter(Objects::nonNull)
+                        .limit(5)
+                        .collect(Collectors.toList());
 
-                    try {
-                        Element titleElement = element.selectFirst(".title-news a");
-                        if (titleElement == null) {
-                            continue;
-                        }
-
-                        String title = titleElement.text();
-                        String sourceUrl = titleElement.attr("href");
-
-                        String summary = element.select(".description a").text();
-
-                        Element imgElement = element.selectFirst(".thumb-art img");
-                        String imageUrl = "";
-                        if (imgElement != null) {
-                            imageUrl = imgElement.attr("data-src");
-                            if (imageUrl.isEmpty()) {
-                                imageUrl = imgElement.attr("src");
-                            }
-                        }
-
-                        if (title == null || title.trim().isEmpty()) {
-                            continue;
-                        }
-
-                        if (newsRepository.existsByTitle(title)) {
-                            continue;
-                        }
-
-                        String slug = convertToSlug(title);
-                        if (newsRepository.existsBySlug(slug)) {
-                            slug = slug + "-" + System.currentTimeMillis();
-                        }
-
-                        News news = News.builder()
-                                .title(title)
-                                .slug(slug)
-                                .summary(summary)
-                                .content(summary)
-                                .thumbnailUrl(imageUrl)
-                                .sourceUrl(sourceUrl)
-                                .sourceName("VnExpress")
-                                .newsCategory(category)
-                                .viewCount(0)
-                                .isFeatured(false)
-                                .isActive(true)
-                                .createdAt(LocalDateTime.now())
-                                .updatedAt(LocalDateTime.now())
-                                .build();
-
-                        newsRepository.save(news);
-                        savedCount++;
-
-                    } catch (Exception e) {
-                        continue;
-                    }
+                if (!newsToSaveList.isEmpty()) {
+                    newsRepository.saveAll(newsToSaveList);
                 }
             }
         } catch (Exception e) {
-            System.err.println(e.getMessage());
+            System.err.println("Lỗi crawl news: " + e.getMessage());
+        }
+    }
+
+
+    private News parseElementToNews(Element element, NewsCategory category, Set<String> existingSourceUrls, Set<String> existingTitles, Set<String> existingSlugs) {
+        try {
+            Element titleElement = element.selectFirst(".title-news a");
+            if (titleElement == null) return null;
+
+            String title = titleElement.text().trim();
+            String sourceUrl = titleElement.attr("href").trim();
+
+            if (title.isEmpty() || sourceUrl.isEmpty()) return null;
+
+
+            if (existingSourceUrls.contains(sourceUrl) || existingTitles.contains(title.toLowerCase())) {
+                return null;
+            }
+
+            String summary = element.select(".description a").text();
+
+            Element imgElement = element.selectFirst(".thumb-art img");
+            String imageUrl = "";
+            if (imgElement != null) {
+                imageUrl = imgElement.attr("data-src");
+                if (imageUrl.isEmpty()) {
+                    imageUrl = imgElement.attr("src");
+                }
+            }
+
+
+            String slug = convertToSlug(title);
+            if (existingSlugs.contains(slug)) {
+                slug = slug + "-" + System.currentTimeMillis();
+            }
+
+
+            existingSourceUrls.add(sourceUrl);
+            existingTitles.add(title.toLowerCase());
+            existingSlugs.add(slug);
+
+            return News.builder()
+                    .title(title)
+                    .slug(slug)
+                    .summary(summary)
+                    .content(summary)
+                    .thumbnailUrl(imageUrl)
+                    .sourceUrl(sourceUrl)
+                    .sourceName("VnExpress")
+                    .newsCategory(category)
+                    .viewCount(0)
+                    .isFeatured(false)
+                    .isActive(true)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+
+        } catch (Exception e) {
+            return null;
         }
     }
 
