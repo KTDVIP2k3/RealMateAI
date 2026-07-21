@@ -3,16 +3,13 @@
 FROM maven:3.9.6-eclipse-temurin-17 AS builder
 WORKDIR /build
 
-# Tận dụng cache của Maven dependencies
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Build dự án
 COPY src ./src
-RUN mvn clean package -DskipTests
 
-# Giải nén file JAR ngay tại tầng này sang thư mục target/extracted
-RUN java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted
+# Gộp Build + Giải nén JAR + Xóa sạch cache Maven (.m2) trong CÙNG 1 LAYER
+RUN mvn clean package -DskipTests && \
+    java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted && \
+    rm -rf ~/.m2/repository target/*.jar
 
 ################################################################################
 # Stage 2: Tầng chạy ứng dụng cuối cùng (Cài Java + Node.js + Playwright)
@@ -54,7 +51,7 @@ RUN adduser \
 
 USER appuser
 
-# 4. Sao chép trực tiếp từ tầng `builder` (Đã đổi tên nguồn từ --from=extract thành --from=builder)
+# 4. Sao chép trực tiếp từ tầng `builder`
 COPY --from=builder /build/target/extracted/dependencies/ ./
 COPY --from=builder /build/target/extracted/spring-boot-loader/ ./
 COPY --from=builder /build/target/extracted/snapshot-dependencies/ ./
