@@ -1,9 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingSortEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateListingWithExistingPropertyRequest;
@@ -16,6 +13,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateListingStatusRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.UserEventTrackingService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.TwoStepPaginationUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,6 +57,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final WardRepository wardRepository;
     private final MediaAssetRepository mediaAssetRepository;
     private final ListingMapper listingMapper;
+    private final NotificationService notificationService;
+    private final UserEventTrackingService userEventTrackingService;
     private final AuthenUntil authenUntil;
     private final CloudinaryMediaServiceInterface cloudinaryMediaService;
     private final Client geminiClient;
@@ -143,13 +144,17 @@ public class ListingServiceImplement implements ListingServiceInterface {
             int reparented = 0;
             if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
                 reparented = reparentUploadedImagesToListing(
-                        request.getDraftImagePublicIds(), currentUser, saved, request.getMainImageIndex());
+                        request.getDraftImagePublicIds(), currentUser, saved, request.getThumbnailImageIndex());
             } else {
                 reparented = copyImagesFromOtherListingsOfProperty(property, saved);
             }
 
             log.info("[ListingService] Luồng①: listingId={}, propertyId={}, sellerId={}",
                     saved.getListingId(), property.getPropertyId(), seller.getSellerId());
+
+            notificationService.notify(seller.getAccount(),
+                    "Bạn vừa đăng tin \"" + saved.getTitle() + "\" thành công, đang chờ Staff duyệt.",
+                    NotificationTypeEnum.LISTING);
 
             Property refreshed = propertyRepository
                     .findByIdWithDetails(property.getPropertyId()).orElse(property);
@@ -291,7 +296,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .collect(Collectors.toList());
 
             int reparented = reparentUploadedImagesToListing(
-                    publicIds, currentUser, saved, request.getMainImageIndex());
+                    publicIds, currentUser, saved, request.getThumbnailImageIndex());
 
             if (reparented == 0) {
                 throw new ListingConflictException(HttpStatus.CONFLICT,
@@ -302,6 +307,10 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             log.info("[ListingService] Luồng②: listingId={}, propertyId={}, sellerId={}, ảnh={}",
                     saved.getListingId(), savedProperty.getPropertyId(), seller.getSellerId(), reparented);
+
+            notificationService.notify(seller.getAccount(),
+                    "Bạn vừa tạo tài sản mới + đăng tin \"" + saved.getTitle() + "\" thành công, đang chờ Staff duyệt.",
+                    NotificationTypeEnum.LISTING);
 
             Property refreshed = propertyRepository
                     .findByIdWithDetails(savedProperty.getPropertyId()).orElse(savedProperty);
@@ -460,6 +469,14 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail("Not_Found", "Bài đăng không tồn tại: id=" + listingId));
             }
+
+            // Ghi nhận VIEW (audit_log/active_log) — xem UserEventTrackingService,
+            // AuditLogController. Chỉ ghi khi xác định được người xem (đã đăng
+            // nhập) — khách ẩn danh bị bỏ qua ngay trong recordSilently. Không
+            // throw ra ngoài dù lỗi gì (đã REQUIRES_NEW + try/catch nội bộ).
+            Account viewer = authenUntil.getCurrentUSer();
+            userEventTrackingService.recordSilently(viewer, UserEventTypeEnum.VIEW, listingId);
+
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(listing, listing.getProperty()), "Chi tiết tin đăng"));
         } catch (Exception e) {
@@ -471,18 +488,29 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> getMyListings() {
+    public ResponseEntity<ApiResponse> getMyListings(int page, int size) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            List<ListingSummaryResponse> listings = listingRepository
-                    .findBySellerId(seller.getSellerId())
-                    .stream()
+            int effectiveSize = size > 0 ? size : PAGE_SIZE;
+            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize);
+
+            Page<Listing> listingPage = listingRepository.findBySellerId(seller.getSellerId(), pageable);
+
+            List<ListingSummaryResponse> content = listingPage.getContent().stream()
                     .map(l -> listingMapper.toListingSummary(l, false))
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(ApiResponse.success(listings, "Danh sách tin đăng của bạn"));
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", content);
+            result.put("page", listingPage.getNumber());
+            result.put("size", listingPage.getSize());
+            result.put("totalElements", listingPage.getTotalElements());
+            result.put("totalPages", listingPage.getTotalPages());
+            result.put("last", listingPage.isLast());
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Danh sách tin đăng của bạn"));
         } catch (RuntimeException e) {
             return handleAuthException(e);
         } catch (Exception e) {
@@ -494,24 +522,32 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> getMyProperties() {
+    public ResponseEntity<ApiResponse> getMyProperties(int page, int size) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            List<Property> properties = propertyRepository.findBySellerIdWithDetails(seller.getSellerId())
-                    .stream()
-                    .distinct()
-                    .collect(Collectors.toList());
+            int effectiveSize = size > 0 ? size : PAGE_SIZE;
+            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize);
 
-            List<PropertyDetailResponse> response = properties.stream()
+            Page<Property> propertyPage = propertyRepository.findBySellerIdWithDetails(seller.getSellerId(), pageable);
+
+            List<PropertyDetailResponse> content = propertyPage.getContent().stream()
                     .map(p -> {
                         int listingCount = (int) listingRepository.countByProperty_PropertyId(p.getPropertyId());
                         return listingMapper.toPropertyDetail(p, listingCount);
                     })
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(ApiResponse.success(response, "Danh sách tài sản bạn đang sở hữu"));
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", content);
+            result.put("page", propertyPage.getNumber());
+            result.put("size", propertyPage.getSize());
+            result.put("totalElements", propertyPage.getTotalElements());
+            result.put("totalPages", propertyPage.getTotalPages());
+            result.put("last", propertyPage.isLast());
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Danh sách tài sản bạn đang sở hữu"));
         } catch (RuntimeException e) {
             return handleAuthException(e);
         } catch (Exception e) {
@@ -597,10 +633,34 @@ public class ListingServiceImplement implements ListingServiceInterface {
             int reparentedCount = 0;
             if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
                 reparentedCount = reparentUploadedImagesToListing(
-                        request.getDraftImagePublicIds(), currentUser, listing, request.getMainImageIndex());
+                        request.getDraftImagePublicIds(), currentUser, listing, request.getThumbnailImageIndex());
+            }
+
+            // Đổi thumbnail sang 1 ảnh ĐÃ CÓ SẴN (không upload gì mới) — xử lý SAU
+            // reparent ảnh mới ở trên để field này luôn có tiếng nói cuối cùng nếu
+            // Seller gửi cả 2 (xem javadoc UpdateListingRequest#thumbnailListingImageId).
+            if (request.getThumbnailListingImageId() != null) {
+                ListingImage targetImage = listingImageRepository
+                        .findByListingImageIdAndListing_ListingId(request.getThumbnailListingImageId(), listingId)
+                        .orElse(null);
+                if (targetImage == null) {
+                    return ResponseEntity.badRequest().body(ApiResponse.fail("Bad_Request",
+                            "thumbnailListingImageId=" + request.getThumbnailListingImageId()
+                                    + " không tồn tại hoặc không thuộc bài đăng này"));
+                }
+                listingImageRepository.clearThumbnailByListingId(listingId);
+                targetImage.setIsThumbnail(true);
+                listingImageRepository.save(targetImage);
             }
 
             Listing updated = listingRepository.save(listing);
+
+            if (updated.getSeller() != null && updated.getSeller().getAccount() != null) {
+                notificationService.notify(updated.getSeller().getAccount(),
+                        "Tin đăng \"" + updated.getTitle() + "\" của bạn vừa được cập nhật, cần Staff duyệt lại.",
+                        NotificationTypeEnum.LISTING);
+            }
+
             Property refreshed = property != null
                     ? propertyRepository.findByIdWithDetails(property.getPropertyId()).orElse(property)
                     : null;
@@ -628,11 +688,27 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private int reparentUploadedImagesToListing(List<String> publicIds,
                                                 Account owner,
                                                 Listing listing,
-                                                Integer mainImageIndex) {
+                                                Integer thumbnailImageIndex) {
         if (publicIds == null || publicIds.isEmpty()) return 0;
 
         long existingCount = listingImageRepository.countByListing_ListingId(listing.getListingId());
-        int mainIdx = (mainImageIndex == null) ? 0 : mainImageIndex;
+
+        // Seller CHỦ ĐỘNG chỉ định ảnh nào làm thumbnail (thumbnailImageIndex != null)
+        // → tôn trọng lựa chọn này DÙ listing đã có ảnh từ trước hay chưa (khác
+        // hành vi cũ: trước đây chỉ tự động gán thumbnail khi listing CHƯA có ảnh
+        // nào, khiến việc thêm ảnh mới vào tin đã có sẵn ảnh KHÔNG THỂ đổi được
+        // thumbnail — đây chính là gap đã sửa). Nếu Seller không truyền gì
+        // (thumbnailImageIndex == null), giữ hành vi mặc định an toàn cũ: chỉ tự
+        // gán ảnh đầu tiên làm thumbnail khi listing đang chưa có ảnh nào.
+        boolean callerSpecifiedThumbnail = thumbnailImageIndex != null;
+        int targetIdx = callerSpecifiedThumbnail ? thumbnailImageIndex : 0;
+
+        if (callerSpecifiedThumbnail) {
+            // Đảm bảo luôn CHỈ 1 thumbnail: bỏ đánh dấu thumbnail của mọi ảnh cũ
+            // trước khi gán ảnh mới làm thumbnail.
+            listingImageRepository.clearThumbnailByListingId(listing.getListingId());
+        }
+
         int saved = 0;
         Long listingIdL = listing.getListingId().longValue();
 
@@ -651,10 +727,10 @@ public class ListingServiceImplement implements ListingServiceInterface {
             MediaAsset asset = mediaAssetRepository.findByPublicId(publicId).orElse(null);
             if (asset == null) continue;
 
-            // Chỉ đánh dấu thumbnail nếu listing CHƯA có ảnh nào (existingCount == 0)
-            // VÀ đây đúng là ảnh ở vị trí mainIdx do Seller chỉ định — đảm bảo mỗi
-            // Listing luôn có DUY NHẤT 1 ảnh thumbnail.
-            boolean isThumbnail = (existingCount == 0) && (i == mainIdx);
+            boolean isThumbnail = callerSpecifiedThumbnail
+                    ? (i == targetIdx)
+                    : (existingCount == 0 && i == targetIdx);
+
             ListingImage img = ListingImage.builder()
                     .listing(listing)
                     .imageUrl(asset.getSecureUrl())

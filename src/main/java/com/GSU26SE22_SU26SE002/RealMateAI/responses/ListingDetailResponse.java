@@ -66,6 +66,10 @@ public class ListingDetailResponse {
     private String sellerAvatar;
     private String sellerPhone;
 
+    private String wardCode;
+
+    private String email;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
