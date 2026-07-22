@@ -102,7 +102,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
      * chính Listing đó (listingImages, load lazy theo batch — không JOIN
      * FETCH ở đây, xem giải thích ở {@link #findAllByListingIdInWithDetails}).
      */
-    @Query("""
+    @Query(value = """
             SELECT l FROM Listing l
             JOIN FETCH l.property p
             LEFT JOIN FETCH p.propertyType pt
@@ -110,8 +110,13 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             WHERE l.seller.sellerId = :sellerId
               AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
             ORDER BY l.createdAt DESC
+            """,
+            countQuery = """
+            SELECT COUNT(l) FROM Listing l
+            WHERE l.seller.sellerId = :sellerId
+              AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
             """)
-    List<Listing> findBySellerId(@Param("sellerId") Integer sellerId);
+    Page<Listing> findBySellerId(@Param("sellerId") Integer sellerId, Pageable pageable);
 
     /**
      * Lấy chi tiết Listing kèm Property + Location (dùng cho update / ownership check).

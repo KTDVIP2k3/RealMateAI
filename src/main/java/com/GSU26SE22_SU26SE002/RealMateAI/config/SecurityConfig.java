@@ -84,6 +84,7 @@ public class SecurityConfig {
                                 "/wallets/deposit/cancel",
                                 "/wallets/deposit/webhook"
                         ).permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/listings/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/posting-packages/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*").permitAll()

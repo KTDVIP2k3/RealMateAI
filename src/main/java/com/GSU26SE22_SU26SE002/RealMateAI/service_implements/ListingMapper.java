@@ -73,6 +73,37 @@ public class ListingMapper {
     }
 
     /**
+     * Chi tiết tin đăng dành RIÊNG cho chính Seller xem tin CỦA MÌNH
+     * (GET /seller/listings/{listingId}) — KHÁC với toListingDetail() dùng
+     * chung cho chi tiết công khai/Staff duyệt:
+     *  - BỎ populate: sellerAvatar, sellerStatus, contactPersonName,
+     *    linkSocialContactPerson (Seller xem tin của chính mình không cần
+     *    những field này — sellerAvatar/sellerStatus là thông tin hiển thị
+     *    cho NGƯỜI KHÁC xem, contactPersonName/linkSocialContactPerson chỉ
+     *    cần khi hiển thị công khai để Investor liên hệ).
+     *  - THÊM: wardCode (mã vùng, lấy phẳng từ property.location.ward — tiện
+     *    hơn cho FE thay vì phải đi sâu vào property.wardCode), email (email
+     *    Seller — thông tin NHẠY CẢM, chỉ lộ ra ở đúng view này, KHÔNG lộ ra
+     *    ở chi tiết công khai GET /listings/{listingId}).
+     */
+    public ListingDetailResponse toListingDetailForOwner(Listing l, Property p) {
+        ListingDetailResponse base = toListingDetail(l, p);
+
+        base.setSellerAvatar(null);
+        base.setSellerStatus(null);
+        base.setContactPersonName(null);
+        base.setLinkSocialContactPerson(null);
+
+        Account sellerAccount = l.getSeller() != null ? l.getSeller().getAccount() : null;
+        Ward ward = (p != null && p.getLocation() != null) ? p.getLocation().getWard() : null;
+
+        base.setWardCode(ward != null ? ward.getWard_code() : null);
+        base.setEmail(sellerAccount != null ? sellerAccount.getEmail() : null);
+
+        return base;
+    }
+
+    /**
      * @param activeListingCount số Listing đang tham chiếu tới Property (có thể null nếu
      *                           không cần hiển thị, ví dụ khi map lồng trong ListingDetailResponse)
      */

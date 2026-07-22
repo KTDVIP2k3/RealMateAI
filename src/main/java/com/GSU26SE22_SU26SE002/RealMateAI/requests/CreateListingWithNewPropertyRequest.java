@@ -19,6 +19,8 @@ import java.math.BigDecimal;
  * Lý do: @ModelAttribute binding dựa trên chuẩn JavaBean getter (getPropTitle, getPropPrice, ...),
  * field có dấu _ (prop_title) sinh getter getProp_title() → Spring KHÔNG bind được.
  */
+
+@Schema(description = "Luồng ②: Tạo tài sản mới + đăng tin (multipart/form-data). Ảnh gửi qua part \"images\" riêng, không nằm trong JSON này.")
 @Data
 public class CreateListingWithNewPropertyRequest {
 
@@ -120,6 +122,14 @@ public class CreateListingWithNewPropertyRequest {
     private String propWardCode;
 
     // ── Ảnh ─────────────────────────────────────────────────────────────────
-    @Schema(example = "0")
-    private Integer mainImageIndex;
+    @Schema(
+            description = "Vị trí (0-based, đếm từ 0) trong mảng \"images\" (multipart part) "
+                    + "xác định ẢNH NÀO LÀ THUMBNAIL (ảnh đại diện, isThumbnail=true, luôn "
+                    + "xếp đầu khi GET chi tiết tin đăng). VÍ DỤ: nếu bạn upload 3 file theo "
+                    + "thứ tự [anh1.jpg, anh2.jpg, anh3.jpg] và muốn anh2.jpg làm đại diện, "
+                    + "truyền thumbnailImageIndex=1. Mặc định = 0 (file đầu tiên) nếu không truyền.",
+            example = "0",
+            defaultValue = "0"
+    )
+    private Integer thumbnailImageIndex;
 }
