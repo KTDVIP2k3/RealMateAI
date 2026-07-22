@@ -12,5 +12,5 @@ public class AccountVerificationRequest {
 
     private MultipartFile selfie;
 
-    private MultipartFile businessLicense;
+//    private MultipartFile businessLicense;
 }

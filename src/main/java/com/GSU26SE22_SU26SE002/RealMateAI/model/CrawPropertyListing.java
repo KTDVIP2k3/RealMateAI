@@ -24,6 +24,9 @@ public class CrawPropertyListing {
     @Column(name = "craw_property_listing_id")
     private Integer crawPropertyListingId;
 
+    @Column(name = "source_url", unique = true, length = 500, nullable = false)
+    private String sourceUrl;
+
     @Column(name = "price", precision = 18, scale = 2)
     private BigDecimal price;
 
@@ -41,6 +44,5 @@ public class CrawPropertyListing {
 
     private Timestamp craw_date;
 
-    @OneToMany(mappedBy = "crawPropertyListing", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<HeatmapZone> heatmapZones = new ArrayList<>();
+
 }
