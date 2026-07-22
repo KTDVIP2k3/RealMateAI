@@ -267,13 +267,16 @@ public class ListingCertificationServiceImplement implements ListingCertificatio
     }
 
     private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
-        if ("Unauthorized".equals(e.getMessage())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail("Unauthorized", e.getMessage()));
+        String message = e.getMessage();
+        if ("Unauthorized".equals(message)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail("Unauthorized", message));
         }
-        if (e.getMessage() != null && e.getMessage().startsWith("Forbidden")) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.fail("Forbidden", e.getMessage()));
+        if (message != null && message.startsWith("Forbidden")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.fail("Forbidden", message));
         }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", e.getMessage()));
+        log.error("[ListingCertificationService] Lỗi không xác định", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail("Server_Error", message != null ? message : e.getClass().getSimpleName()));
     }
 
     private CertificationRequestResponse toResponse(ListingCertificationRequest r) {

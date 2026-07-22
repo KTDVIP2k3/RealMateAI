@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class ListingVerification {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "listing_verification_id")
     private Integer listingVerificationId;
 
