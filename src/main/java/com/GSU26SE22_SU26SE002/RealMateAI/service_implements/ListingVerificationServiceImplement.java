@@ -185,16 +185,18 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
     }
 
     private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
-        if (e.getMessage().contains("Unauthorized")) {
+        String message = e.getMessage();
+        if (message != null && message.contains("Unauthorized")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
         }
-        if (e.getMessage().contains("Forbidden")) {
+        if (message != null && message.contains("Forbidden")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.fail("Forbidden", e.getMessage()));
+                    .body(ApiResponse.fail("Forbidden", message));
         }
+        log.error("[ListingVerificationService] Lỗi không xác định", e);
         return ResponseEntity.internalServerError()
-                .body(ApiResponse.fail("Server_Error", e.getMessage()));
+                .body(ApiResponse.fail("Server_Error", message != null ? message : e.getClass().getSimpleName()));
     }
 
     private ListingVerificationResponse toVerificationResponse(ListingVerification lv) {

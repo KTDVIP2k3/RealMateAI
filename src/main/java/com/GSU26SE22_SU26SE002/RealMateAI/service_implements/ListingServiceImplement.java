@@ -362,17 +362,40 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
     // Helper xử lý exception auth
+    /**
+     * SỬA LỖI NGHIÊM TRỌNG: hàm này được gọi từ CẢ 9 nhánh "catch (RuntimeException e)"
+     * trong file — TRƯỚC ĐÂY hoàn toàn KHÔNG LOG gì cả, và còn có nguy cơ tự ném
+     * NullPointerException nếu e.getMessage() == null (rất nhiều exception của
+     * Hibernate/JPA — vd DataIntegrityViolationException, ConstraintViolationException —
+     * không có message hoặc message null).
+     *
+     * Hậu quả thực tế: khi 1 exception KHÔNG PHẢI do chính code này chủ động ném
+     * (vd lỗi ràng buộc NOT NULL, lỗi Cloudinary, lỗi Hibernate bất kỳ) xảy ra bên
+     * trong 1 method @Transactional, nó bị nuốt vào đây MÀ KHÔNG ĐỂ LẠI DẤU VẾT
+     * GÌ trong log. Nếu exception đó có nguồn gốc từ Hibernate/JDBC, Hibernate tự
+     * đánh dấu transaction "rollback-only" NGAY LẬP TỨC — bất kể Java code có
+     * catch hay không. Method vẫn return bình thường (tưởng đã xử lý xong) →
+     * Spring cố COMMIT → phát hiện rollback-only → ném
+     * UnexpectedRollbackException NGOÀI mọi try/catch của code này → rơi vào
+     * Whitelabel Error mặc định — ĐÚNG TRIỆU CHỨNG bạn đang gặp, và tệ hơn là
+     * KHÔNG CÓ CÁCH NÀO biết lỗi gốc là gì vì chưa từng được log.
+     */
     private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
-        if (e.getMessage().contains("Unauthorized")) {
+        String message = e.getMessage();
+
+        if (message != null && message.contains("Unauthorized")) {
+            log.warn("[ListingService] Unauthorized: {}", message);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
         }
-        if (e.getMessage().contains("Forbidden")) {
+        if (message != null && message.contains("Forbidden")) {
+            log.warn("[ListingService] Forbidden: {}", message);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.fail("Forbidden", e.getMessage()));
+                    .body(ApiResponse.fail("Forbidden", message));
         }
+        log.error("[ListingService] Lỗi không xác định (không phải Unauthorized/Forbidden)", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("Server_Error", e.getMessage()));
+                .body(ApiResponse.fail("Server_Error", message != null ? message : e.getClass().getSimpleName()));
     }
 
     // Các method khác giữ nguyên (public + seller)
