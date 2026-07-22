@@ -36,11 +36,12 @@ public class PropertyValuationRequestController {
         return propertyValuationRequestService.getMyValuationRequests();
     }
 
-    @GetMapping("/seller/valuation-requests/{id}")
+    @GetMapping("/seller/valuation-requests/{valuationRequestId}")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Chi tiết 1 yêu cầu định giá của mình")
-    public ResponseEntity<ApiResponse> getMyRequestDetail(@PathVariable Integer id) {
-        return propertyValuationRequestService.getMyValuationRequestDetail(id);
+    public ResponseEntity<ApiResponse> getMyRequestDetail(
+            @PathVariable("valuationRequestId") Integer valuationRequestId) {
+        return propertyValuationRequestService.getMyValuationRequestDetail(valuationRequestId);
     }
 
     // ── Staff/Admin ──────────────────────────────────────────────────────────
@@ -52,28 +53,29 @@ public class PropertyValuationRequestController {
         return propertyValuationRequestService.getPendingValuationQueue();
     }
 
-    @GetMapping("/staff/valuation-requests/{id}")
+    @GetMapping("/staff/valuation-requests/{valuationRequestId}")
     @PreAuthorize("hasAnyRole('Admin', 'Staff')")
     @Operation(summary = "Staff/Admin: Chi tiết 1 yêu cầu định giá bất kỳ")
-    public ResponseEntity<ApiResponse> getDetail(@PathVariable Integer id) {
-        return propertyValuationRequestService.getValuationRequestDetail(id);
+    public ResponseEntity<ApiResponse> getDetail(
+            @PathVariable("valuationRequestId") Integer valuationRequestId) {
+        return propertyValuationRequestService.getValuationRequestDetail(valuationRequestId);
     }
 
-    @PatchMapping("/staff/valuation-requests/{id}/complete")
+    @PatchMapping("/staff/valuation-requests/{valuationRequestId}/complete")
     @PreAuthorize("hasAnyRole('Admin', 'Staff')")
     @Operation(summary = "Staff/Admin: Hoàn tất — đưa ra mức giá đề xuất cho Seller")
     public ResponseEntity<ApiResponse> complete(
-            @PathVariable Integer id,
+            @PathVariable("valuationRequestId") Integer valuationRequestId,
             @Valid @RequestBody CompleteValuationRequest request) {
-        return propertyValuationRequestService.completeValuationRequest(id, request);
+        return propertyValuationRequestService.completeValuationRequest(valuationRequestId, request);
     }
 
-    @PatchMapping("/staff/valuation-requests/{id}/reject")
+    @PatchMapping("/staff/valuation-requests/{valuationRequestId}/reject")
     @PreAuthorize("hasAnyRole('Admin', 'Staff')")
     @Operation(summary = "Staff/Admin: Từ chối xử lý yêu cầu định giá (kèm lý do)")
     public ResponseEntity<ApiResponse> reject(
-            @PathVariable Integer id,
+            @PathVariable("valuationRequestId") Integer valuationRequestId,
             @Valid @RequestBody RejectValuationRequest request) {
-        return propertyValuationRequestService.rejectValuationRequest(id, request);
+        return propertyValuationRequestService.rejectValuationRequest(valuationRequestId, request);
     }
 }

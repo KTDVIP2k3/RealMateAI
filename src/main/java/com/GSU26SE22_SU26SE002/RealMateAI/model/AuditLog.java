@@ -17,6 +17,10 @@ public class AuditLog {
     @Column(name = "audit_log_id")
     private UUID auditLogId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id")
+    private Account account;
+
     private String userName;
 
     private String apiName;

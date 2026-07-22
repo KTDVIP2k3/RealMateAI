@@ -23,11 +23,11 @@ public class ListingCertificationController {
 
     // ── Seller ───────────────────────────────────────────────────────────────
 
-    @PostMapping(value = "/seller/listings/{id}/certification", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/seller/listings/{listingId}/certification", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Gửi yêu cầu tích xanh cho 1 tin đăng (kèm giấy tờ pháp lý)")
     public ResponseEntity<ApiResponse> submitCertification(
-            @PathVariable("id") Integer listingId,
+            @PathVariable("listingId") Integer listingId,
             @ModelAttribute SubmitCertificationRequest request) {
         return listingCertificationService.submitCertificationRequest(listingId, request);
     }
@@ -39,11 +39,12 @@ public class ListingCertificationController {
         return listingCertificationService.getMyCertificationRequests();
     }
 
-    @GetMapping("/seller/certification-requests/{id}")
+    @GetMapping("/seller/certification-requests/{certificationRequestId}")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Chi tiết 1 yêu cầu tích xanh của mình")
-    public ResponseEntity<ApiResponse> getMyCertificationRequestDetail(@PathVariable Integer id) {
-        return listingCertificationService.getMyCertificationRequestDetail(id);
+    public ResponseEntity<ApiResponse> getMyCertificationRequestDetail(
+            @PathVariable("certificationRequestId") Integer certificationRequestId) {
+        return listingCertificationService.getMyCertificationRequestDetail(certificationRequestId);
     }
 
     // ── Staff/Admin ──────────────────────────────────────────────────────────
@@ -55,19 +56,20 @@ public class ListingCertificationController {
         return listingCertificationService.getPendingCertificationQueue();
     }
 
-    @GetMapping("/staff/certification-requests/{id}")
+    @GetMapping("/staff/certification-requests/{certificationRequestId}")
     @PreAuthorize("hasAnyRole('Admin', 'Staff')")
     @Operation(summary = "Staff/Admin: Chi tiết 1 yêu cầu tích xanh bất kỳ")
-    public ResponseEntity<ApiResponse> getDetail(@PathVariable Integer id) {
-        return listingCertificationService.getCertificationRequestDetail(id);
+    public ResponseEntity<ApiResponse> getDetail(
+            @PathVariable("certificationRequestId") Integer certificationRequestId) {
+        return listingCertificationService.getCertificationRequestDetail(certificationRequestId);
     }
 
-    @PatchMapping("/staff/certification-requests/{id}/review")
+    @PatchMapping("/staff/certification-requests/{certificationRequestId}/review")
     @PreAuthorize("hasAnyRole('Admin', 'Staff')")
     @Operation(summary = "Staff/Admin: Duyệt (APPROVED) hoặc từ chối (REJECTED) yêu cầu tích xanh")
     public ResponseEntity<ApiResponse> review(
-            @PathVariable Integer id,
+            @PathVariable("certificationRequestId") Integer certificationRequestId,
             @Valid @RequestBody ReviewCertificationRequest request) {
-        return listingCertificationService.reviewCertificationRequest(id, request);
+        return listingCertificationService.reviewCertificationRequest(certificationRequestId, request);
     }
 }

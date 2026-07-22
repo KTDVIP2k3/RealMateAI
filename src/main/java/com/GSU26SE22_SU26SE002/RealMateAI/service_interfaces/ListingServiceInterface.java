@@ -28,9 +28,11 @@ public interface ListingServiceInterface {
 
     ResponseEntity<ApiResponse> getListingDetail(Integer listingId);
 
-    ResponseEntity<ApiResponse> getMyListings();
+    /** Mặc định 10 tin/trang nếu size &lt;= 0 (xem PAGE_SIZE trong ListingServiceImplement). */
+    ResponseEntity<ApiResponse> getMyListings(int page, int size);
 
-    ResponseEntity<ApiResponse> getMyProperties();
+    /** Mặc định 10 tài sản/trang nếu size &lt;= 0. */
+    ResponseEntity<ApiResponse> getMyProperties(int page, int size);
 
     ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request);
 
