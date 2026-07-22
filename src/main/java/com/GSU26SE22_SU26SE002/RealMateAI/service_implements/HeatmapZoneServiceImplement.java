@@ -27,6 +27,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
 
     @Scheduled(cron = "0 0 1 * * ?", zone = "Asia/Ho_Chi_Minh")
     @Override
+    @Transactional
     public void generateDailySnapshot() {
         List<CrawPropertyListing> listings = crawPropertyListingRepository.findAll().stream()
                 .filter(l -> l.getLatitude() != null && l.getLongitude() != null)
@@ -39,9 +40,6 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         LocalDate today = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
         int[] targetZoomLevels = {10, 13, 15, 17};
-
-        // Lấy danh sách snapshot ngày hôm qua 1 lần duy nhất để tối ưu hiệu năng
-        List<HeatmapZone> yesterdayZones = heatmapZoneRepository.findBySnapshotDate(yesterday);
 
         List<HeatmapZone> snapshotBatch = new ArrayList<>();
 
@@ -62,7 +60,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 double centerLat = gridYToLat(gridY + 0.5, zoom);
 
                 BigDecimal medianPricePerM2 = calculateMedianPricePerM2(gridListings);
-                BigDecimal priceChangePercent = calculatePriceChangePercent(gridX, gridY, zoom, yesterdayZones, medianPricePerM2);
+                BigDecimal priceChangePercent = calculatePriceChangePercent(gridX, gridY, zoom, yesterday, medianPricePerM2);
 
                 HeatmapZone zone = HeatmapZone.builder()
                         .snapshotDate(today)
@@ -80,16 +78,6 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             });
         }
 
-        // Thực hiện ghi đè snapshot hôm nay (Xóa dữ liệu cũ của hôm nay nếu có rồi lưu mới)
-        saveSnapshotTransaction(today, snapshotBatch);
-    }
-
-    @Transactional
-    public void saveSnapshotTransaction(LocalDate today, List<HeatmapZone> snapshotBatch) {
-        List<HeatmapZone> existingTodayZones = heatmapZoneRepository.findBySnapshotDate(today);
-        if (!existingTodayZones.isEmpty()) {
-            heatmapZoneRepository.deleteAllInBatch(existingTodayZones);
-        }
         heatmapZoneRepository.saveAll(snapshotBatch);
     }
 
@@ -163,10 +151,12 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         }
     }
 
-    private BigDecimal calculatePriceChangePercent(int gridX, int gridY, int zoom, List<HeatmapZone> yesterdayZones, BigDecimal currentPrice) {
-        if (currentPrice == null || currentPrice.compareTo(BigDecimal.ZERO) == 0 || yesterdayZones == null || yesterdayZones.isEmpty()) {
+    private BigDecimal calculatePriceChangePercent(int gridX, int gridY, int zoom, LocalDate yesterday, BigDecimal currentPrice) {
+        if (currentPrice == null || currentPrice.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
+
+        List<HeatmapZone> yesterdayZones = heatmapZoneRepository.findBySnapshotDate(yesterday);
 
         return yesterdayZones.stream()
                 .filter(zone -> zone.getZoomLevel() == zoom && zone.getGridX() == gridX && zone.getGridY() == gridY)
