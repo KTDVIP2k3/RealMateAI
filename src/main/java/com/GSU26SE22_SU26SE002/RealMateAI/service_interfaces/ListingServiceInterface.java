@@ -10,19 +10,14 @@ import java.util.List;
 
 public interface ListingServiceInterface {
     /**
-     * Luồng ①: Seller đăng lại tài sản ĐÃ CÓ SẴN.
-     * Body: application/json
+     * API tạo tin đăng DUY NHẤT — gộp 2 luồng tạo tin cũ (đăng lại tài sản có
+     * sẵn / tạo tài sản mới) thành 1 API. Body: application/json (ảnh KHÔNG
+     * upload trực tiếp — phải upload trước qua POST /media/upload/multiple,
+     * truyền publicId vào request.draftImagePublicIds).
+     * request.reuseExistingProperty quyết định dùng lại tài sản có sẵn
+     * (existingPropertyId) hay tạo tài sản mới (các field prop*).
      */
-    ResponseEntity<ApiResponse> createListingWithExistingProperty(
-            CreateListingWithExistingPropertyRequest request);
-
-    /**
-     * Luồng ②: Seller tạo tài sản MỚI + đăng tin + upload ảnh.
-     * Body: multipart/form-data
-     */
-    ResponseEntity<ApiResponse> createListingWithNewProperty(
-            CreateListingWithNewPropertyRequest request,
-            List<MultipartFile> images);
+    ResponseEntity<ApiResponse> createListing(CreateListingRequest request);
 
     ResponseEntity<ApiResponse> getMarketListings(int page, int size);
 

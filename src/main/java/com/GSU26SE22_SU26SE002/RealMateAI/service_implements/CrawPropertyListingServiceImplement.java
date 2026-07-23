@@ -92,10 +92,24 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 profileDir.mkdirs();
             }
 
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+            headers.put("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7");
+            headers.put("Cache-Control", "max-age=0");
+            headers.put("Sec-Ch-Ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
+            headers.put("Sec-Ch-Ua-Mobile", "?0");
+            headers.put("Sec-Ch-Ua-Platform", "\"Windows\"");
+            headers.put("Sec-Fetch-Dest", "document");
+            headers.put("Sec-Fetch-Mode", "navigate");
+            headers.put("Sec-Fetch-Site", "none");
+            headers.put("Sec-Fetch-User", "?1");
+            headers.put("Upgrade-Insecure-Requests", "1");
+
             BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                     .setHeadless(isServer)
                     .setIgnoreDefaultArgs(Arrays.asList("--enable-automation"))
                     .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+                    .setExtraHTTPHeaders(headers)
                     .setArgs(browserArgs)
                     .setViewportSize(1920, 1080);
 
@@ -105,7 +119,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });\n" +
                             "window.navigator.chrome = { runtime: {} };\n" +
                             "Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
-                            "Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });"
+                            "Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
+                            "Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });\n" +
+                            "Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });"
             );
 
             Page page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
@@ -144,6 +160,13 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                         page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
                         randomSleep(3000, 5000);
+
+                        String pageTitle = page.title();
+                        if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied")) {
+                            System.err.println(" [CLOUDFLARE BLOCK] IP bị Cloudflare chặn tại: " + targetUrl);
+                            System.out.flush();
+                            break;
+                        }
 
                         Document doc = Jsoup.parse(page.content());
 

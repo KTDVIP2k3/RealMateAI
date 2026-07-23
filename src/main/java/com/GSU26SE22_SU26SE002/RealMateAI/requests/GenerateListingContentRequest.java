@@ -12,6 +12,7 @@ import java.util.List;
  * mô tả bài đăng chuẩn marketing bằng tiếng Việt. Seller có thể chỉnh sửa
  * lại nội dung này trước khi gửi thật vào CreateListingWithNewPropertyRequest.
  */
+
 @Data
 public class GenerateListingContentRequest {
 

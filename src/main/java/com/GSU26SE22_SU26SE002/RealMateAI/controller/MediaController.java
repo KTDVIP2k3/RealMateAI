@@ -3,6 +3,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.EntityType;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.MediaAssetResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.MediaUploadResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,30 +36,31 @@ public class MediaController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Upload 1 file lên Cloudinary")
-    public ResponseEntity<MediaAssetResponse> uploadSingle(
+    public ResponseEntity<MediaUploadResponse> uploadSingle(
             @RequestPart("file") MultipartFile file,
             @RequestParam(required = false) EntityType entityType,
             @RequestParam(required = false) Long entityId) {
 
         Account uploader = securityUtils.getCurrentUSer();
-        MediaAssetResponse response = mediaService.uploadFile(file, uploader, entityType, entityId);
+        MediaUploadResponse response = mediaService.uploadFile(file, uploader, entityType, entityId);
         return ResponseEntity.ok(response);
     }
 
     // ─────────────────────────────────────────────────────────────
     // POST /media/upload/multiple
-    // Upload nhiều file cùng lúc (max 20)
+    // Upload nhiều file cùng lúc (max 20). KHÔNG còn nhận entityId nữa —
+    // ảnh draft luôn gắn với chính accountId của người đang đăng nhập (BE tự
+    // suy ra), FE chỉ cần truyền entityType=ACCOUNT.
     // ─────────────────────────────────────────────────────────────
     @PostMapping(value = "/upload/multiple", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Upload nhiều file cùng lúc (tối đa 20)")
-    public ResponseEntity<List<MediaAssetResponse>> uploadMultiple(
+    @Operation(summary = "Upload nhiều file cùng lúc (tối đa 20) — không cần truyền entityId")
+    public ResponseEntity<List<MediaUploadResponse>> uploadMultiple(
             @RequestPart("files") List<MultipartFile> files,
-            @RequestParam(required = false) EntityType entityType,
-            @RequestParam(required = false) Long entityId) {
+            @RequestParam(required = false) EntityType entityType) {
 
         Account uploader = securityUtils.getCurrentUSer();
-        List<MediaAssetResponse> responses = mediaService.uploadMultiple(files, uploader, entityType, entityId);
+        List<MediaUploadResponse> responses = mediaService.uploadMultiple(files, uploader, entityType);
         return ResponseEntity.ok(responses);
     }
 
