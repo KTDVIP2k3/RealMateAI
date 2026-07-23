@@ -67,9 +67,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--window-size=1920,1080",
                     "--start-maximized",
                     "--lang=vi-VN,vi",
+                    "--no-zygote",
                     "--disable-crash-reporter",
-                    "--disable-breakpad",
-                    "--no-zygote"
+                    "--disable-component-update",
+                    "--no-crash-upload"
             ));
 
             if (isServer) {
