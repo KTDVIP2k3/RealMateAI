@@ -262,25 +262,50 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             scrollPageSmoothly(page);
 
-            randomSleep(1500, 2500);
+            randomSleep(2000, 3000);
+
+            try {
+                page.waitForSelector("iframe[data-src*='google.com/maps'], iframe[src*='google.com/maps'], div#re-map, div[data-lat]",
+                        new Page.WaitForSelectorOptions().setTimeout(5000));
+            } catch (Exception ignored) {}
 
             String latStr = null;
             String lngStr = null;
 
             try {
-                String mapIframeSrc = (String) page.evaluate("() => {" +
-                        "  const iframe = document.querySelector('iframe[data-src*=\"google.com/maps\"], iframe[src*=\"google.com/maps\"]');" +
-                        "  return iframe ? (iframe.getAttribute('data-src') || iframe.getAttribute('src')) : null;" +
+                Object result = page.evaluate("() => {" +
+                        "  if (typeof initialData !== 'undefined' && initialData.latitude) return {lat: initialData.latitude, lng: initialData.longitude};" +
+                        "  if (window.RE && window.RE.propertyDetail) return {lat: window.RE.propertyDetail.latitude, lng: window.RE.propertyDetail.longitude};" +
+                        "  const mapDiv = document.querySelector('div#re-map, div[data-lat]');" +
+                        "  if (mapDiv && mapDiv.getAttribute('data-lat')) return {lat: mapDiv.getAttribute('data-lat'), lng: mapDiv.getAttribute('data-long') || mapDiv.getAttribute('data-lng')};" +
+                        "  return null;" +
                         "}");
 
-                if (mapIframeSrc != null) {
-                    Matcher matcher = Pattern.compile("(?:q|ll|center)=([-\\d.]+)(?:,|%2C)([-\\d.]+)").matcher(mapIframeSrc);
-                    if (matcher.find()) {
-                        latStr = matcher.group(1);
-                        lngStr = matcher.group(2);
+                if (result instanceof Map) {
+                    Map<?, ?> map = (Map<?, ?>) result;
+                    if (map.get("lat") != null && map.get("lng") != null) {
+                        latStr = map.get("lat").toString();
+                        lngStr = map.get("lng").toString();
                     }
                 }
             } catch (Exception ignored) {}
+
+            if (latStr == null || lngStr == null) {
+                try {
+                    String mapIframeSrc = (String) page.evaluate("() => {" +
+                            "  const iframe = document.querySelector('iframe[data-src*=\"google.com/maps\"], iframe[src*=\"google.com/maps\"]');" +
+                            "  return iframe ? (iframe.getAttribute('data-src') || iframe.getAttribute('src')) : null;" +
+                            "}");
+
+                    if (mapIframeSrc != null) {
+                        Matcher matcher = Pattern.compile("(?:q|ll|center)=([-\\d.]+)(?:,|%2C)([-\\d.]+)").matcher(mapIframeSrc);
+                        if (matcher.find()) {
+                            latStr = matcher.group(1);
+                            lngStr = matcher.group(2);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
 
             if (latStr == null || lngStr == null) {
                 String fullHtml = page.content();
@@ -297,24 +322,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         lngStr = lngM.group(1);
                     }
                 }
-            }
-
-            if (latStr == null || lngStr == null) {
-                try {
-                    Object result = page.evaluate("() => {" +
-                            "  if (typeof initialData !== 'undefined' && initialData.latitude) return {lat: initialData.latitude, lng: initialData.longitude};" +
-                            "  if (window.RE && window.RE.propertyDetail) return {lat: window.RE.propertyDetail.latitude, lng: window.RE.propertyDetail.longitude};" +
-                            "  return null;" +
-                            "}");
-
-                    if (result instanceof Map) {
-                        Map<?, ?> map = (Map<?, ?>) result;
-                        if (map.get("lat") != null && map.get("lng") != null) {
-                            latStr = map.get("lat").toString();
-                            lngStr = map.get("lng").toString();
-                        }
-                    }
-                } catch (Exception ignored) {}
             }
 
             if (latStr != null && lngStr != null) {
@@ -335,9 +342,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     private void scrollPageSmoothly(Page page) {
         try {
             page.evaluate("() => window.scrollTo({top: document.body.scrollHeight / 3, behavior: 'smooth'});");
-            randomSleep(800, 1200);
+            randomSleep(1000, 1500);
             page.evaluate("() => window.scrollTo({top: (document.body.scrollHeight / 3) * 2, behavior: 'smooth'});");
-            randomSleep(800, 1200);
+            randomSleep(1000, 1500);
             page.evaluate("() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});");
         } catch (Exception ignored) {}
     }
