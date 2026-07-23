@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Path;
@@ -49,7 +50,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             List<Ward> wardList = wardRepository.findWardsOnlyInHCM();
             if (wardList.isEmpty()) {
-                System.out.println("[WARNING] DB không có dữ liệu Ward TP.HCM!");
+                System.out.println("[WARNING] DB không có dữ liệu Ward!");
                 return;
             }
 
@@ -65,14 +66,21 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--disable-infobars",
                     "--window-size=1920,1080",
                     "--start-maximized",
-                    "--lang=vi-VN,vi"
+                    "--lang=vi-VN,vi",
+                    "--disable-crash-reporter",
+                    "--disable-breakpad",
+                    "--no-zygote"
             ));
 
             if (isServer) {
                 browserArgs.add("--headless=new");
             }
 
-            Path userDataDir = Paths.get("./chrome-profile-bot").toAbsolutePath();
+            Path userDataDir = Paths.get("/tmp/chrome-profile-bot").toAbsolutePath();
+            File profileDir = userDataDir.toFile();
+            if (!profileDir.exists()) {
+                profileDir.mkdirs();
+            }
 
             BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                     .setHeadless(isServer)
@@ -95,69 +103,93 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             for (Ward ward : wardList) {
                 String wardName = ward.getFullName();
                 String cleanWardSlug = removeAccent(wardName);
-                String targetUrl = "https://batdongsan.com.vn/ban-nha-dat-" + cleanWardSlug + "-ho-chi-minh";
 
-                try {
-                    System.out.println("\n[1] MỞ TRANG DANH SÁCH: " + targetUrl);
-
-                    page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
-                    randomSleep(3000, 5000);
-
-                    Document doc = Jsoup.parse(page.content());
-                    Elements propertyCards = doc.select(".re__card-full, .re__card-info, .js__card");
-
-                    if (propertyCards.isEmpty()) {
-                        System.out.println(" --> Trống dữ liệu tại " + wardName + ", bỏ qua.");
-                        continue;
-                    }
-
-                    System.out.println(" --> Tìm thấy " + propertyCards.size() + " card. Đang xử lý bằng Stream API...");
-
-                    Set<String> existingUrlsInDb = crawPropertyListingRepository.findAll().stream()
-                            .map(CrawPropertyListing::getSourceUrl)
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toSet());
-
-                    Set<String> processedUrlsInBatch = new HashSet<>();
-
-                    List<CrawPropertyListing> listingResultList = propertyCards.stream()
-                            .map(this::extractBasicInfo)
-                            .filter(Objects::nonNull)
-                            .filter(listing -> listing.getPrice() != null)
-                            .filter(listing -> listing.getArea() != null && listing.getArea().compareTo(BigDecimal.ZERO) > 0)
-                            .filter(listing -> {
-                                String url = listing.getSourceUrl().toLowerCase();
-                                boolean isHcm = url.contains("ho-chi-minh") || url.contains("tp-hcm") || url.contains("quan-") || url.contains("phuong-");
-                                if (!isHcm || url.contains("ha-noi") || url.contains("da-nang") || url.contains("ha-long") || url.contains("binh-duong")) {
-                                    return false;
-                                }
-                                return true;
-                            })
-                            .filter(listing -> {
-                                String url = listing.getSourceUrl();
-                                if (existingUrlsInDb.contains(url)) {
-                                    System.out.println("     [SKIP] Tin đã có trong DB, bỏ qua: " + url);
-                                    return false;
-                                }
-                                if (processedUrlsInBatch.contains(url)) {
-                                    return false;
-                                }
-                                processedUrlsInBatch.add(url);
-                                return true;
-                            })
-                            .map(listing -> fetchCoordinates(listing, page))
-                            .limit(10)
-                            .collect(Collectors.toList());
-
-                    if (!listingResultList.isEmpty()) {
-                        saveListingsInNewTransaction(listingResultList, wardName);
-                    }
-
-                    randomSleep(4000, 7000);
-
-                } catch (Exception crawlEx) {
-                    System.err.println("Lỗi kết nối tại " + wardName + " | Lý do: " + crawlEx.getMessage());
+                String provinceSlug = "ho-chi-minh";
+                if (ward.getProvince() != null && ward.getProvince().getFullName() != null) {
+                    provinceSlug = removeAccent(ward.getProvince().getFullName());
+                } else if (ward.getProvince() != null && ward.getProvince().getName() != null) {
+                    provinceSlug = removeAccent(ward.getProvince().getName());
                 }
+
+                Set<String> existingUrlsInDb = crawPropertyListingRepository.findAll().stream()
+                        .map(CrawPropertyListing::getSourceUrl)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+
+                List<CrawPropertyListing> listingResultList = new ArrayList<>();
+                Set<String> processedUrlsInBatch = new HashSet<>();
+                int pageNum = 1;
+
+                while (listingResultList.size() < 10 && pageNum <= 5) {
+                    String targetUrl;
+                    if (pageNum == 1) {
+                        targetUrl = "https://batdongsan.com.vn/ban-nha-dat-" + cleanWardSlug + "-" + provinceSlug;
+                    } else {
+                        targetUrl = "https://batdongsan.com.vn/ban-nha-dat-" + cleanWardSlug + "-" + provinceSlug + "/p" + pageNum;
+                    }
+
+                    try {
+                        System.out.println("\n[1] MỞ TRANG DANH SÁCH (Trang " + pageNum + "): " + targetUrl);
+
+                        page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
+                        randomSleep(3000, 5000);
+
+                        Document doc = Jsoup.parse(page.content());
+
+                        Elements propertyCards = doc.select(".re__card-full");
+                        if (propertyCards.isEmpty()) {
+                            propertyCards = doc.select(".js__card");
+                        }
+
+                        if (propertyCards.isEmpty()) {
+                            System.out.println(" --> Trống dữ liệu tại " + wardName + " (Trang " + pageNum + ")");
+                            break;
+                        }
+
+                        System.out.println(" --> Tìm thấy " + propertyCards.size() + " card. Đang lọc tin mới...");
+
+                        List<CrawPropertyListing> newItems = propertyCards.stream()
+                                .skip(pageNum == 1 ? 9 : 0)
+                                .map(this::extractBasicInfo)
+                                .filter(Objects::nonNull)
+                                .filter(listing -> listing.getPrice() != null)
+                                .filter(listing -> listing.getArea() != null && listing.getArea().compareTo(BigDecimal.ZERO) > 0)
+                                .filter(listing -> {
+                                    String url = listing.getSourceUrl();
+                                    if (existingUrlsInDb.contains(url)) {
+                                        System.out.println("     [SKIP] Tin đã có trong DB, bỏ qua: " + url);
+                                        return false;
+                                    }
+                                    if (processedUrlsInBatch.contains(url)) {
+                                        return false;
+                                    }
+                                    processedUrlsInBatch.add(url);
+                                    return true;
+                                })
+                                .map(listing -> fetchCoordinates(listing, page))
+                                .limit(10 - listingResultList.size())
+                                .collect(Collectors.toList());
+
+                        listingResultList.addAll(newItems);
+
+                        if (listingResultList.size() >= 10) {
+                            break;
+                        }
+
+                        pageNum++;
+                        randomSleep(3000, 5000);
+
+                    } catch (Exception crawlEx) {
+                        System.err.println("Lỗi kết nối tại " + wardName + " | Lý do: " + crawlEx.getMessage());
+                        break;
+                    }
+                }
+
+                if (!listingResultList.isEmpty()) {
+                    saveListingsInNewTransaction(listingResultList, wardName);
+                }
+
+                randomSleep(4000, 7000);
             }
 
             context.close();
@@ -179,15 +211,19 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     private CrawPropertyListing extractBasicInfo(Element card) {
         try {
             String detailLink = "";
-            Element linkElem = card.selectFirst("a[href*='/ban-'], .re__card-title a, h3 a, a.js__product-link-for-product-id");
+
+            Element linkElem = card.selectFirst(".re__card-title a, h3.re__card-title a, a.js__product-link-for-product-id, h3 a");
 
             if (linkElem != null) {
                 detailLink = linkElem.attr("href");
-            } else if (card.parent() != null && card.parent().tagName().equals("a")) {
-                detailLink = card.parent().attr("href");
+            } else {
+                Element fallbackLink = card.selectFirst("a[href*='/ban-']");
+                if (fallbackLink != null) {
+                    detailLink = fallbackLink.attr("href");
+                }
             }
 
-            if (detailLink.isEmpty()) return null;
+            if (detailLink.isEmpty() || detailLink.equals("#")) return null;
 
             String fullDetailUrl = detailLink.startsWith("http") ? detailLink : "https://batdongsan.com.vn" + detailLink;
 
