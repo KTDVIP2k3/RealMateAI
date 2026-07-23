@@ -7,6 +7,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.MediaAsset;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.MediaAssetRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.MediaAssetResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.MediaUploadResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.Transformation;
@@ -47,14 +48,25 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
     // ─────────────────────────────────────────────────────────────
 
     @Override
-    public MediaAssetResponse uploadFile(MultipartFile file,
-                                         Account uploader,
-                                         EntityType entityType,
-                                         Long entityId) {
+    public MediaUploadResponse uploadFile(MultipartFile file,
+                                          Account uploader,
+                                          EntityType entityType,
+                                          Long entityId) {
         validateFile(file);
 
-        String folder    = buildFolder(entityType, entityId);
-        String publicId  = buildPublicId(folder, file.getOriginalFilename());
+        // entityType=ACCOUNT: ảnh "draft" LUÔN thuộc về CHÍNH tài khoản đang
+        // upload — không dùng entityId do client truyền nữa (bỏ, tránh FE phải
+        // truyền thừa và tránh nguy cơ truyền nhầm/spoof accountId người khác).
+        // entityId ở đây chính là giá trị MediaAssetRepository.claimDraftAsset()
+        // dùng để "nhận nuôi" ảnh khi tạo tin đăng (xem
+        // ListingServiceImplement#reparentUploadedImagesToListing) — BẮT BUỘC
+        // phải đúng bằng accountId, không được để null.
+        Long effectiveEntityId = (entityType == EntityType.ACCOUNT)
+                ? (long) uploader.getAccountId()
+                : entityId;
+
+        String folder    = buildFolder(entityType, effectiveEntityId);
+        String publicId  = buildPublicId(file.getOriginalFilename());
         boolean isImage  = isImageFile(file);
         String resourceType = isImage ? "image" : "raw";
 
@@ -75,9 +87,9 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
 
         try {
             Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), uploadParams);
-            MediaAsset asset = buildAndSaveAsset(result, uploader, entityType, entityId, folder, isImage);
+            MediaAsset asset = buildAndSaveAsset(result, uploader, entityType, effectiveEntityId, folder, isImage);
             log.info("[Cloudinary] Uploaded: publicId={}, size={}bytes", asset.getPublicId(), asset.getFileSizeBytes());
-            return toResponse(asset);
+            return toUploadResponse(asset);
         } catch (IOException e) {
             log.error("[Cloudinary] Upload failed for file={}", file.getOriginalFilename(), e);
             throw new MediaUploadException("Upload ảnh thất bại: " + e.getMessage());
@@ -89,19 +101,20 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
     // ─────────────────────────────────────────────────────────────
 
     @Override
-    public List<MediaAssetResponse> uploadMultiple(List<MultipartFile> files,
-                                                   Account uploader,
-                                                   EntityType entityType,
-                                                   Long entityId) {
+    public List<MediaUploadResponse> uploadMultiple(List<MultipartFile> files,
+                                                    Account uploader,
+                                                    EntityType entityType) {
         if (files == null || files.isEmpty()) {
             throw new MediaUploadException("Danh sách file không được rỗng");
         }
         if (files.size() > 20) {
             throw new MediaUploadException("Tối đa 20 file mỗi lần upload");
         }
-        List<MediaAssetResponse> results = new ArrayList<>();
+        List<MediaUploadResponse> results = new ArrayList<>();
         for (MultipartFile file : files) {
-            results.add(uploadFile(file, uploader, entityType, entityId));
+            // entityId không còn nhận từ client — uploadFile() tự suy ra từ
+            // accountId của uploader khi entityType=ACCOUNT (xem ghi chú ở trên).
+            results.add(uploadFile(file, uploader, entityType, null));
         }
         return results;
     }
@@ -199,14 +212,21 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
                 : ROOT_FOLDER + "/" + sub;
     }
 
-    private String buildPublicId(String folder, String originalFilename) {
+    /**
+     * CHỈ trả về phần TÊN FILE (không kèm folder) — Cloudinary tự nối
+     * "folder" (truyền riêng ở uploadParams) vào trước public_id này.
+     * Trước đây hàm này tự nối thêm folder vào public_id RỒI vẫn truyền thêm
+     * "folder" riêng cho Cloudinary → bị nối lặp 2 lần
+     * ("realmateai/accounts/1/realmateai/accounts/1/xxx.jpg"). Đã sửa.
+     */
+    private String buildPublicId(String originalFilename) {
         String name = originalFilename != null
                 ? originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_")
                 : "file";
         // Bỏ extension vì Cloudinary tự thêm
         int dot = name.lastIndexOf('.');
         if (dot > 0) name = name.substring(0, dot);
-        return folder + "/" + name + "_" + System.currentTimeMillis();
+        return name + "_" + System.currentTimeMillis();
     }
 
     private MediaAsset buildAndSaveAsset(Map<?, ?> result,
@@ -250,6 +270,24 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
                 .build();
     }
 
+    /**
+     * Response GỌN cho POST /media/upload và /media/upload/multiple — chỉ
+     * trả assetId/publicId/secureUrl/resourceType/format/folder/entityType.
+     * publicId GIỮ LẠI vì FE bắt buộc cần nó cho
+     * CreateListingRequest.draftImagePublicIds (POST /listings).
+     */
+    private MediaUploadResponse toUploadResponse(MediaAsset a) {
+        return MediaUploadResponse.builder()
+                .assetId(a.getAssetId())
+                .publicId(a.getPublicId())
+                .secureUrl(a.getSecureUrl())
+                .resourceType(a.getResourceType())
+                .format(a.getFormat())
+                .folder(a.getFolder())
+                .entityType(a.getEntityType())
+                .build();
+    }
+
 
     public String uploadImage(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
@@ -257,7 +295,7 @@ public class CloudinaryMediaServiceImplement implements CloudinaryMediaServiceIn
         }
 
         String folder = ROOT_FOLDER + "/general";
-        String publicId = buildPublicId(folder, file.getOriginalFilename());
+        String publicId = buildPublicId(file.getOriginalFilename());
         boolean isImage = isImageFile(file);
         String resourceType = isImage ? "image" : "raw";
 

@@ -30,8 +30,6 @@ public class PropertyDetailResponse {
     private String legalStatus;
     private String addressParticular;
     private String projectName;
-    private Map<String, Object> propertyAttribute;
-    private Map<String, Object>  propertyPurpose;
 
     // Loại & tình trạng
     private String propertyTypeName;
