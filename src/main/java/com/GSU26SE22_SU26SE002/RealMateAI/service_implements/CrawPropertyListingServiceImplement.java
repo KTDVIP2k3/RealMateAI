@@ -63,7 +63,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 crashFileDir.mkdirs();
             }
 
-            // 🎯 2. CẤU HÌNH BROWSER ARGS CHUẨN
+            // 🎯 2. CẤU HÌNH BROWSER ARGS CHUẨN (ĐÃ BỎ --headless=new VÀ THÊM --single-process)
             List<String> browserArgs = new ArrayList<>(Arrays.asList(
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -76,15 +76,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--start-maximized",
                     "--lang=vi-VN,vi",
                     "--no-zygote",
+                    "--single-process", // Ép Chromium không sinh process crash handler riêng
                     "--disable-crash-reporter",
                     "--disable-component-update",
                     "--no-crash-upload",
-                    "--crash-dumps-dir=" + crashDir.toString() // Thỏa mãn điều kiện Crashpad Handler
+                    "--crash-dumps-dir=" + crashDir.toString()
             ));
-
-            if (isServer) {
-                browserArgs.add("--headless=new");
-            }
 
             Path userDataDir = Paths.get("/tmp/chrome-profile-bot").toAbsolutePath();
             File profileDir = userDataDir.toFile();
