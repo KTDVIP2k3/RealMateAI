@@ -39,8 +39,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Autowired
     private HeatmapZoneServiceInterface heatmapZoneService;
 
-
-    @Scheduled(cron = "0 0 16 * * ?", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "0 30 16 * * ?", zone = "Asia/Ho_Chi_Minh")
 //    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     @Override
     public void autoCrawlPropertyData() {
