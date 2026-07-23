@@ -206,18 +206,18 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         System.out.println("\n   [2] TRUY CẬP TRANG CHI TIẾT: " + listing.getSourceUrl());
 
         try (Page detailPage = context.newPage()) {
-            detailPage.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(30000));
-            detailPage.waitForTimeout(4000);
+            detailPage.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(45000));
+            detailPage.waitForTimeout(6000);
 
             detailPage.evaluate("() => {" +
-                    "  const mapEl = document.querySelector('.re__pr-map, .map-container, iframe[src*=\"google.com/maps\"]');" +
-                    "  if (mapEl) {" +
-                    "      mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
-                    "  } else {" +
-                    "      window.scrollTo(0, document.body.scrollHeight / 2);" +
-                    "  }" +
+                    "  window.scrollTo(0, document.body.scrollHeight / 3);" +
+                    "  setTimeout(() => window.scrollTo(0, document.body.scrollHeight / 1.5), 1000);" +
+                    "  setTimeout(() => {" +
+                    "      const mapEl = document.querySelector('.re__pr-map, .map-container, iframe[src*=\"google.com/maps\"]');" +
+                    "      if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
+                    "  }, 2000);" +
                     "}");
-            detailPage.waitForTimeout(3000);
+            detailPage.waitForTimeout(4000);
 
             Pattern coordPattern = Pattern.compile("q=([-\\d.]+),([-\\d.]+)");
             Pattern latLngPattern = Pattern.compile("(@|center=)([-\\d.]+),([-\\d.]+)");
@@ -268,7 +268,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 System.err.println("     [CRITICAL ERROR] KHÔNG THỂ BẮT TỌA ĐỘ URL: " + listing.getSourceUrl());
             }
 
-            Thread.sleep(1000);
+            Thread.sleep(2500);
 
         } catch (Exception detailEx) {
             System.err.println("     [ERROR] Lỗi mở trang chi tiết: " + detailEx.getMessage());
