@@ -73,19 +73,38 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--disable-sync",
                     "--hide-scrollbars",
                     "--metrics-recording-only",
-                    "--no-zygote"
+                    "--no-zygote",
+                    "--disable-extensions",
+                    "--disable-popup-blocking",
+                    "--ignore-certificate-errors"
             );
 
             boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(isServer).setArgs(browserArgs));
+            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+                    .setHeadless(isServer)
+                    .setArgs(browserArgs));
+
             BrowserContext context = browser.newContext(new Browser.NewContextOptions()
-                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
                     .setViewportSize(1920, 1080)
                     .setLocale("vi-VN")
                     .setTimezoneId("Asia/Ho_Chi_Minh")
-                    .setDeviceScaleFactor(1.0));
+                    .setDeviceScaleFactor(1.0)
+                    .setJavaScriptEnabled(true)
+                    .setBypassCSP(true));
 
-            context.addInitScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });");
+            context.addInitScript(
+                    "Object.defineProperty(navigator, 'webdriver', { get: () => false });\n" +
+                            "window.navigator.chrome = { runtime: {} };\n" +
+                            "Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
+                            "Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
+                            "const originalQuery = window.navigator.permissions.query;\n" +
+                            "window.navigator.permissions.query = (parameters) => (\n" +
+                            "  parameters.name === 'notifications' ?\n" +
+                            "    Promise.resolve({ state: 'denied' }) :\n" +
+                            "    originalQuery(parameters)\n" +
+                            ");"
+            );
 
             Page page = context.newPage();
 
@@ -97,8 +116,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 try {
                     System.out.println("\n[1] MỞ TRANG DANH SÁCH: " + targetUrl);
 
-                    page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(12000));
-                    page.waitForTimeout(1500);
+                    page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(15000));
+                    page.waitForTimeout(2000);
 
                     Document doc = Jsoup.parse(page.content());
                     Elements propertyCards = doc.select(".re__card-full, .re__card-info, .js__card");
@@ -142,7 +161,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         saveListingsInNewTransaction(listingResultList, wardName);
                     }
 
-                    Thread.sleep(1500);
+                    Thread.sleep(2000);
 
                 } catch (Exception crawlEx) {
                     System.err.println("Lỗi kết nối tại " + wardName + " | Lý do: " + crawlEx.getMessage());
@@ -207,7 +226,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
         try (Page detailPage = context.newPage()) {
             detailPage.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(45000));
-            detailPage.waitForTimeout(6000);
+            detailPage.waitForTimeout(4000);
 
             detailPage.evaluate("() => {" +
                     "  window.scrollTo(0, document.body.scrollHeight / 3);" +
@@ -217,7 +236,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "      if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
                     "  }, 2000);" +
                     "}");
-            detailPage.waitForTimeout(4000);
+            detailPage.waitForTimeout(6000);
 
             Pattern coordPattern = Pattern.compile("q=([-\\d.]+),([-\\d.]+)");
             Pattern latLngPattern = Pattern.compile("(@|center=)([-\\d.]+),([-\\d.]+)");
@@ -268,7 +287,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 System.err.println("     [CRITICAL ERROR] KHÔNG THỂ BẮT TỌA ĐỘ URL: " + listing.getSourceUrl());
             }
 
-            Thread.sleep(2500);
+            Thread.sleep(3000);
 
         } catch (Exception detailEx) {
             System.err.println("     [ERROR] Lỗi mở trang chi tiết: " + detailEx.getMessage());
