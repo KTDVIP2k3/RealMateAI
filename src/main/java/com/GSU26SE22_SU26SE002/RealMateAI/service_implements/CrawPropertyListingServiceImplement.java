@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.Normalizer;
 import java.text.ParseException;
@@ -43,7 +45,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Override
     public void autoCrawlPropertyData() {
         try (Playwright playwright = Playwright.create()) {
-            System.out.println("\n=================== BẮT ĐẦU CÀO DỮ LIỆU (PURE STREAM API) ===================");
+            System.out.println("\n=================== BẮT ĐẦU CÀO DỮ LIỆU (ANTI-CLOUDFLARE) ===================");
 
             List<Ward> wardList = wardRepository.findWardsOnlyInHCM();
             if (wardList.isEmpty()) {
@@ -51,12 +53,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 return;
             }
 
-            Set<String> existingUrlsInDb = crawPropertyListingRepository.findAll().stream()
-                    .map(CrawPropertyListing::getSourceUrl)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+            boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
-            List<String> browserArgs = Arrays.asList(
+            List<String> browserArgs = new ArrayList<>(Arrays.asList(
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
@@ -66,47 +65,32 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--disable-infobars",
                     "--window-size=1920,1080",
                     "--start-maximized",
-                    "--lang=vi-VN,vi",
-                    "--disable-breakpad",
-                    "--disable-component-update",
-                    "--disable-domain-reliability",
-                    "--disable-sync",
-                    "--hide-scrollbars",
-                    "--metrics-recording-only",
-                    "--no-zygote",
-                    "--disable-extensions",
-                    "--disable-popup-blocking",
-                    "--ignore-certificate-errors"
-            );
+                    "--lang=vi-VN,vi"
+            ));
 
-            boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+            if (isServer) {
+                browserArgs.add("--headless=new");
+            }
+
+            Path userDataDir = Paths.get("./chrome-profile-bot").toAbsolutePath();
+
+            BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                     .setHeadless(isServer)
-                    .setArgs(browserArgs));
+                    .setIgnoreDefaultArgs(Arrays.asList("--enable-automation"))
+                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+                    .setArgs(browserArgs)
+                    .setViewportSize(1920, 1080);
 
-            BrowserContext context = browser.newContext(new Browser.NewContextOptions()
-                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-                    .setViewportSize(1920, 1080)
-                    .setLocale("vi-VN")
-                    .setTimezoneId("Asia/Ho_Chi_Minh")
-                    .setDeviceScaleFactor(1.0)
-                    .setJavaScriptEnabled(true)
-                    .setBypassCSP(true));
+            BrowserContext context = playwright.chromium().launchPersistentContext(userDataDir, options);
 
             context.addInitScript(
-                    "Object.defineProperty(navigator, 'webdriver', { get: () => false });\n" +
+                    "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });\n" +
                             "window.navigator.chrome = { runtime: {} };\n" +
                             "Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
-                            "Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
-                            "const originalQuery = window.navigator.permissions.query;\n" +
-                            "window.navigator.permissions.query = (parameters) => (\n" +
-                            "  parameters.name === 'notifications' ?\n" +
-                            "    Promise.resolve({ state: 'denied' }) :\n" +
-                            "    originalQuery(parameters)\n" +
-                            ");"
+                            "Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });"
             );
 
-            Page page = context.newPage();
+            Page page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
 
             for (Ward ward : wardList) {
                 String wardName = ward.getFullName();
@@ -116,8 +100,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 try {
                     System.out.println("\n[1] MỞ TRANG DANH SÁCH: " + targetUrl);
 
-                    page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(15000));
-                    page.waitForTimeout(2000);
+                    page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
+                    randomSleep(3000, 5000);
 
                     Document doc = Jsoup.parse(page.content());
                     Elements propertyCards = doc.select(".re__card-full, .re__card-info, .js__card");
@@ -129,6 +113,13 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     System.out.println(" --> Tìm thấy " + propertyCards.size() + " card. Đang xử lý bằng Stream API...");
 
+                    Set<String> existingUrlsInDb = crawPropertyListingRepository.findAll().stream()
+                            .map(CrawPropertyListing::getSourceUrl)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+
+                    Set<String> processedUrlsInBatch = new HashSet<>();
+
                     List<CrawPropertyListing> listingResultList = propertyCards.stream()
                             .map(this::extractBasicInfo)
                             .filter(Objects::nonNull)
@@ -138,7 +129,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                                 String url = listing.getSourceUrl().toLowerCase();
                                 boolean isHcm = url.contains("ho-chi-minh") || url.contains("tp-hcm") || url.contains("quan-") || url.contains("phuong-");
                                 if (!isHcm || url.contains("ha-noi") || url.contains("da-nang") || url.contains("ha-long") || url.contains("binh-duong")) {
-                                    System.out.println("     [SKIP] Loại bỏ tin ngoại tỉnh/không đúng chuẩn HCM: " + listing.getSourceUrl());
                                     return false;
                                 }
                                 return true;
@@ -149,11 +139,13 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                                     System.out.println("     [SKIP] Tin đã có trong DB, bỏ qua: " + url);
                                     return false;
                                 }
-                                existingUrlsInDb.add(url);
+                                if (processedUrlsInBatch.contains(url)) {
+                                    return false;
+                                }
+                                processedUrlsInBatch.add(url);
                                 return true;
                             })
-                            .map(listing -> fetchCoordinates(listing, context))
-                            .filter(listing -> listing.getLatitude() != null && listing.getLongitude() != null)
+                            .map(listing -> fetchCoordinates(listing, page))
                             .limit(10)
                             .collect(Collectors.toList());
 
@@ -161,14 +153,14 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         saveListingsInNewTransaction(listingResultList, wardName);
                     }
 
-                    Thread.sleep(2000);
+                    randomSleep(4000, 7000);
 
                 } catch (Exception crawlEx) {
                     System.err.println("Lỗi kết nối tại " + wardName + " | Lý do: " + crawlEx.getMessage());
                 }
             }
 
-            browser.close();
+            context.close();
             System.out.println("\n=================== KẾT THÚC CÀO DỮ LIỆU ===================");
 
             System.out.println("[HEATMAP] Bắt đầu tính toán & tạo Heatmap Snapshot...");
@@ -221,105 +213,144 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         }
     }
 
-    private CrawPropertyListing fetchCoordinates(CrawPropertyListing listing, BrowserContext context) {
+    private CrawPropertyListing fetchCoordinates(CrawPropertyListing listing, Page page) {
         System.out.println("\n   [2] TRUY CẬP TRANG CHI TIẾT: " + listing.getSourceUrl());
 
-        try (Page detailPage = context.newPage()) {
-            detailPage.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(45000));
-            detailPage.waitForTimeout(4000);
+        randomSleep(2000, 3500);
 
-            detailPage.evaluate("() => {" +
-                    "  window.scrollTo(0, document.body.scrollHeight / 3);" +
-                    "  setTimeout(() => window.scrollTo(0, document.body.scrollHeight / 1.5), 1000);" +
-                    "  setTimeout(() => {" +
-                    "      const mapEl = document.querySelector('.re__pr-map, .map-container, iframe[src*=\"google.com/maps\"]');" +
-                    "      if (mapEl) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
-                    "  }, 2000);" +
-                    "}");
-            detailPage.waitForTimeout(6000);
+        try {
+            page.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(45000));
 
-            Pattern coordPattern = Pattern.compile("q=([-\\d.]+),([-\\d.]+)");
-            Pattern latLngPattern = Pattern.compile("(@|center=)([-\\d.]+),([-\\d.]+)");
+            scrollPageSmoothly(page);
 
-            String exactDataSrc = (String) detailPage.evaluate("() => {" +
-                    "  const iframes = document.querySelectorAll('iframe');" +
-                    "  for (let f of iframes) {" +
-                    "      let val = f.getAttribute('data-src') || f.getAttribute('src') || f.getAttribute('nitro-lazy-src') || '';" +
-                    "      if (val.includes('q=') || val.includes('@') || val.includes('center=')) return val;" +
-                    "  }" +
-                    "  const mapDiv = document.querySelector('.re__pr-map');" +
-                    "  return mapDiv ? mapDiv.innerHTML : document.body.innerHTML;" +
-                    "}");
+            randomSleep(1500, 2500);
 
-            boolean foundCoord = false;
-            if (exactDataSrc != null) {
-                Matcher m = coordPattern.matcher(exactDataSrc);
-                if (m.find()) {
-                    listing.setLatitude(new BigDecimal(m.group(1)));
-                    listing.setLongitude(new BigDecimal(m.group(2)));
-                    System.out.println("     [SUCCESS] TỌA ĐỘ: Lat=" + m.group(1) + ", Long=" + m.group(2));
-                    foundCoord = true;
+            String latStr = null;
+            String lngStr = null;
+
+            try {
+                String mapIframeSrc = (String) page.evaluate("() => {" +
+                        "  const iframe = document.querySelector('iframe[data-src*=\"google.com/maps\"], iframe[src*=\"google.com/maps\"]');" +
+                        "  return iframe ? (iframe.getAttribute('data-src') || iframe.getAttribute('src')) : null;" +
+                        "}");
+
+                if (mapIframeSrc != null) {
+                    Matcher matcher = Pattern.compile("(?:q|ll|center)=([-\\d.]+)(?:,|%2C)([-\\d.]+)").matcher(mapIframeSrc);
+                    if (matcher.find()) {
+                        latStr = matcher.group(1);
+                        lngStr = matcher.group(2);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            if (latStr == null || lngStr == null) {
+                String fullHtml = page.content();
+                Matcher mapUrlMatcher = Pattern.compile("(?:q|ll|center)=([-\\d.]+)(?:,|%2C)([-\\d.]+)").matcher(fullHtml);
+
+                if (mapUrlMatcher.find()) {
+                    latStr = mapUrlMatcher.group(1);
+                    lngStr = mapUrlMatcher.group(2);
                 } else {
-                    Matcher m2 = latLngPattern.matcher(exactDataSrc);
-                    if (m2.find()) {
-                        String lat = m2.group(2);
-                        String lng = m2.group(3);
-                        listing.setLatitude(new BigDecimal(lat));
-                        listing.setLongitude(new BigDecimal(lng));
-                        System.out.println("     [SUCCESS] TỌA ĐỘ (Alt Pattern): Lat=" + lat + ", Long=" + lng);
-                        foundCoord = true;
+                    Matcher latM = Pattern.compile("[\"']?latitude[\"']?\\s*[:=]\\s*([-\\d.]+)").matcher(fullHtml);
+                    Matcher lngM = Pattern.compile("[\"']?longitude[\"']?\\s*[:=]\\s*([-\\d.]+)").matcher(fullHtml);
+                    if (latM.find() && lngM.find()) {
+                        latStr = latM.group(1);
+                        lngStr = lngM.group(1);
                     }
                 }
             }
 
-            if (!foundCoord) {
-                String fullHtml = detailPage.content();
-                Matcher mHtml = coordPattern.matcher(fullHtml);
-                if (mHtml.find()) {
-                    listing.setLatitude(new BigDecimal(mHtml.group(1)));
-                    listing.setLongitude(new BigDecimal(mHtml.group(2)));
-                    System.out.println("     [SUCCESS] TỌA ĐỘ (HTML Fallback): Lat=" + mHtml.group(1) + ", Long=" + mHtml.group(2));
-                    foundCoord = true;
-                }
+            if (latStr == null || lngStr == null) {
+                try {
+                    Object result = page.evaluate("() => {" +
+                            "  if (typeof initialData !== 'undefined' && initialData.latitude) return {lat: initialData.latitude, lng: initialData.longitude};" +
+                            "  if (window.RE && window.RE.propertyDetail) return {lat: window.RE.propertyDetail.latitude, lng: window.RE.propertyDetail.longitude};" +
+                            "  return null;" +
+                            "}");
+
+                    if (result instanceof Map) {
+                        Map<?, ?> map = (Map<?, ?>) result;
+                        if (map.get("lat") != null && map.get("lng") != null) {
+                            latStr = map.get("lat").toString();
+                            lngStr = map.get("lng").toString();
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
 
-            if (!foundCoord) {
-                System.err.println("     [CRITICAL ERROR] KHÔNG THỂ BẮT TỌA ĐỘ URL: " + listing.getSourceUrl());
+            if (latStr != null && lngStr != null) {
+                listing.setLatitude(new BigDecimal(latStr));
+                listing.setLongitude(new BigDecimal(lngStr));
+                System.out.println("     [SUCCESS] TỌA ĐỘ BÀI ĐĂNG: Lat=" + latStr + ", Long=" + lngStr);
+            } else {
+                System.out.println("     [WARNING] Không lấy được tọa độ bài đăng: " + listing.getSourceUrl());
             }
-
-            Thread.sleep(3000);
 
         } catch (Exception detailEx) {
-            System.err.println("     [ERROR] Lỗi mở trang chi tiết: " + detailEx.getMessage());
+            System.err.println("[ERROR] Lỗi mở trang chi tiết: " + detailEx.getMessage());
         }
 
         return listing;
     }
 
+    private void scrollPageSmoothly(Page page) {
+        try {
+            page.evaluate("() => window.scrollTo({top: document.body.scrollHeight / 3, behavior: 'smooth'});");
+            randomSleep(800, 1200);
+            page.evaluate("() => window.scrollTo({top: (document.body.scrollHeight / 3) * 2, behavior: 'smooth'});");
+            randomSleep(800, 1200);
+            page.evaluate("() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});");
+        } catch (Exception ignored) {}
+    }
+
     @Transactional
     public void saveListingsInNewTransaction(List<CrawPropertyListing> listingResultList, String wardName) {
-        Map<String, CrawPropertyListing> existingMap = crawPropertyListingRepository.findAll().stream()
-                .filter(item -> listingResultList.stream().anyMatch(scraped -> scraped.getSourceUrl().equals(item.getSourceUrl())))
-                .collect(Collectors.toMap(CrawPropertyListing::getSourceUrl, item -> item, (existing, replacement) -> existing));
+        if (listingResultList == null || listingResultList.isEmpty()) {
+            return;
+        }
 
-        List<CrawPropertyListing> listingsToSave = listingResultList.stream()
-                .map(scrapedListing -> {
-                    CrawPropertyListing existing = existingMap.get(scrapedListing.getSourceUrl());
-                    if (existing != null) {
-                        existing.setPrice(scrapedListing.getPrice());
-                        existing.setArea(scrapedListing.getArea());
-                        existing.setPricePerM2(scrapedListing.getPricePerM2());
-                        existing.setLatitude(scrapedListing.getLatitude());
-                        existing.setLongitude(scrapedListing.getLongitude());
-                        existing.setCraw_date(scrapedListing.getCraw_date());
-                        return existing;
-                    }
-                    return scrapedListing;
-                })
-                .toList();
+        try {
+            Set<String> urlsInBatch = listingResultList.stream()
+                    .map(CrawPropertyListing::getSourceUrl)
+                    .collect(Collectors.toSet());
 
-        crawPropertyListingRepository.saveAll(listingsToSave);
-        System.out.println(" --> Đã lưu toàn bộ " + listingsToSave.size() + " tin cho phường: " + wardName);
+            List<CrawPropertyListing> existingListings = crawPropertyListingRepository.findAll().stream()
+                    .filter(item -> urlsInBatch.contains(item.getSourceUrl()))
+                    .toList();
+
+            Map<String, CrawPropertyListing> existingMap = existingListings.stream()
+                    .collect(Collectors.toMap(CrawPropertyListing::getSourceUrl, item -> item, (a, b) -> a));
+
+            List<CrawPropertyListing> entitiesToSave = new ArrayList<>();
+            for (CrawPropertyListing scraped : listingResultList) {
+                CrawPropertyListing entity = existingMap.get(scraped.getSourceUrl());
+                if (entity != null) {
+                    entity.setPrice(scraped.getPrice());
+                    entity.setArea(scraped.getArea());
+                    entity.setPricePerM2(scraped.getPricePerM2());
+                    entity.setLatitude(scraped.getLatitude());
+                    entity.setLongitude(scraped.getLongitude());
+                    entity.setCraw_date(scraped.getCraw_date());
+                    entitiesToSave.add(entity);
+                } else {
+                    entitiesToSave.add(scraped);
+                }
+            }
+
+            List<CrawPropertyListing> saved = crawPropertyListingRepository.saveAllAndFlush(entitiesToSave);
+            System.out.println(" --> [DB SUCCESS] Đã lưu thành công " + saved.size() + " tin vào DB cho: " + wardName);
+
+        } catch (Exception e) {
+            System.err.println(" --> [DB ERROR] Lỗi khi lưu DB tại " + wardName + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void randomSleep(long minMs, long maxMs) {
+        try {
+            long sleepTime = minMs + (long) (Math.random() * (maxMs - minMs));
+            Thread.sleep(sleepTime);
+        } catch (InterruptedException ignored) {}
     }
 
     private String removeAccent(String s) {
