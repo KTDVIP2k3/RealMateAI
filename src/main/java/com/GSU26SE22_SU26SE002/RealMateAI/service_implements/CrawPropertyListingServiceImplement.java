@@ -56,6 +56,14 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
+            // 🎯 1. TẠO THƯ MỤC CRASH DUMPS TRÁNH LỖI CRASHPAD TRÊN DOCKER LINUX
+            Path crashDir = Paths.get("/tmp/chrome-crashes").toAbsolutePath();
+            File crashFileDir = crashDir.toFile();
+            if (!crashFileDir.exists()) {
+                crashFileDir.mkdirs();
+            }
+
+            // 🎯 2. CẤU HÌNH BROWSER ARGS CHUẨN (ĐÃ BỎ --headless=new VÀ THÊM --single-process)
             List<String> browserArgs = new ArrayList<>(Arrays.asList(
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -68,14 +76,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--start-maximized",
                     "--lang=vi-VN,vi",
                     "--no-zygote",
+                    "--single-process", // Ép Chromium không sinh process crash handler riêng
                     "--disable-crash-reporter",
                     "--disable-component-update",
-                    "--no-crash-upload"
+                    "--no-crash-upload",
+                    "--crash-dumps-dir=" + crashDir.toString()
             ));
-
-            if (isServer) {
-                browserArgs.add("--headless=new");
-            }
 
             Path userDataDir = Paths.get("/tmp/chrome-profile-bot").toAbsolutePath();
             File profileDir = userDataDir.toFile();
