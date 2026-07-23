@@ -6,7 +6,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingReposi
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.HeatmapZoneRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,6 +75,10 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 snapshotBatch.add(zone);
             });
         }
+
+
+        heatmapZoneRepository.deleteBySnapshotDate(today);
+
 
         heatmapZoneRepository.saveAll(snapshotBatch);
     }
