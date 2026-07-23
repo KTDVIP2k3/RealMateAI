@@ -43,7 +43,20 @@ public class AccountServiceImplement implements AccountServiceInterface {
             if(authenUntil.getCurrentUSer() == null){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Account does not exist"));
             }
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(modelMapper.map(authenUntil.getCurrentUSer(), AccountProfileDTO.class), "Account Profile"));
+
+            Account account = authenUntil.getCurrentUSer();
+
+            AccountProfileDTO accountProfileDTO = new AccountProfileDTO();
+            accountProfileDTO.setAccountId(account.getAccountId());
+            accountProfileDTO.setUserName(account.getUsername());
+            accountProfileDTO.setPassword(account.getPassword());
+            accountProfileDTO.setEmail(account.getEmail());
+            accountProfileDTO.setFullName(account.getFull_name());
+            accountProfileDTO.setPhone(account.getPhone());
+            accountProfileDTO.setAvatar(account.getAvatar());
+            accountProfileDTO.setGenderEnum(account.getGender());
+            accountProfileDTO.setRoleEnum(account.getRole());
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(accountProfileDTO, "Account Profile"));
         }catch (Exception e){
            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
