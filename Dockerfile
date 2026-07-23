@@ -16,8 +16,9 @@ RUN mvn clean package -DskipTests && \
 FROM eclipse-temurin:17-jre-jammy AS final
 WORKDIR /app
 
-# Thiết lập múi giờ hệ thống
+# Thiết lập múi giờ hệ thống & Biến môi trường nhận diện Docker cho App Java
 ENV TZ=Asia/Ho_Chi_Minh
+ENV DOCKER=true
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # 1. Cài đặt các thư viện hệ thống, Node.js 20 và ĐẦY ĐỦ dependencies cho Playwright/Chromium
