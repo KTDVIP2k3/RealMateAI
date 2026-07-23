@@ -171,7 +171,7 @@ public class AccountServiceImplement implements AccountServiceInterface {
             if(account.getAvatar() == null){
                 account.setAvatar(cloudinaryMediaServiceImplement.uploadImage(updateAccountRequest.getAvatar()));
             }
-            account.setFull_name(updateAccountRequest.getFull_name());
+            account.setFull_name(updateAccountRequest.getFullName());
             account.setBirth_date(updateAccountRequest.getBirth_date());
             account.setAvatar(cloudinaryMediaServiceImplement.updateImage(updateAccountRequest.getAvatar(), account.getAvatar()));
             account.setPhone(updateAccountRequest.getPhone());

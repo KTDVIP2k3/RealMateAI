@@ -13,7 +13,7 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateAccountRequest {
-    private String full_name;
+    private String fullName;
 
     @Schema(
             type = "string",
