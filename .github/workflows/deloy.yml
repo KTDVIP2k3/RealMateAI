@@ -69,11 +69,13 @@ jobs:
           docker image prune -a -f
           docker builder prune -f
 
-      # Bước 6: Build ứng dụng (Thêm --no-cache để tránh bị phình to dung lượng ổ cứng đột ngột)
+      # Bước 6: Build ứng dụng (Đã tách lệnh build không cache và up container riêng biệt)
       - name: Start containers
         env:
           DOCKER_BUILDKIT: 1
-        run: docker compose up -d --build --no-cache
+        run: |
+          docker compose build --no-cache
+          docker compose up -d
 
       # Bước 7: Dọn sạch các layer cũ vừa bị thay thế để trả lại dung lượng trống ngay lập tức
       - name: Post-clean Docker space
