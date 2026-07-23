@@ -124,8 +124,6 @@ public class ListingMapper {
                 .legalStatus(p.getLegalStatus())
                 .addressParticular(p.getAddressParticular())
                 .projectName(p.getProjectName())
-                .propertyAttribute(p.getPropertyAttribute())
-                .propertyPurpose(p.getPropertyPurpose())
                 .propertyTypeName(p.getPropertyType() != null ? p.getPropertyType().getName() : null)
                 .propertyConditionName(p.getPropertyCondition() != null ? p.getPropertyCondition().getName() : null)
                 .latitude(loc != null ? loc.getLatitude() : null)

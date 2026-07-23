@@ -157,8 +157,8 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
 
     /**
      * Các Listing KHÁC (không tính chính nó) đang tham chiếu tới cùng 1 Property
-     * — dùng để COPY lại ảnh khi Seller đăng lại tài sản đã có (luồng ①:
-     * createListingWithExistingProperty) mà không upload ảnh mới. listingImages
+     * — dùng để COPY lại ảnh khi Seller đăng lại tài sản đã có (POST /listings
+     * với reuseExistingProperty=true) mà không upload ảnh mới. listingImages
      * KHÔNG fetch join (xem giải thích ở {@link #findAllByListingIdInWithDetails}) —
      * truy cập l.getListingImages() trong service sẽ tự batch-load lazy.
      * Sắp xếp mới nhất trước để ưu tiên bộ ảnh gần đây nhất.
