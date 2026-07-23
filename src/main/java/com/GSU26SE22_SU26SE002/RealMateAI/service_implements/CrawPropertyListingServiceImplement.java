@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.FileSystemUtils;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -36,22 +37,42 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Autowired
     private HeatmapZoneServiceInterface heatmapZoneService;
 
-    private static final int TARGET_TOTAL_LISTINGS = 300;
+    private static final int DAILY_TARGET_LISTINGS = 300;
+    private int currentDailyCrawledCount = 0;
+    private boolean hasTakenSnapshotToday = false;
+
+    @Scheduled(cron = "0 0 0 * * ?")
+    public void resetDailyCounter() {
+        System.out.println("\n[SYSTEM] 🟢 SANG NGÀY MỚI (00:00)! Reset bộ đếm cào tin về 0 và cờ Snapshot.");
+        this.currentDailyCrawledCount = 0;
+        this.hasTakenSnapshotToday = false;
+    }
 
     @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     @Override
     public void autoCrawlPropertyData() {
+        if (currentDailyCrawledCount >= DAILY_TARGET_LISTINGS) {
+            System.out.println("[SCHEDULE] 🛑 Đã cào đủ quota " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin hôm nay. Tắt cào chờ 00:00 ngày mai!");
+            return;
+        }
+
+        int remainingQuota = DAILY_TARGET_LISTINGS - currentDailyCrawledCount;
+        System.out.println("\n=================== BẮT ĐẦU CÀO DỮ LIỆU (Đã cào hôm nay: "
+                + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " - Cần cào thêm tối đa: " + remainingQuota + " tin) ===================");
+        System.out.flush();
+
+        boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
+                || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
+
+        Path crashDir = Paths.get(System.getProperty("java.io.tmpdir"), "chrome-crashes").toAbsolutePath();
+        File crashFileDir = crashDir.toFile();
+        if (!crashFileDir.exists()) crashFileDir.mkdirs();
+
+        Path userDataDir = Paths.get(System.getProperty("java.io.tmpdir"), "chrome-profile-bot-" + System.currentTimeMillis()).toAbsolutePath();
+        File profileDir = userDataDir.toFile();
+        if (!profileDir.exists()) profileDir.mkdirs();
+
         try (Playwright playwright = Playwright.create()) {
-            System.out.println("\n=================== BẮT ĐẦU CÀO DỮ LIỆU TỔNG TP.HCM (MỤC TIÊU TỐI ĐA: " + TARGET_TOTAL_LISTINGS + " TIN) ===================");
-            System.out.flush();
-
-            boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
-                    || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
-
-            Path crashDir = Paths.get("/tmp/chrome-crashes").toAbsolutePath();
-            File crashFileDir = crashDir.toFile();
-            if (!crashFileDir.exists()) crashFileDir.mkdirs();
-
             List<String> browserArgs = Arrays.asList(
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -60,6 +81,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--disable-software-rasterizer",
                     "--disable-blink-features=AutomationControlled",
                     "--disable-infobars",
+                    "--disable-session-crashed-bubble",
+                    "--hide-crash-restore-bubble",
                     "--window-size=1920,1080",
                     "--start-maximized",
                     "--lang=vi-VN,vi",
@@ -73,10 +96,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--enable-features=Vulkan,UseSkiaRenderer",
                     "--crash-dumps-dir=" + crashDir.toString()
             );
-
-            Path userDataDir = Paths.get("/tmp/chrome-profile-bot").toAbsolutePath();
-            File profileDir = userDataDir.toFile();
-            if (!profileDir.exists()) profileDir.mkdirs();
 
             Map<String, String> headers = new HashMap<>();
             headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
@@ -122,7 +141,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             int pageNum = 1;
             int consecutiveEmptyPages = 0;
 
-            while (totalCrawledInBatch < TARGET_TOTAL_LISTINGS && pageNum <= 50) {
+            while (totalCrawledInBatch < remainingQuota && pageNum <= 50) {
                 String targetUrl = (pageNum == 1)
                         ? "https://batdongsan.com.vn/ban-nha-dat-tp-hcm"
                         : "https://batdongsan.com.vn/ban-nha-dat-tp-hcm/p" + pageNum;
@@ -132,6 +151,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     System.out.flush();
 
                     page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
+                    page.mouse().move(150, 200);
+                    page.mouse().move(350, 450);
                     randomSleep(2500, 4000);
 
                     String pageTitle = page.title();
@@ -173,7 +194,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         consecutiveEmptyPages++;
                         System.out.println(" ⚠️ Trang " + pageNum + " không có tin mới. Trang trống liên tiếp: " + consecutiveEmptyPages);
                         if (consecutiveEmptyPages >= 3) {
-                            System.out.println(" 🛑 [SAFE-BREAK] 3 trang liên tiếp không có tin mới. Đã quét toàn bộ tin mới hiện có!");
+                            System.out.println(" 🛑 [SAFE-BREAK] 3 trang liên tiếp không có tin mới. Đã quét hết tin mới hiện tại!");
                             break;
                         }
                     } else {
@@ -182,7 +203,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     List<CrawPropertyListing> pageResultList = new ArrayList<>();
                     for (CrawPropertyListing candidate : freshCandidates) {
-                        if (totalCrawledInBatch >= TARGET_TOTAL_LISTINGS) break;
+                        if (totalCrawledInBatch >= remainingQuota) break;
 
                         CrawPropertyListing fullListing = fetchCoordinates(candidate, page);
                         if (fullListing != null) {
@@ -206,24 +227,52 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             }
 
             context.close();
-            System.out.println("\n=================== KẾT THÚC CÀO DỮ LIỆU (Tổng tin mới cào được: " + totalCrawledInBatch + "/" + TARGET_TOTAL_LISTINGS + ") ===================");
-            System.out.flush();
 
-            if (totalCrawledInBatch > 0) {
-                System.out.println("[HEATMAP] Đã cào được " + totalCrawledInBatch + " tin mới. Bắt đầu tính toán & tạo Heatmap Snapshot...");
+            this.currentDailyCrawledCount += totalCrawledInBatch;
+
+            System.out.println("\n=================== KẾT THÚC ĐỢT CÀO ===================");
+            System.out.println("-> Cào được đợt này: " + totalCrawledInBatch + " tin mới.");
+            System.out.println("-> Tổng tích lũy hôm nay: " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
+
+            if (this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS && !hasTakenSnapshotToday) {
+                System.out.println("\n🎯 [TARGET REACHED] ĐÃ ĐẠT " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " TIN HÔM NAY!");
+                System.out.println("[HEATMAP] Tiến hành tính toán & TẠO SNAPSHOT HEATMAP NGAY BÂY GIỜ...");
                 System.out.flush();
                 try {
                     heatmapZoneService.generateDailySnapshot();
-                    System.out.println("[HEATMAP] Tạo Heatmap Snapshot hoàn tất thành công!");
+                    this.hasTakenSnapshotToday = true;
+                    System.out.println("[HEATMAP] Tạo Snapshot Heatmap thành công!");
                 } catch (Exception heatmapEx) {
-                    System.err.println("[HEATMAP ERROR] Lỗi khi tạo Heatmap Snapshot: " + heatmapEx.getMessage());
+                    System.err.println("[HEATMAP ERROR] Lỗi khi tạo Snapshot sớm: " + heatmapEx.getMessage());
                 }
-            } else {
-                System.out.println("[HEATMAP] Không có tin mới nào được cào thêm trong đợt này. Bỏ qua bước tạo Snapshot.");
             }
+            System.out.flush();
 
         } catch (Exception e) {
             System.err.println("Lỗi hệ thống Playwright: " + e.getMessage());
+        } finally {
+            try {
+                FileSystemUtils.deleteRecursively(userDataDir);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Scheduled(cron = "0 59 23 * * ?")
+    public void scheduleDailyHeatmapSnapshot() {
+        if (hasTakenSnapshotToday) {
+            System.out.println("\n[HEATMAP SCHEDULED 23:59] Hôm nay đã đủ 300 tin và đã tạo Snapshot sớm. Bỏ qua lượt chốt cuối ngày.");
+            return;
+        }
+
+        System.out.println("\n[HEATMAP SCHEDULED 23:59] Hết ngày! Tổng số tin cào được hôm nay: " + currentDailyCrawledCount + " tin.");
+        System.out.println("[HEATMAP SCHEDULED 23:59] Bắt đầu khởi chạy tính toán Snapshot Heatmap chốt ngày...");
+        System.out.flush();
+        try {
+            heatmapZoneService.generateDailySnapshot();
+            this.hasTakenSnapshotToday = true;
+            System.out.println("[HEATMAP SCHEDULED 23:59] Hoàn tất tạo Snapshot Heatmap cuối ngày thành công!");
+        } catch (Exception heatmapEx) {
+            System.err.println("[HEATMAP SCHEDULED ERROR] Lỗi khi tạo Snapshot cuối ngày: " + heatmapEx.getMessage());
         }
     }
 
