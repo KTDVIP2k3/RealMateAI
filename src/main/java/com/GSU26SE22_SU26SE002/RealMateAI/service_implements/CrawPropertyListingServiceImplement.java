@@ -39,7 +39,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Autowired
     private HeatmapZoneServiceInterface heatmapZoneService;
 
-//    @Scheduled(cron = "0 35 15 * * ?", zone = "Asia/Ho_Chi_Minh")
     @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     @Override
     public void autoCrawlPropertyData() {
@@ -57,10 +56,36 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(false));
+            List<String> browserArgs = Arrays.asList(
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-software-rasterizer",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--window-size=1920,1080",
+                    "--start-maximized",
+                    "--lang=vi-VN,vi",
+                    "--disable-breakpad",
+                    "--disable-component-update",
+                    "--disable-domain-reliability",
+                    "--disable-sync",
+                    "--hide-scrollbars",
+                    "--metrics-recording-only",
+                    "--no-zygote"
+            );
+
+            boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
+            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(isServer).setArgs(browserArgs));
             BrowserContext context = browser.newContext(new Browser.NewContextOptions()
-                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
-                    .setViewportSize(1366, 768));
+                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+                    .setViewportSize(1920, 1080)
+                    .setLocale("vi-VN")
+                    .setTimezoneId("Asia/Ho_Chi_Minh")
+                    .setDeviceScaleFactor(1.0));
+
+            context.addInitScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });");
 
             Page page = context.newPage();
 
@@ -90,6 +115,15 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             .filter(Objects::nonNull)
                             .filter(listing -> listing.getPrice() != null)
                             .filter(listing -> listing.getArea() != null && listing.getArea().compareTo(BigDecimal.ZERO) > 0)
+                            .filter(listing -> {
+                                String url = listing.getSourceUrl().toLowerCase();
+                                boolean isHcm = url.contains("ho-chi-minh") || url.contains("tp-hcm") || url.contains("quan-") || url.contains("phuong-");
+                                if (!isHcm || url.contains("ha-noi") || url.contains("da-nang") || url.contains("ha-long") || url.contains("binh-duong")) {
+                                    System.out.println("     [SKIP] Loại bỏ tin ngoại tỉnh/không đúng chuẩn HCM: " + listing.getSourceUrl());
+                                    return false;
+                                }
+                                return true;
+                            })
                             .filter(listing -> {
                                 String url = listing.getSourceUrl();
                                 if (existingUrlsInDb.contains(url)) {
@@ -172,29 +206,30 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         System.out.println("\n   [2] TRUY CẬP TRANG CHI TIẾT: " + listing.getSourceUrl());
 
         try (Page detailPage = context.newPage()) {
-            detailPage.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(25000));
-            detailPage.waitForTimeout(2000);
+            detailPage.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(30000));
+            detailPage.waitForTimeout(4000);
 
             detailPage.evaluate("() => {" +
-                    "  const mapEl = document.querySelector('.re__pr-map');" +
+                    "  const mapEl = document.querySelector('.re__pr-map, .map-container, iframe[src*=\"google.com/maps\"]');" +
                     "  if (mapEl) {" +
-                    "      mapEl.scrollIntoView();" +
+                    "      mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
                     "  } else {" +
                     "      window.scrollTo(0, document.body.scrollHeight / 2);" +
                     "  }" +
                     "}");
-            detailPage.waitForTimeout(2500);
+            detailPage.waitForTimeout(3000);
 
             Pattern coordPattern = Pattern.compile("q=([-\\d.]+),([-\\d.]+)");
+            Pattern latLngPattern = Pattern.compile("(@|center=)([-\\d.]+),([-\\d.]+)");
 
             String exactDataSrc = (String) detailPage.evaluate("() => {" +
                     "  const iframes = document.querySelectorAll('iframe');" +
                     "  for (let f of iframes) {" +
                     "      let val = f.getAttribute('data-src') || f.getAttribute('src') || f.getAttribute('nitro-lazy-src') || '';" +
-                    "      if (val.includes('q=')) return val;" +
+                    "      if (val.includes('q=') || val.includes('@') || val.includes('center=')) return val;" +
                     "  }" +
                     "  const mapDiv = document.querySelector('.re__pr-map');" +
-                    "  return mapDiv ? mapDiv.innerHTML : null;" +
+                    "  return mapDiv ? mapDiv.innerHTML : document.body.innerHTML;" +
                     "}");
 
             boolean foundCoord = false;
@@ -205,6 +240,16 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     listing.setLongitude(new BigDecimal(m.group(2)));
                     System.out.println("     [SUCCESS] TỌA ĐỘ: Lat=" + m.group(1) + ", Long=" + m.group(2));
                     foundCoord = true;
+                } else {
+                    Matcher m2 = latLngPattern.matcher(exactDataSrc);
+                    if (m2.find()) {
+                        String lat = m2.group(2);
+                        String lng = m2.group(3);
+                        listing.setLatitude(new BigDecimal(lat));
+                        listing.setLongitude(new BigDecimal(lng));
+                        System.out.println("     [SUCCESS] TỌA ĐỘ (Alt Pattern): Lat=" + lat + ", Long=" + lng);
+                        foundCoord = true;
+                    }
                 }
             }
 
