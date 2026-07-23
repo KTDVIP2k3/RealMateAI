@@ -25,7 +25,6 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     @Autowired
     private HeatmapZoneRepository heatmapZoneRepository;
 
-    @Scheduled(cron = "0 0 1 * * ?", zone = "Asia/Ho_Chi_Minh")
     @Override
     @Transactional
     public void generateDailySnapshot() {
