@@ -66,8 +66,10 @@ RUN adduser \
     --no-create-home \
     --uid "${UID}" \
     appuser && \
+    mkdir -p /tmp/.org.chromium.Chromium && \
     chown -R appuser:appuser /ms-playwright && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    chown -R appuser:appuser /tmp/.org.chromium.Chromium
 
 USER appuser
 
