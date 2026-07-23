@@ -1,4 +1,4 @@
-package com.GSU26SE22_SU26SE002.RealMateAI.controllers;
+package com.GSU26SE22_SU26SE002.RealMateAI.controller;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.HeatmapZone;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
