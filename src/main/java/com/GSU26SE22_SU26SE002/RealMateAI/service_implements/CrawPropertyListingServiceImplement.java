@@ -39,13 +39,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
     private static final int DAILY_TARGET_LISTINGS = 300;
     private int currentDailyCrawledCount = 0;
-    private boolean hasTakenSnapshotToday = false;
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void resetDailyCounter() {
-        System.out.println("\n[SYSTEM] 🟢 SANG NGÀY MỚI (00:00)! Reset bộ đếm cào tin về 0 và cờ Snapshot.");
+        System.out.println("\n[SYSTEM] 🟢 SANG NGÀY MỚI (00:00)! Reset bộ đếm cào tin về 0.");
         this.currentDailyCrawledCount = 0;
-        this.hasTakenSnapshotToday = false;
     }
 
     @Scheduled(initialDelay = 5000, fixedDelay = 600000)
@@ -141,7 +139,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             int pageNum = 1;
             int consecutiveEmptyPages = 0;
 
-            while (totalCrawledInBatch < remainingQuota && pageNum <= 50) {
+            while (totalCrawledInBatch < remainingQuota && pageNum <= 100) {
                 String targetUrl = (pageNum == 1)
                         ? "https://batdongsan.com.vn/ban-nha-dat-tp-hcm"
                         : "https://batdongsan.com.vn/ban-nha-dat-tp-hcm/p" + pageNum;
@@ -193,8 +191,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     if (freshCandidates.isEmpty()) {
                         consecutiveEmptyPages++;
                         System.out.println(" ⚠️ Trang " + pageNum + " không có tin mới. Trang trống liên tiếp: " + consecutiveEmptyPages);
-                        if (consecutiveEmptyPages >= 3) {
-                            System.out.println(" 🛑 [SAFE-BREAK] 3 trang liên tiếp không có tin mới. Đã quét hết tin mới hiện tại!");
+                        if (consecutiveEmptyPages >= 15) {
+                            System.out.println(" 🛑 [SAFE-BREAK] 15 trang liên tiếp không có tin mới. Đã quét hết nguồn hiện tại!");
                             break;
                         }
                     } else {
@@ -234,16 +232,15 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             System.out.println("-> Cào được đợt này: " + totalCrawledInBatch + " tin mới.");
             System.out.println("-> Tổng tích lũy hôm nay: " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
 
-            if (this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS && !hasTakenSnapshotToday) {
+            if (this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS) {
                 System.out.println("\n🎯 [TARGET REACHED] ĐÃ ĐẠT " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " TIN HÔM NAY!");
                 System.out.println("[HEATMAP] Tiến hành tính toán & TẠO SNAPSHOT HEATMAP NGAY BÂY GIỜ...");
                 System.out.flush();
                 try {
                     heatmapZoneService.generateDailySnapshot();
-                    this.hasTakenSnapshotToday = true;
                     System.out.println("[HEATMAP] Tạo Snapshot Heatmap thành công!");
                 } catch (Exception heatmapEx) {
-                    System.err.println("[HEATMAP ERROR] Lỗi khi tạo Snapshot sớm: " + heatmapEx.getMessage());
+                    System.err.println("[HEATMAP ERROR] Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
                 }
             }
             System.out.flush();
@@ -254,25 +251,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             try {
                 FileSystemUtils.deleteRecursively(userDataDir);
             } catch (Exception ignored) {}
-        }
-    }
-
-    @Scheduled(cron = "0 59 23 * * ?")
-    public void scheduleDailyHeatmapSnapshot() {
-        if (hasTakenSnapshotToday) {
-            System.out.println("\n[HEATMAP SCHEDULED 23:59] Hôm nay đã đủ 300 tin và đã tạo Snapshot sớm. Bỏ qua lượt chốt cuối ngày.");
-            return;
-        }
-
-        System.out.println("\n[HEATMAP SCHEDULED 23:59] Hết ngày! Tổng số tin cào được hôm nay: " + currentDailyCrawledCount + " tin.");
-        System.out.println("[HEATMAP SCHEDULED 23:59] Bắt đầu khởi chạy tính toán Snapshot Heatmap chốt ngày...");
-        System.out.flush();
-        try {
-            heatmapZoneService.generateDailySnapshot();
-            this.hasTakenSnapshotToday = true;
-            System.out.println("[HEATMAP SCHEDULED 23:59] Hoàn tất tạo Snapshot Heatmap cuối ngày thành công!");
-        } catch (Exception heatmapEx) {
-            System.err.println("[HEATMAP SCHEDULED ERROR] Lỗi khi tạo Snapshot cuối ngày: " + heatmapEx.getMessage());
         }
     }
 
