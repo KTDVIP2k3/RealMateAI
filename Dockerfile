@@ -7,7 +7,6 @@ WORKDIR /build
 COPY pom.xml .
 COPY src ./src
 
-# Gộp Build + Giải nén JAR + Xóa sạch cache Maven (.m2) trong CÙNG 1 LAYER
 RUN mvn clean package -DskipTests && \
     java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted && \
     rm -rf ~/.m2/repository target/*.jar
@@ -18,57 +17,18 @@ RUN mvn clean package -DskipTests && \
 FROM eclipse-temurin:17-jre-jammy AS final
 WORKDIR /app
 
-# Thiết lập múi giờ hệ thống & Biến môi trường nhận diện Docker cho App Java
 ENV TZ=Asia/Ho_Chi_Minh
 ENV DOCKER=true
-# Chỉ cài Chromium, bỏ qua việc tải Webkit/Firefox
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 USER root
 
-# 1. Cài đặt ĐẦY ĐỦ các thư viện hệ thống cần thiết cho Chromium + Node.js 20
+# 1. Cài đặt Curl, GPG và Node.js 20
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     gnupg \
-    # --- Dependencies đồ họa & giao diện căn bản ---
-    libgdk-pixbuf-2.0-0 \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libasound2 \
-    libxcursor1 \
-    libgtk-3-0 \
-    libpangocairo-1.0-0 \
-    libcairo-gobject2 \
-    # --- Dependencies bổ sung bị thiếu gây ra lỗi Host Validation Warning ---
-    libgstreamer-1.0-0 \
-    libgstreamer-plugins-base1.0-0 \
-    libatomic1 \
-    libxslt1.1 \
-    libwoff2dec1.0.2 \
-    libvpx7 \
-    libevent-2.1-7 \
-    libopus0 \
-    libwebpdemux2 \
-    libharfbuzz-icu0 \
-    libenchant-2-2 \
-    libsecret-1-0 \
-    libhyphen0 \
-    libgles2 \
-    libx264-dev \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
@@ -76,13 +36,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Cài đặt Playwright và CHỈ tải duy nhất trình duyệt Chromium
+# 2. Cài Playwright, Tải Chromium & Tự động cài ĐÚNG TÊN dependencies cho Chromium
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npm install -g playwright && \
     npx playwright install chromium && \
+    npx playwright install-deps chromium && \
     npm cache clean --force
 
-# 3. Khởi tạo user bảo mật (Non-root) và cấp quyền thư mục làm việc + cache Chromium
+# 3. Khởi tạo user bảo mật (Non-root) và cấp quyền các thư mục tạm
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -101,7 +62,7 @@ RUN adduser \
 
 USER appuser
 
-# 4. Sao chép các lớp (Layers) đã giải nén từ tầng `builder`
+# 4. Sao chép các lớp (Layers) từ tầng builder
 COPY --from=builder /build/target/extracted/dependencies/ ./
 COPY --from=builder /build/target/extracted/spring-boot-loader/ ./
 COPY --from=builder /build/target/extracted/snapshot-dependencies/ ./
