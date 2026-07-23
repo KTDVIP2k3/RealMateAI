@@ -47,10 +47,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     public void autoCrawlPropertyData() {
         try (Playwright playwright = Playwright.create()) {
             System.out.println("\n=================== BẮT ĐẦU CÀO DỮ LIỆU (ANTI-CLOUDFLARE) ===================");
+            System.out.flush();
 
             List<Ward> wardList = wardRepository.findWardsOnlyInHCM();
             if (wardList.isEmpty()) {
                 System.out.println("[WARNING] DB không có dữ liệu Ward!");
+                System.out.flush();
                 return;
             }
 
@@ -76,6 +78,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--disable-crash-reporter",
                     "--disable-component-update",
                     "--no-crash-upload",
+                    "--enable-webgl",
+                    "--ignore-gpu-blocklist",
+                    "--use-gl=angle",
+                    "--use-angle=swiftshader",
+                    "--enable-features=Vulkan,UseSkiaRenderer",
                     "--crash-dumps-dir=" + crashDir.toString()
             ));
 
@@ -133,6 +140,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     try {
                         System.out.println("\n[1] MỞ TRANG DANH SÁCH (Trang " + pageNum + "): " + targetUrl);
+                        System.out.flush();
 
                         page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
                         randomSleep(3000, 5000);
@@ -146,10 +154,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                         if (propertyCards.isEmpty()) {
                             System.out.println(" --> Trống dữ liệu tại " + wardName + " (Trang " + pageNum + ")");
+                            System.out.flush();
                             break;
                         }
 
                         System.out.println(" --> Tìm thấy " + propertyCards.size() + " card. Đang lọc tin mới...");
+                        System.out.flush();
 
                         List<CrawPropertyListing> newItems = propertyCards.stream()
                                 .skip(pageNum == 1 ? 9 : 0)
@@ -161,6 +171,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                                     String url = listing.getSourceUrl();
                                     if (existingUrlsInDb.contains(url)) {
                                         System.out.println("     [SKIP] Tin đã có trong DB, bỏ qua: " + url);
+                                        System.out.flush();
                                         return false;
                                     }
                                     if (processedUrlsInBatch.contains(url)) {
@@ -184,6 +195,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     } catch (Exception crawlEx) {
                         System.err.println("Lỗi kết nối tại " + wardName + " | Lý do: " + crawlEx.getMessage());
+                        System.out.flush();
                         break;
                     }
                 }
@@ -197,17 +209,22 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             context.close();
             System.out.println("\n=================== KẾT THÚC CÀO DỮ LIỆU ===================");
+            System.out.flush();
 
             System.out.println("[HEATMAP] Bắt đầu tính toán & tạo Heatmap Snapshot...");
+            System.out.flush();
             try {
                 heatmapZoneService.generateDailySnapshot();
                 System.out.println("[HEATMAP] Tạo Heatmap Snapshot hoàn tất thành công!");
+                System.out.flush();
             } catch (Exception heatmapEx) {
                 System.err.println("[HEATMAP ERROR] Lỗi khi tạo Heatmap Snapshot: " + heatmapEx.getMessage());
+                System.out.flush();
             }
 
         } catch (Exception e) {
             System.err.println("Lỗi hệ thống: " + e.getMessage());
+            System.out.flush();
         }
     }
 
@@ -254,18 +271,16 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
     private CrawPropertyListing fetchCoordinates(CrawPropertyListing listing, Page page) {
         System.out.println("\n   [2] TRUY CẬP TRANG CHI TIẾT: " + listing.getSourceUrl());
-
-        randomSleep(2000, 3500);
+        System.out.flush();
 
         try {
-            page.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(45000));
+            page.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(25000));
 
             scrollPageSmoothly(page);
-
             randomSleep(2000, 3000);
 
             try {
-                page.waitForSelector("iframe[data-src*='google.com/maps'], iframe[src*='google.com/maps'], div#re-map, div[data-lat]",
+                page.waitForSelector("iframe[src*='google.com/maps'], iframe[data-src*='google.com/maps'], div#re-map, div[data-lat], .re__section-map",
                         new Page.WaitForSelectorOptions().setTimeout(5000));
             } catch (Exception ignored) {}
 
@@ -273,16 +288,30 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             String lngStr = null;
 
             try {
-                Object result = page.evaluate("() => {" +
+                Object rawCoords = page.evaluate("() => {" +
+                        "  try {" +
+                        "    const nextData = document.getElementById('__NEXT_DATA__');" +
+                        "    if (nextData) {" +
+                        "      const json = JSON.parse(nextData.innerHTML);" +
+                        "      const details = json.props?.pageProps?.initialDetail || json.props?.pageProps?.productDetail;" +
+                        "      if (details && details.latitude) return {lat: details.latitude, lng: details.longitude};" +
+                        "    }" +
+                        "  } catch(e){}" +
                         "  if (typeof initialData !== 'undefined' && initialData.latitude) return {lat: initialData.latitude, lng: initialData.longitude};" +
                         "  if (window.RE && window.RE.propertyDetail) return {lat: window.RE.propertyDetail.latitude, lng: window.RE.propertyDetail.longitude};" +
-                        "  const mapDiv = document.querySelector('div#re-map, div[data-lat]');" +
-                        "  if (mapDiv && mapDiv.getAttribute('data-lat')) return {lat: mapDiv.getAttribute('data-lat'), lng: mapDiv.getAttribute('data-long') || mapDiv.getAttribute('data-lng')};" +
+                        "  if (window.__INITIAL_STATE__ && window.__INITIAL_STATE__.details) return {lat: window.__INITIAL_STATE__.details.latitude, lng: window.__INITIAL_STATE__.details.longitude};" +
+                        "  const mapElem = document.querySelector('[data-lat], [data-latitude], #re-map, .re__section-map');" +
+                        "  if (mapElem) {" +
+                        "    return {" +
+                        "      lat: mapElem.getAttribute('data-lat') || mapElem.getAttribute('data-latitude')," +
+                        "      lng: mapElem.getAttribute('data-long') || mapElem.getAttribute('data-lng') || mapElem.getAttribute('data-longitude')" +
+                        "    };" +
+                        "  }" +
                         "  return null;" +
                         "}");
 
-                if (result instanceof Map) {
-                    Map<?, ?> map = (Map<?, ?>) result;
+                if (rawCoords instanceof Map) {
+                    Map<?, ?> map = (Map<?, ?>) rawCoords;
                     if (map.get("lat") != null && map.get("lng") != null) {
                         latStr = map.get("lat").toString();
                         lngStr = map.get("lng").toString();
@@ -309,22 +338,28 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             if (latStr == null || lngStr == null) {
                 String fullHtml = page.content();
-                Matcher mapUrlMatcher = Pattern.compile("(?:q|ll|center)=([-\\d.]+)(?:,|%2C)([-\\d.]+)").matcher(fullHtml);
+                Matcher jsonMatcher = Pattern.compile("[\"']latitude[\"']\\s*:\\s*([0-9.]+)\\s*,\\s*[\"']longitude[\"']\\s*:\\s*([0-9.]+)").matcher(fullHtml);
 
-                if (mapUrlMatcher.find()) {
-                    latStr = mapUrlMatcher.group(1);
-                    lngStr = mapUrlMatcher.group(2);
+                if (jsonMatcher.find()) {
+                    latStr = jsonMatcher.group(1);
+                    lngStr = jsonMatcher.group(2);
                 } else {
-                    Matcher latM = Pattern.compile("[\"']?latitude[\"']?\\s*[:=]\\s*([-\\d.]+)").matcher(fullHtml);
-                    Matcher lngM = Pattern.compile("[\"']?longitude[\"']?\\s*[:=]\\s*([-\\d.]+)").matcher(fullHtml);
-                    if (latM.find() && lngM.find()) {
-                        latStr = latM.group(1);
-                        lngStr = lngM.group(1);
+                    Matcher mapUrlMatcher = Pattern.compile("(?:q|ll|center)=([-\\d.]+)(?:,|%2C)([-\\d.]+)").matcher(fullHtml);
+                    if (mapUrlMatcher.find()) {
+                        latStr = mapUrlMatcher.group(1);
+                        lngStr = mapUrlMatcher.group(2);
+                    } else {
+                        Matcher latM = Pattern.compile("[\"']?(?:latitude|lat)[\"']?\\s*[:=]\\s*[\"']?([1-9]\\d*\\.\\d+)[\"']?").matcher(fullHtml);
+                        Matcher lngM = Pattern.compile("[\"']?(?:longitude|lng|long)[\"']?\\s*[:=]\\s*[\"']?([1-9]\\d*\\.\\d+)[\"']?").matcher(fullHtml);
+                        if (latM.find() && lngM.find()) {
+                            latStr = latM.group(1);
+                            lngStr = lngM.group(1);
+                        }
                     }
                 }
             }
 
-            if (latStr != null && lngStr != null) {
+            if (latStr != null && lngStr != null && !latStr.equals("0") && !latStr.isEmpty()) {
                 listing.setLatitude(new BigDecimal(latStr));
                 listing.setLongitude(new BigDecimal(lngStr));
                 System.out.println("     [SUCCESS] TỌA ĐỘ BÀI ĐĂNG: Lat=" + latStr + ", Long=" + lngStr);
@@ -333,7 +368,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             }
 
         } catch (Exception detailEx) {
-            System.err.println("[ERROR] Lỗi mở trang chi tiết: " + detailEx.getMessage());
+            System.out.println("     [ERROR TIMEOUT/LOAD] Bỏ qua bài này do lỗi: " + detailEx.getMessage());
+        } finally {
+            System.out.flush();
         }
 
         return listing;
@@ -385,10 +422,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             List<CrawPropertyListing> saved = crawPropertyListingRepository.saveAllAndFlush(entitiesToSave);
             System.out.println(" --> [DB SUCCESS] Đã lưu thành công " + saved.size() + " tin vào DB cho: " + wardName);
+            System.out.flush();
 
         } catch (Exception e) {
             System.err.println(" --> [DB ERROR] Lỗi khi lưu DB tại " + wardName + ": " + e.getMessage());
             e.printStackTrace();
+            System.out.flush();
         }
     }
 
