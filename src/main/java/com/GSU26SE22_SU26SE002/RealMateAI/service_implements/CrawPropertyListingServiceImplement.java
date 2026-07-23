@@ -23,6 +23,8 @@ import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,14 +51,22 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     @Override
     public void autoCrawlPropertyData() {
-        if (currentDailyCrawledCount >= DAILY_TARGET_LISTINGS) {
-            System.out.println("[SCHEDULE] 🛑 Đã cào đủ quota " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin hôm nay. Tắt cào chờ 00:00 ngày mai!");
+        LocalDate today = LocalDate.now();
+        int actualTodayInDb = (int) crawPropertyListingRepository.findAll().stream()
+                .filter(l -> l.getCraw_date() != null &&
+                        l.getCraw_date().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().equals(today))
+                .count();
+
+        this.currentDailyCrawledCount = Math.max(this.currentDailyCrawledCount, actualTodayInDb);
+
+        if (this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS) {
+            System.out.println("[SCHEDULE] 🛑 Đã cào đủ quota hôm nay (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ 00:00 ngày mai!");
             return;
         }
 
-        int remainingQuota = DAILY_TARGET_LISTINGS - currentDailyCrawledCount;
+        int remainingQuota = DAILY_TARGET_LISTINGS - this.currentDailyCrawledCount;
         System.out.println("\n=================== BẮT ĐẦU CÀO DỮ LIỆU (Đã cào hôm nay: "
-                + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " - Cần cào thêm tối đa: " + remainingQuota + " tin) ===================");
+                + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " - Cần cào thêm tối đa: " + remainingQuota + " tin) ===================");
         System.out.flush();
 
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
@@ -139,7 +149,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             int pageNum = 1;
             int consecutiveEmptyPages = 0;
 
-            while (totalCrawledInBatch < remainingQuota && pageNum <= 100) {
+            while ((this.currentDailyCrawledCount + totalCrawledInBatch) < DAILY_TARGET_LISTINGS && pageNum <= 100) {
                 String targetUrl = (pageNum == 1)
                         ? "https://batdongsan.com.vn/ban-nha-dat-tp-hcm"
                         : "https://batdongsan.com.vn/ban-nha-dat-tp-hcm/p" + pageNum;
@@ -171,6 +181,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     int duplicateCountInPage = 0;
 
                     for (Element card : propertyCards) {
+                        if ((this.currentDailyCrawledCount + totalCrawledInBatch + freshCandidates.size()) >= DAILY_TARGET_LISTINGS) {
+                            System.out.println(" 🎯 [QUOTA ALERT] Đã đủ danh sách 300 tin! Ngừng gom tin thêm.");
+                            break;
+                        }
+
                         CrawPropertyListing listing = extractBasicInfo(card);
                         if (listing != null && listing.getPrice() != null && listing.getArea() != null
                                 && listing.getArea().compareTo(BigDecimal.ZERO) > 0) {
@@ -201,7 +216,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     List<CrawPropertyListing> pageResultList = new ArrayList<>();
                     for (CrawPropertyListing candidate : freshCandidates) {
-                        if (totalCrawledInBatch >= remainingQuota) break;
+                        if ((this.currentDailyCrawledCount + totalCrawledInBatch) >= DAILY_TARGET_LISTINGS) {
+                            System.out.println(" 🎯 [STOP CRAWL DETAILED] Đã đạt chính xác " + DAILY_TARGET_LISTINGS + " tin!");
+                            break;
+                        }
 
                         CrawPropertyListing fullListing = fetchCoordinates(candidate, page);
                         if (fullListing != null) {
@@ -213,6 +231,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     if (!pageResultList.isEmpty()) {
                         saveListingsInNewTransaction(pageResultList, "Trang " + pageNum);
                         existingUrlsInDb.addAll(pageResultList.stream().map(CrawPropertyListing::getSourceUrl).toList());
+                    }
+
+                    if ((this.currentDailyCrawledCount + totalCrawledInBatch) >= DAILY_TARGET_LISTINGS) {
+                        System.out.println("\n🎯 [TARGET REACHED] Đã cào đủ quota " + DAILY_TARGET_LISTINGS + " tin hôm nay!");
+                        break;
                     }
 
                     pageNum++;
@@ -230,20 +253,23 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             System.out.println("\n=================== KẾT THÚC ĐỢT CÀO ===================");
             System.out.println("-> Cào được đợt này: " + totalCrawledInBatch + " tin mới.");
-            System.out.println("-> Tổng tích lũy hôm nay: " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
+            System.out.println("-> Tổng tích lũy hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
 
-            if (totalCrawledInBatch > 0) {
-                System.out.println("\n🔥 [FINISH CRAWL] Tiến trình cào đã dừng lại.");
-                System.out.println("[HEATMAP] Tiến hành tính toán & TẠO SNAPSHOT HEATMAP NGAY BÂY GIỜ...");
+            boolean isQuotaReached = this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS;
+            boolean isSourceExhausted = (totalCrawledInBatch == 0 && this.currentDailyCrawledCount > 0);
+
+            if (isQuotaReached || isSourceExhausted) {
+                System.out.println("\n🔥 [TRIGGER SNAPSHOT] Chốt sổ dữ liệu cào trong ngày (" + this.currentDailyCrawledCount + " tin).");
+                System.out.println("[HEATMAP] Tiến hành lọc mẫu theo ngưỡng (>= N tin) và Tạo Snapshot Heatmap...");
                 System.out.flush();
                 try {
                     heatmapZoneService.generateDailySnapshot();
-                    System.out.println("[HEATMAP] ✅ Tạo Snapshot Heatmap thành công!");
+                    System.out.println("[HEATMAP] ✅ Đã hoàn tất tạo Snapshot Heatmap cho ngày hôm nay!");
                 } catch (Exception heatmapEx) {
                     System.err.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
                 }
             } else {
-                System.out.println("[HEATMAP] ℹ️ Đợt này không có tin mới nào được thêm, bỏ qua bước tạo Snapshot.");
+                System.out.println("[HEATMAP] ℹ️ Đang cào dở dang (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ đợt cào tiếp theo để chốt Snapshot.");
             }
             System.out.flush();
 

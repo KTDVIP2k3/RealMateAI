@@ -76,10 +76,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             });
         }
 
-
         heatmapZoneRepository.deleteBySnapshotDate(today);
-
-
         heatmapZoneRepository.saveAll(snapshotBatch);
     }
 
