@@ -15,10 +15,26 @@ ENV TZ=Asia/Ho_Chi_Minh
 ENV DOCKER=true
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 USER root
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    fonts-liberation \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/* && \
     mkdir -p /tmp/.org.chromium.Chromium /tmp/chrome-profile-bot /tmp/chrome-crashes && \
     chmod -R 777 /tmp /ms-playwright
 
