@@ -232,16 +232,18 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             System.out.println("-> Cào được đợt này: " + totalCrawledInBatch + " tin mới.");
             System.out.println("-> Tổng tích lũy hôm nay: " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
 
-            if (this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS) {
-                System.out.println("\n🎯 [TARGET REACHED] ĐÃ ĐẠT " + currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " TIN HÔM NAY!");
+            if (totalCrawledInBatch > 0) {
+                System.out.println("\n🔥 [FINISH CRAWL] Tiến trình cào đã dừng lại.");
                 System.out.println("[HEATMAP] Tiến hành tính toán & TẠO SNAPSHOT HEATMAP NGAY BÂY GIỜ...");
                 System.out.flush();
                 try {
                     heatmapZoneService.generateDailySnapshot();
-                    System.out.println("[HEATMAP] Tạo Snapshot Heatmap thành công!");
+                    System.out.println("[HEATMAP] ✅ Tạo Snapshot Heatmap thành công!");
                 } catch (Exception heatmapEx) {
-                    System.err.println("[HEATMAP ERROR] Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
+                    System.err.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
                 }
+            } else {
+                System.out.println("[HEATMAP] ℹ️ Đợt này không có tin mới nào được thêm, bỏ qua bước tạo Snapshot.");
             }
             System.out.flush();
 
