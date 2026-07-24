@@ -6,13 +6,11 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
-@Data
-@NoArgsConstructor
 @AllArgsConstructor
-public class PostingPackageRequest {
-    private Integer postingPackageCategoryId;
-    private String name;
+@NoArgsConstructor
+@Data
+public class PostingPackageCategoryRequest {
+    private String postingPackageCategoryName;
     private String description;
-    private BigDecimal posting_package_price;
-    private BigDecimal duration;
+    private BigDecimal priority;
 }

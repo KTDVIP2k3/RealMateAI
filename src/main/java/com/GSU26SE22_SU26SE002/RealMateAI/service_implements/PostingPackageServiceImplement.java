@@ -1,6 +1,8 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackage;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackageCategory;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PostingPackageCategoryRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PostingPackageRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.PostingPackageRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
@@ -17,142 +19,193 @@ import java.util.stream.Collectors;
 
 @Service
 public class PostingPackageServiceImplement implements PostingPackageServiceInterface {
+
     @Autowired
     private PostingPackageRepository postingPackageRepository;
 
+    @Autowired
+    private PostingPackageCategoryRepository postingPackageCategoryRepository;
+
     @Override
     public ResponseEntity<ApiResponse> getPostingPackageListIsActive() {
-        try{
+        try {
             List<PostingPackageDTO> postingPackageDTOList = postingPackageRepository.findAll().stream()
                     .filter(p -> Boolean.TRUE.equals(p.getIsActive()) && !Boolean.TRUE.equals(p.getIsDeleted()))
-                    .map(postingPackage ->
-                            new PostingPackageDTO(postingPackage.getPostingPackageId()
-                                    ,postingPackage.getName(),
-                            postingPackage.getDescription(),
-                            postingPackage.getPosting_package_price()
-                                    , postingPackage.getPriority()))
+                    .map(this::mapToDTO)
                     .collect(Collectors.toList());
-            if(postingPackageDTOList == null || postingPackageDTOList.isEmpty()){
-                return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackageDTOList, "List posting package is empty"));
+
+            if (postingPackageDTOList.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(postingPackageDTOList, "List posting package is empty"));
             }
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackageDTOList, "List posting package"));
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(postingPackageDTOList, "List posting package"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> getPostingPackageListByAdmin() {
-        try{
-            List<PostingPackage> postingPackages = postingPackageRepository.findAll().stream()
+        try {
+            List<PostingPackageDTO> postingPackageDTOList = postingPackageRepository.findAll().stream()
                     .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted()))
-                    .collect(Collectors.toList());    if(postingPackages.isEmpty() || postingPackages == null){
-                return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackages, "List posting package is empty"));
+                    .map(this::mapToDTO)
+                    .collect(Collectors.toList());
+
+            if (postingPackageDTOList.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(postingPackageDTOList, "List posting package is empty"));
             }
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackages, "List posting package"));
-
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(postingPackageDTOList, "List posting package"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> getPostingPackageDetail(Integer id) {
-        try{
+        try {
             PostingPackage existPostingPackage = postingPackageRepository.findById(id)
                     .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted())).orElse(null);
-            if(existPostingPackage == null){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
+
+            if (existPostingPackage == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
-            PostingPackageDTO postingPackageDTO = new PostingPackageDTO(existPostingPackage.getPostingPackageId()
-                    ,existPostingPackage.getName(),
-                    existPostingPackage.getDescription(),
-                    existPostingPackage.getPosting_package_price(),
-                    existPostingPackage.getPriority());
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(postingPackageDTO, "Posting package"));
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+
+            PostingPackageDTO postingPackageDTO = mapToDTO(existPostingPackage);
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(postingPackageDTO, "Posting package detail"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> createPostingPackage(PostingPackageRequest postingPackageRequest) {
-        try{
+        try {
+            PostingPackageCategory category = null;
+            if (postingPackageRequest.getPostingPackageCategoryId() != null) {
+                category = postingPackageCategoryRepository.findById(postingPackageRequest.getPostingPackageCategoryId())
+                        .orElse(null);
+                if (category == null) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package category id does not exist"));
+                }
+            }
+
             boolean existName = postingPackageRepository.findAll().stream()
                     .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted()))
-                    .anyMatch(postingPackage -> postingPackage.getName().trim().toLowerCase().equals(postingPackageRequest.getName().trim().toLowerCase()));
+                    .anyMatch(p -> p.getName().trim().equalsIgnoreCase(postingPackageRequest.getName().trim()));
 
-            if(existName){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
+            if (existName) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
             }
+
             PostingPackage postingPackage = new PostingPackage();
             postingPackage.setName(postingPackageRequest.getName());
             postingPackage.setDescription(postingPackageRequest.getDescription());
             postingPackage.setPosting_package_price(postingPackageRequest.getPosting_package_price());
-            postingPackage.setPriority(postingPackageRequest.getPriority());
+            postingPackage.setDuration(postingPackageRequest.getDuration());
+            postingPackage.setPostingPackageCategory(category);
+
+            if (category != null) {
+                postingPackage.setPriority(category.getPriority());
+            }
+
             postingPackage.setIsActive(true);
             postingPackage.setIsDeleted(false);
             postingPackage.setCreatedAt(LocalDateTime.now());
+
             postingPackageRepository.save(postingPackage);
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create posting package successfully"));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Create posting package successfully"));
+
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> updatePostingPackage(Integer id, PostingPackageRequest postingPackageRequest) {
-        try{
+        try {
             PostingPackage postingPackage = postingPackageRepository.findById(id)
                     .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted())).orElse(null);
-            if(postingPackage == null){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
+
+            if (postingPackage == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
+            }
+
+            PostingPackageCategory category = null;
+            if (postingPackageRequest.getPostingPackageCategoryId() != null) {
+                category = postingPackageCategoryRepository.findById(postingPackageRequest.getPostingPackageCategoryId())
+                        .orElse(null);
+                if (category == null) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package category id does not exist"));
+                }
             }
 
             boolean existPostingPackageName = postingPackageRepository.findAll().stream()
                     .filter(p -> !p.getPostingPackageId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted()))
-                    .anyMatch(p -> p.getName().trim().toLowerCase().equalsIgnoreCase(postingPackageRequest.getName().trim().toLowerCase()));
+                    .anyMatch(p -> p.getName().trim().equalsIgnoreCase(postingPackageRequest.getName().trim()));
 
-            if(existPostingPackageName){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
+            if (existPostingPackageName) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
             }
 
-//            boolean existName = postingPackageRepository.findAll().stream()
-//                    .anyMatch(p -> p.getName().trim().toLowerCase().equals(postingPackageRequest.getName().trim().toLowerCase()));
-//
-//            if(existName){
-//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
-//            }
             postingPackage.setName(postingPackageRequest.getName());
             postingPackage.setDescription(postingPackageRequest.getDescription());
             postingPackage.setPosting_package_price(postingPackageRequest.getPosting_package_price());
-            postingPackage.setPriority(postingPackageRequest.getPriority());
+            postingPackage.setDuration(postingPackageRequest.getDuration());
+            postingPackage.setPostingPackageCategory(category);
+
+            if (category != null) {
+                postingPackage.setPriority(category.getPriority());
+            }
+
             postingPackage.setUpdatedAt(LocalDateTime.now());
             postingPackageRepository.save(postingPackage);
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Update posting package successfully"));
 
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Update posting package successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> deletePostingPackage(Integer id) {
-        try{
+        try {
             PostingPackage existPostingPackage = postingPackageRepository.findById(id).orElse(null);
-            if(existPostingPackage == null){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
+            if (existPostingPackage == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
             existPostingPackage.setIsActive(false);
             existPostingPackage.setIsDeleted(true);
             existPostingPackage.setUpdatedAt(LocalDateTime.now());
             postingPackageRepository.save(existPostingPackage);
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Delete posting package successfully"));
 
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Delete posting package successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
     }
 
@@ -161,9 +214,12 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
         try {
             PostingPackage postingPackage = postingPackageRepository.findById(id)
                     .filter(p -> !Boolean.TRUE.equals(p.getIsDeleted())).orElse(null);
+
             if (postingPackage == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
+
             postingPackage.setIsActive(isActive);
             postingPackage.setUpdatedAt(LocalDateTime.now());
             postingPackageRepository.save(postingPackage);
@@ -171,7 +227,27 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
             String msg = isActive ? "Activated posting package successfully" : "Deactivated posting package successfully";
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, msg));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), "Server error: " + e.getMessage()));
         }
+    }
+
+    private PostingPackageDTO mapToDTO(PostingPackage entity) {
+        PostingPackageDTO dto = new PostingPackageDTO();
+        dto.setPostingPackageId(entity.getPostingPackageId());
+        dto.setName(entity.getName());
+        dto.setDescription(entity.getDescription());
+        dto.setPosting_package_price(entity.getPosting_package_price());
+        dto.setDuration(entity.getDuration());
+
+        if (entity.getPostingPackageCategory() != null) {
+            dto.setPostingPackageCategoryId(entity.getPostingPackageCategory().getPostingPackageCategoryId());
+            dto.setPostingPackageCategoryName(entity.getPostingPackageCategory().getPostingPackageCategoryName());
+            dto.setPriority(entity.getPostingPackageCategory().getPriority());
+        } else {
+            dto.setPriority(entity.getPriority());
+        }
+
+        return dto;
     }
 }
