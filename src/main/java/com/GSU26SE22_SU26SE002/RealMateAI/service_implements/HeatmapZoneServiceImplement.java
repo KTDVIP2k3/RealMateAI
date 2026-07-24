@@ -37,7 +37,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
 
         LocalDate today = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
-        int[] targetZoomLevels = {10, 13, 15, 17};
+        int[] targetZoomLevels = {10, 11, 12, 13};
 
         List<HeatmapZone> snapshotBatch = new ArrayList<>();
 
