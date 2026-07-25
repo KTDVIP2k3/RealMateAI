@@ -106,6 +106,19 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
     public void autoCrawlPropertyData() {
 
+        boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
+
+                || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
+
+
+
+        if (isServer) {
+
+            return;
+        }
+
+
+
         LocalDate today = LocalDate.now();
 
         int actualTodayInDb = (int) crawPropertyListingRepository.findAll().stream()
@@ -139,12 +152,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " - Cần cào thêm tối đa: " + remainingQuota + " tin) ===================");
 
         System.out.flush();
-
-
-
-        boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
-
-                || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
 
 
