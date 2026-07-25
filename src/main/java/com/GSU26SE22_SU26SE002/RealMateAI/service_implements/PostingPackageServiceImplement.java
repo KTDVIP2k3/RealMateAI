@@ -239,6 +239,7 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
         dto.setDescription(entity.getDescription());
         dto.setPosting_package_price(entity.getPosting_package_price());
         dto.setDuration(entity.getDuration());
+        dto.setIsActive(entity.getIsActive());
 
         if (entity.getPostingPackageCategory() != null) {
             dto.setPostingPackageCategoryId(entity.getPostingPackageCategory().getPostingPackageCategoryId());

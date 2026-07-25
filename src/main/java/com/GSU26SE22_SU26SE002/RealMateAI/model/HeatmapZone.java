@@ -1,10 +1,13 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @NoArgsConstructor
@@ -21,8 +24,8 @@ public class HeatmapZone {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "snapshot_date", nullable = false)
-    private LocalDate snapshotDate;
+//    @Column(name = "snapshot_date", nullable = false)
+//    private LocalDate snapshotDate;
 
     @Column(name = "zoom_level", nullable = false)
     private Integer zoomLevel;
@@ -45,6 +48,17 @@ public class HeatmapZone {
     @Column(name = "median_price_per_m2", precision = 18, scale = 2)
     private BigDecimal medianPricePerM2;
 
-    @Column(name = "price_change_percent", precision = 5, scale = 2)
-    private BigDecimal priceChangePercent;
+    @Column(name = "density_heat_level")
+    private Integer densityHeatLevel;
+
+    @Column(name = "price_heat_level", precision = 5, scale = 2)
+    private BigDecimal priceHeatLevel;
+//
+//    @Column(name = "price_change_percent", precision = 5, scale = 2)
+//    private BigDecimal priceChangePercent;
+
+    @ManyToMany(mappedBy = "heatmapZones", fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<CrawPropertyListing> listings = new ArrayList<>();
 }
