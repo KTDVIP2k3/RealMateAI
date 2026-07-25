@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
  *  - propertySource: SYSTEM (đề xuất AI) | MANUAL (investor tự thêm)
  *  - isSelected: investor đã chọn property này hay chưa (dùng cho future plan)
  */
+
+
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -69,12 +71,14 @@ public class PortfolioAllocationProperty {
     @Column(name = "actual_purchase_price")
     private Long actualPurchasePrice;
 
-    /**
-     * Giá thị trường tại thời điểm đánh giá tương lai (VNĐ).
+    /** Giá thị trường tại thời điểm đánh giá tương lai (VNĐ).
      * Dùng trong hàm tính lợi nhuận cuối kỳ (ngày 1/6 so với ngày 1/1).
      */
     @Column(name = "evaluated_market_price")
     private Long evaluatedMarketPrice;
+
+    @Column(name = "holding_months")
+    private Integer holdingMonths;
 
     /** Investor đã bấm "Chọn căn này" hay chưa */
     @Column(name = "is_selected")

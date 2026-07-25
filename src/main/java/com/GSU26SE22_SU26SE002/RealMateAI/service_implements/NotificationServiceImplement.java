@@ -141,6 +141,25 @@ public class NotificationServiceImplement implements NotificationService {
         }
     }
 
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> markAllAsRead() {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail("Unauthorized", "Cần đăng nhập"));
+            }
+            int updated = notificationRepository.markAllAsReadByAccountId(currentUser.getAccountId());
+            return ResponseEntity.ok(ApiResponse.success(
+                    Map.of("updatedCount", updated),
+                    updated > 0 ? "Đã đánh dấu " + updated + " thông báo là đã đọc" : "Không có thông báo nào chưa đọc"));
+        } catch (Exception e) {
+            log.error("[NotificationService] markAllAsRead lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
     private NotificationResponse toResponse(Notification n) {
         return NotificationResponse.builder()
                 .notificationId(n.getNotificationId())

@@ -36,12 +36,6 @@ public class CreateListingRequest {
     @Schema(example = "3500000000")
     private Long price;
 
-    @Schema(example = "owner")
-    private String contactPerson;
-
-    @Schema(example = "0901234567")
-    private String contactPersonPhone;
-
     @Schema(example = "2025-08-01")
     private String viewingDate;
 
