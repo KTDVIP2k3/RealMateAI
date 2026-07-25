@@ -58,28 +58,37 @@ jobs:
           PAYOS_CANCEL_URL=$PAYOS_CANCEL_URL
           EOF
 
-      # Bước 4: Tắt container cũ
-      - name: Stop old containers
-        run: docker compose down
-
-      # Bước 5: Dọn dẹp image rác trước khi build mới
-      - name: Mid-clean Docker space
-        run: |
-          echo "==== DỌN DẸP AN TOÀN TRƯỚC KHI BUILD MỚI ===="
-          docker image prune -a -f
-          docker builder prune -f
-
-      # Bước 6: Build ứng dụng (Đã tách lệnh build không cache và up container riêng biệt)
-      - name: Start containers
+      # Bước 4: Build image mới trước (Vẫn giữ container cũ chạy bình thường không bị sập)
+      - name: Build new image
         env:
           DOCKER_BUILDKIT: 1
         run: |
-          docker compose build --no-cache
-          docker compose up -d
+          echo "==== ĐANG BUILD IMAGE MỚI (CÓ DÙNG CACHE ĐỂ TIẾT KIỆM Ổ CỨNG) ===="
+          docker compose build
 
-      # Bước 7: Dọn sạch các layer cũ vừa bị thay thế để trả lại dung lượng trống ngay lập tức
+      # Bước 5: Chuyển đổi sang phiên bản mới an toàn (Rollback tự động nếu lỗi)
+      - name: Deploy with Rollback protection
+        run: |
+          echo "==== ĐANG TRIỂN KHAI PHIÊN BẢN MỚI ===="
+          
+          # Lưu lại tên container cũ đang chạy (nếu có) để phòng hờ khôi phục
+          OLD_CONTAINERS=$(docker compose ps -q)
+
+          # Thử tắt container cũ và bật container mới lên
+          if docker compose up -d --remove-orphans; then
+            echo "==== DEPLOY THÀNH CÔNG ===="
+          else
+            echo "==== CẢNH BÁO: DEPLOY THẤT BẠI, ĐANG TIẾN HÀNH KHÔI PHỤC (ROLLBACK) ===="
+            # Nếu khởi động bản mới lỗi, cố gắng khởi động lại bản cũ
+            if [ ! -z "$OLD_CONTAINERS" ]; then
+              docker compose start || docker compose up -d
+            fi
+            exit 1
+          fi
+
+      # Bước 6: Dọn sạch các layer rác cũ sau khi deploy thành công để trả lại dung lượng
       - name: Post-clean Docker space
         run: |
           echo "==== GIẢI PHÓNG BỘ NHỚ SAU KHI DEPLOY THÀNH CÔNG ===="
-          docker image prune -a -f
+          docker image prune -f
           docker builder prune -f
