@@ -122,7 +122,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     .setArgs(browserArgs)
                     .setViewportSize(1920, 1080);
 
-            if (!isServer) {
+            if (isServer) {
+                Path serverChromePath = Paths.get("/usr/bin/google-chrome");
+                if (serverChromePath.toFile().exists()) {
+                    options.setExecutablePath(serverChromePath);
+                }
+            } else {
                 Path localChromePath = Paths.get("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe");
                 if (localChromePath.toFile().exists()) {
                     options.setExecutablePath(localChromePath);
