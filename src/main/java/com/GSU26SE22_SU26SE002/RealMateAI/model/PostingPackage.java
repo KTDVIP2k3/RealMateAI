@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -27,13 +28,20 @@ public class PostingPackage {
     private BigDecimal posting_package_price;
     private BigDecimal priority;
     /** Duration in days */
-//    private Integer durationDays;
+
+    private BigDecimal duration;
     private Boolean isActive;
     private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+
     @OneToMany(mappedBy = "postingPackage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
     private List<PostingPackageOrder> postingPackageOrders = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "posting_package_category_id", nullable = true)
+    @JsonIgnoreProperties("postingPackageList")
+    private PostingPackageCategory postingPackageCategory;
 }

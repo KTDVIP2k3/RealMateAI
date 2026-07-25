@@ -52,31 +52,31 @@ public class AccountController {
         return adminAccountServiceInterface.updateAccount(accountId, request);
     }
 
-    @PostMapping(value = "/admin/accounts/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('Admin')")
-    public ResponseEntity<ApiResponse> createAccountStaff(@ModelAttribute CreateAccountRequest createAccountRequest) {
-        return accountServiceInterface.createAccountByAdmin(createAccountRequest);
-    }
-
-    @PostMapping(value = "/admin/accounts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<ApiResponse> createAccountAdmin(@ModelAttribute CreateAccountRequest createAccountRequest) {
-        return accountServiceInterface.createAccountAdmin(createAccountRequest);
-    }
-
-    @PostMapping(value = "/admin/accounts/sellers", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<ApiResponse> adminCreateSeller(
-            @ModelAttribute AdminCreateAccountRequest request) {
-        return adminAccountServiceInterface.createSellerAccount(request);
-    }
-
-    @PostMapping(value = "/admin/accounts/investors", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<ApiResponse> adminCreateInvestor(
-            @ModelAttribute AdminCreateAccountRequest request) {
-        return adminAccountServiceInterface.createInvestorAccount(request);
-    }
+//    @PostMapping(value = "/admin/accounts/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @PreAuthorize("hasAnyRole('Admin')")
+//    public ResponseEntity<ApiResponse> createAccountStaff(@ModelAttribute CreateAccountRequest createAccountRequest) {
+//        return accountServiceInterface.createAccountByAdmin(createAccountRequest);
+//    }
+//
+//    @PostMapping(value = "/admin/accounts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @PreAuthorize("hasRole('Admin')")
+//    public ResponseEntity<ApiResponse> createAccountAdmin(@ModelAttribute CreateAccountRequest createAccountRequest) {
+//        return accountServiceInterface.createAccountAdmin(createAccountRequest);
+//    }
+//
+//    @PostMapping(value = "/admin/accounts/sellers", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @PreAuthorize("hasRole('Admin')")
+//    public ResponseEntity<ApiResponse> adminCreateSeller(
+//            @ModelAttribute AdminCreateAccountRequest request) {
+//        return adminAccountServiceInterface.createSellerAccount(request);
+//    }
+//
+//    @PostMapping(value = "/admin/accounts/investors", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @PreAuthorize("hasRole('Admin')")
+//    public ResponseEntity<ApiResponse> adminCreateInvestor(
+//            @ModelAttribute AdminCreateAccountRequest request) {
+//        return adminAccountServiceInterface.createInvestorAccount(request);
+//    }
 
     @PostMapping(value = "/admin/accounts/v2", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Admin có thể tạo account tuỳ chọn theo role")

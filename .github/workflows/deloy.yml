@@ -10,11 +10,11 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # Bước 1: Dọn dẹp rác build cũ một cách AN TOÀN (Không động vào Plesk hay các dịch vụ khác)
+      # Bước 1: Dọn dẹp rác build cũ một cách AN TOÀN
       - name: Pre-clean Docker space
         run: |
           echo "==== DỌN SẠCH LAYER RÁC AN TOÀN TRƯỚC KHI DEPLOY ===="
-          docker image prune -f
+          docker image prune -a -f
           docker builder prune -f
 
       # Bước 2: Tải code từ GitHub về
@@ -58,26 +58,28 @@ jobs:
           PAYOS_CANCEL_URL=$PAYOS_CANCEL_URL
           EOF
 
-      # Bước 4: Tắt container cũ (Không kèm cờ -v để bảo vệ an toàn cho dữ liệu Database)
+      # Bước 4: Tắt container cũ
       - name: Stop old containers
         run: docker compose down
 
-      # Bước 5: Chỉ dọn dẹp các Image rác dôi ra sau khi down, KHÔNG xóa lung tung hệ thống
+      # Bước 5: Dọn dẹp image rác trước khi build mới
       - name: Mid-clean Docker space
         run: |
           echo "==== DỌN DẸP AN TOÀN TRƯỚC KHI BUILD MỚI ===="
-          docker image prune -f
+          docker image prune -a -f
           docker builder prune -f
 
-      # Bước 6: Build ứng dụng (Bật BuildKit để nén layer khôn ngoan hơn)
+      # Bước 6: Build ứng dụng (Đã tách lệnh build không cache và up container riêng biệt)
       - name: Start containers
         env:
           DOCKER_BUILDKIT: 1
-        run: docker compose up -d --build
+        run: |
+          docker compose build --no-cache
+          docker compose up -d
 
       # Bước 7: Dọn sạch các layer cũ vừa bị thay thế để trả lại dung lượng trống ngay lập tức
       - name: Post-clean Docker space
         run: |
           echo "==== GIẢI PHÓNG BỘ NHỚ SAU KHI DEPLOY THÀNH CÔNG ===="
-          docker image prune -f
+          docker image prune -a -f
           docker builder prune -f

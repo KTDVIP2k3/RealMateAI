@@ -34,7 +34,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder(){
-        return  new BCryptPasswordEncoder(12);
+        return new BCryptPasswordEncoder(12);
     }
 
     @Bean
@@ -87,6 +87,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/listings/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/posting-packages/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/posting-package-categories/**").permitAll() // Thêm cấu hình GET public ở đây
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/media/thumbnail").permitAll()
                         .requestMatchers(
@@ -100,6 +101,7 @@ public class SecurityConfig {
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception{
         return authenticationConfiguration.getAuthenticationManager();

@@ -6,13 +6,11 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingReposi
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.HeatmapZoneRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,8 +23,8 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     @Autowired
     private HeatmapZoneRepository heatmapZoneRepository;
 
-    @Scheduled(cron = "0 0 1 * * ?", zone = "Asia/Ho_Chi_Minh")
     @Override
+    @Transactional
     public void generateDailySnapshot() {
         List<CrawPropertyListing> listings = crawPropertyListingRepository.findAll().stream()
                 .filter(l -> l.getLatitude() != null && l.getLongitude() != null)
@@ -36,13 +34,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             return;
         }
 
-        LocalDate today = LocalDate.now();
-        LocalDate yesterday = today.minusDays(1);
-        int[] targetZoomLevels = {10, 13, 15, 17};
-
-        // Lấy danh sách snapshot ngày hôm qua 1 lần duy nhất để tối ưu hiệu năng
-        List<HeatmapZone> yesterdayZones = heatmapZoneRepository.findBySnapshotDate(yesterday);
-
+        int[] targetZoomLevels = {10, 11, 12, 13, 14, 15};
         List<HeatmapZone> snapshotBatch = new ArrayList<>();
 
         for (int zoom : targetZoomLevels) {
@@ -53,6 +45,8 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                         return gridX + "_" + gridY;
                     }));
 
+            List<HeatmapZone> levelZones = new ArrayList<>();
+
             gridGroupMap.forEach((key, gridListings) -> {
                 String[] parts = key.split("_");
                 int gridX = Integer.parseInt(parts[0]);
@@ -62,10 +56,8 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 double centerLat = gridYToLat(gridY + 0.5, zoom);
 
                 BigDecimal medianPricePerM2 = calculateMedianPricePerM2(gridListings);
-                BigDecimal priceChangePercent = calculatePriceChangePercent(gridX, gridY, zoom, yesterdayZones, medianPricePerM2);
 
                 HeatmapZone zone = HeatmapZone.builder()
-                        .snapshotDate(today)
                         .zoomLevel(zoom)
                         .gridX(gridX)
                         .gridY(gridY)
@@ -73,58 +65,89 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                         .centerLongitude(BigDecimal.valueOf(centerLon).setScale(7, RoundingMode.HALF_UP))
                         .listingCount(gridListings.size())
                         .medianPricePerM2(medianPricePerM2)
-                        .priceChangePercent(priceChangePercent)
+                        .listings(gridListings)
                         .build();
 
-                snapshotBatch.add(zone);
+                levelZones.add(zone);
             });
+
+            calculateHeatLevelsForZoomLevel(levelZones);
+
+            snapshotBatch.addAll(levelZones);
         }
 
-        // Thực hiện ghi đè snapshot hôm nay (Xóa dữ liệu cũ của hôm nay nếu có rồi lưu mới)
-        saveSnapshotTransaction(today, snapshotBatch);
-    }
-
-    @Transactional
-    public void saveSnapshotTransaction(LocalDate today, List<HeatmapZone> snapshotBatch) {
-        List<HeatmapZone> existingTodayZones = heatmapZoneRepository.findBySnapshotDate(today);
-        if (!existingTodayZones.isEmpty()) {
-            heatmapZoneRepository.deleteAllInBatch(existingTodayZones);
-        }
+        heatmapZoneRepository.clearJoinTable();
+        heatmapZoneRepository.deleteAllInBatch();
         heatmapZoneRepository.saveAll(snapshotBatch);
     }
 
     @Override
     public List<HeatmapZone> getHeatmapZonesByViewport(
-            LocalDate targetDate,
             Integer zoomLevel,
             BigDecimal minLat,
             BigDecimal maxLat,
             BigDecimal minLong,
             BigDecimal maxLong) {
 
-        LocalDate dateQuery = (targetDate != null) ? targetDate : LocalDate.now();
-
-        List<HeatmapZone> candidateZones = heatmapZoneRepository.findBySnapshotDateLessThanEqualAndZoomLevel(dateQuery, zoomLevel);
+        List<HeatmapZone> candidateZones = heatmapZoneRepository.findByZoomLevel(zoomLevel);
 
         if (candidateZones.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Optional<LocalDate> latestDateOpt = candidateZones.stream()
-                .map(HeatmapZone::getSnapshotDate)
-                .max(LocalDate::compareTo);
-
-        if (latestDateOpt.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        LocalDate effectiveDate = latestDateOpt.get();
-
         return candidateZones.stream()
-                .filter(zone -> zone.getSnapshotDate().equals(effectiveDate))
                 .filter(zone -> zone.getCenterLatitude().compareTo(minLat) >= 0 && zone.getCenterLatitude().compareTo(maxLat) <= 0)
                 .filter(zone -> zone.getCenterLongitude().compareTo(minLong) >= 0 && zone.getCenterLongitude().compareTo(maxLong) <= 0)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<HeatmapZone> getHeatmapZonesByViewportV2(
+            BigDecimal minLat,
+            BigDecimal maxLat,
+            BigDecimal minLong,
+            BigDecimal maxLong) {
+
+        List<HeatmapZone> candidateZones = heatmapZoneRepository.findAll();
+
+        if (candidateZones.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return candidateZones.stream()
+                .filter(zone -> zone.getCenterLatitude().compareTo(minLat) >= 0 && zone.getCenterLatitude().compareTo(maxLat) <= 0)
+                .filter(zone -> zone.getCenterLongitude().compareTo(minLong) >= 0 && zone.getCenterLongitude().compareTo(maxLong) <= 0)
+                .collect(Collectors.toList());
+    }
+
+    private void calculateHeatLevelsForZoomLevel(List<HeatmapZone> zones) {
+        if (zones.isEmpty()) return;
+
+        int maxListingCount = zones.stream()
+                .mapToInt(HeatmapZone::getListingCount)
+                .max()
+                .orElse(1);
+
+        BigDecimal maxPrice = zones.stream()
+                .map(HeatmapZone::getMedianPricePerM2)
+                .filter(Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ONE);
+
+        for (HeatmapZone zone : zones) {
+            int densityLevel = (int) Math.round(((double) zone.getListingCount() / maxListingCount) * 100.0);
+            zone.setDensityHeatLevel(densityLevel);
+
+            if (zone.getMedianPricePerM2() != null && maxPrice.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal priceLevel = zone.getMedianPricePerM2()
+                        .divide(maxPrice, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .setScale(2, RoundingMode.HALF_UP);
+                zone.setPriceHeatLevel(priceLevel);
+            } else {
+                zone.setPriceHeatLevel(BigDecimal.ZERO);
+            }
+        }
     }
 
     private int lonToGridX(double lon, int zoom) {
@@ -161,23 +184,5 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             return prices.get(size / 2 - 1).add(prices.get(size / 2))
                     .divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
         }
-    }
-
-    private BigDecimal calculatePriceChangePercent(int gridX, int gridY, int zoom, List<HeatmapZone> yesterdayZones, BigDecimal currentPrice) {
-        if (currentPrice == null || currentPrice.compareTo(BigDecimal.ZERO) == 0 || yesterdayZones == null || yesterdayZones.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-
-        return yesterdayZones.stream()
-                .filter(zone -> zone.getZoomLevel() == zoom && zone.getGridX() == gridX && zone.getGridY() == gridY)
-                .map(HeatmapZone::getMedianPricePerM2)
-                .filter(Objects::nonNull)
-                .filter(oldPrice -> oldPrice.compareTo(BigDecimal.ZERO) > 0)
-                .findFirst()
-                .map(oldPrice -> currentPrice.subtract(oldPrice)
-                        .divide(oldPrice, 4, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(2, RoundingMode.HALF_UP))
-                .orElse(BigDecimal.ZERO);
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 
 public interface UserEventTrackingService {
 
+
     /**
      * Ghi nhận NHANH, không qua HTTP request/response — hook trực tiếp vào
      * luồng nghiệp vụ có sẵn (vd getListingDetail gọi VIEW). KHÔNG throw

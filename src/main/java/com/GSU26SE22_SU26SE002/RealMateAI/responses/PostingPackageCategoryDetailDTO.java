@@ -5,18 +5,25 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PostingPackageDTO {
-    private Integer postingPackageId;
-    private String name;
+@Data
+public class PostingPackageCategoryDetailDTO {
     private Integer postingPackageCategoryId;
+
     private String postingPackageCategoryName;
+
     private String description;
-    private BigDecimal posting_package_price;
-    private BigDecimal  priority;
-    private BigDecimal duration;
-    private Boolean isActive;
+
+    private BigDecimal priority;
+
+//    private Boolean isActive;
+//    private Boolean isDeleted;
+//
+//
+//    private LocalDateTime createdAt;
+//
+//    private LocalDateTime updatedAt;
 }

@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.HeatmapZone;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,7 +15,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
-@Setter // @Builder
+@Setter
+@Builder
 @Entity
 @Table(name = "craw_property_listing")
 public class CrawPropertyListing {
@@ -43,6 +45,16 @@ public class CrawPropertyListing {
     private Date posted_date;
 
     private Timestamp craw_date;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "craw_listing_heatmap_zone",
+            joinColumns = @JoinColumn(name = "craw_property_listing_id"),
+            inverseJoinColumns = @JoinColumn(name = "heatmap_zone_id")
+    )
+    @Builder.Default
+    @JsonIgnore
+    private List<HeatmapZone> heatmapZones = new ArrayList<>();
 
 
 }
