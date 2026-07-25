@@ -233,8 +233,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .title(request.getTitle())
                     .description(request.getDescription())
                     .price(request.getPrice())
-                    .contactPerson(request.getContactPerson())
-                    .contactPersonPhone(request.getContactPersonPhone())
                     .viewingDate(request.getViewingDate())
                     .startTime(request.getStartTime())
                     .endTime(request.getEndTime())

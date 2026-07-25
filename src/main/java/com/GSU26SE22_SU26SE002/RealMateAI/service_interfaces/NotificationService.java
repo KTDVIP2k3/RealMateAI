@@ -17,4 +17,7 @@ public interface NotificationService {
     ResponseEntity<ApiResponse> getUnreadCount();
 
     ResponseEntity<ApiResponse> markAsRead(UUID notificationId);
+
+    /** PATCH /notifications/read-all — đánh dấu TOÀN BỘ thông báo của tôi đã đọc. */
+    ResponseEntity<ApiResponse> markAllAsRead();
 }

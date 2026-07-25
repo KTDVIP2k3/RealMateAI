@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
  *    không khác về MÔ HÌNH dữ liệu đầu ra. Đầu ra vẫn là 1 version với đủ scenarios/
  *    executionPlan/portfolios/properties như mọi version khác — nên tái dùng đúng bảng đó.
  */
+
 @Slf4j
 @Service
 public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePlanServiceInterface {
@@ -136,7 +137,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             String autoVersionName = request.getPlanName() != null ? request.getPlanName()
                     : sourceVersion.getProfileVersionName() + " - Future V" + nextNum;
 
-            Map<String, Object> profitSummaryMap = buildProfitSummaryMap(aggregation, comparison);
+            Map<String, Object> profitSummaryMap = buildProfitSummaryMap(aggregation, comparison, aiOutput.getScore());
 
             InvestmentProfileVersion newVersion = InvestmentProfileVersion.builder()
                     .investmentProfile(profile)
@@ -209,12 +210,14 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
             // 9. Lưu portfolio + properties — ghi TRỰC TIẾP vào PortfolioAllocationProperty,
             //    không qua bảng trung gian nào. Group theo portfolioId investor gửi lên.
+            //    KHÔNG còn build InvestmentPortfolioDTO/PortfolioAllocationPropertyDTO ở đây
+            //    nữa — response tạo mới giờ chỉ trả newVersionId (xem bước 10), FE gọi GET
+            //    /investment-plans/future/{newVersionId} để lấy lại đúng cấu trúc này (xem
+            //    getFuturePlanDetail — nguồn DUY NHẤT lắp ráp investmentPortfolios).
             Map<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> byPortfolio = request.getSelectedProperties()
                     .stream()
                     .filter(item -> item.getPortfolioId() != null)
                     .collect(Collectors.groupingBy(GenerateFuturePlanRequest.SelectedPropertyItem::getPortfolioId));
-
-            List<InvestmentPortfolioDTO> portfolioDTOsForResponse = new ArrayList<>();
 
             for (Map.Entry<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> entry : byPortfolio.entrySet()) {
                 Portfolio portfolio = portfolioRepository.findById(entry.getKey()).orElse(null);
@@ -243,13 +246,11 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .updatedAt(now)
                         .build());
 
-                List<PortfolioAllocationPropertyDTO> propertyDTOs = new ArrayList<>();
-
                 for (GenerateFuturePlanRequest.SelectedPropertyItem item : items) {
                     Property property = resolveProperty(item);
                     if (property == null) continue;
 
-                    PortfolioAllocationProperty pap = portfolioAllocationPropertyRepository.save(
+                    portfolioAllocationPropertyRepository.save(
                             PortfolioAllocationProperty.builder()
                                     .portfolioAllocation(allocation)
                                     .property(property)
@@ -260,50 +261,23 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                     .monthlyOperatingCost(item.getMonthlyOperatingCost())
                                     .actualPurchasePrice(item.getActualPurchasePrice())
                                     .evaluatedMarketPrice(item.getEvaluatedMarketPrice())
+                                    .holdingMonths(resolveHoldingMonths(item.getHoldingMonths()))
                                     .isSelected(true)
                                     .isActive(true)
                                     .createdAt(now)
                                     .updatedAt(now)
                                     .build());
-
-                    propertyDTOs.add(PortfolioAllocationPropertyDTO.builder()
-                            .portfolioAllocationPropertyId(pap.getPortfolioAllocationPropertyId())
-                            .propertyProjectName(property.getTitle())
-                            .area(property.getArea() != null ? property.getArea().intValue() : 0)
-                            .valuePrice(item.getActualPurchasePrice() != null ? item.getActualPurchasePrice().doubleValue() : 0.0)
-                            .description(item.getUsagePurpose())
-                            .build());
                 }
-
-                portfolioDTOsForResponse.add(InvestmentPortfolioDTO.builder()
-                        .portfolioId(portfolio.getPortfolioId())
-                        .portfolioName(portfolio.getName())
-                        .percentage(0)
-                        .capital((double) capitalForThisPortfolio)
-                        .allocations(List.of(PortfolioAllocationDTO.builder()
-                                .propertyTypeName(portfolio.getName())
-                                .properties(propertyDTOs)
-                                .build()))
-                        .build());
             }
 
-            // 10. Build response DTO
-            InvestmentFuturePlanDTO responseDTO = InvestmentFuturePlanDTO.builder()
+            // 10. Response GỌN — chỉ xác nhận đã tạo + newVersionId để FE gọi
+            //     GET /investment-plans/future/{newVersionId} lấy output đầy đủ.
+            FuturePlanCreatedResponse responseDTO = FuturePlanCreatedResponse.builder()
                     .newVersionId(savedVersion.getProfileVersionId())
                     .newVersionName(savedVersion.getProfileVersionName())
                     .sourceVersionId(sourceVersion.getProfileVersionId())
                     .sourceVersionName(sourceVersion.getProfileVersionName())
-                    .scenarios(aiOutput.getScenarios())
-                    .executionPlan(aiOutput.getExecutionPlan())
-                    .investmentPortfolios(portfolioDTOsForResponse)
-                    .propertyProfitResults(profitResults)
-                    .totalInvestedCapital(aggregation.totalInvestedCapital())
-                    .totalMonthlyNetCashflow(aggregation.totalMonthlyNetCashflow())
-                    .totalRentalIncomeAccumulated(aggregation.totalRentalIncome())
-                    .totalPortfolioProfitAmount(aggregation.totalProfitAmount())
-                    .totalPortfolioProfitPercentage(aggregation.totalProfitPercentage())
-                    .portfolioScore(aiOutput.getScore())
-                    .comparisonWithSource(comparison)
+                    .createdAt(savedVersion.getCreatedAt())
                     .build();
 
             return ResponseEntity.ok(ApiResponse.success(responseDTO, "Tạo và lưu phiên bản kế hoạch tương lai thành công"));
@@ -319,8 +293,8 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     // GET DETAIL — đọc lại y hệt cấu trúc đã lưu, không cần parse JSON blob riêng
     // =====================================================================
 
-    @Override
     @Transactional
+    @Override
     public ResponseEntity<ApiResponse> getFuturePlanDetail(Integer versionId) {
         try {
             InvestmentProfileVersion version = investmentProfileVersionRepository.findById(versionId).orElse(null);
@@ -351,6 +325,83 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             // Đọc trực tiếp profitSummary đã lưu sẵn ở cấp version — không cần tính lại
             Map<String, Object> profitSummary = version.getProfitSummary() != null ? version.getProfitSummary() : Map.of();
 
+            // ── Tái dựng investmentPortfolios + propertyProfitResults từ
+            // InvestmentPortfolio -> PortfolioAllocation -> PortfolioAllocationProperty
+            // đã lưu lúc tạo (KHÔNG còn nhận trực tiếp từ response tạo mới — xem
+            // generateAndSaveFuturePlan đã bỏ build 2 phần này khỏi response). Lợi
+            // nhuận từng property TÍNH LẠI bằng đúng computeProfitResult() (dùng
+            // chung công thức với lúc tạo) từ các field đã lưu, bao gồm cả
+            // holdingMonths (mới thêm cột để lưu đúng số tháng investor đã nhập).
+            List<InvestmentPortfolioDTO> investmentPortfolios = new ArrayList<>();
+            List<PropertyProfitResultDTO> propertyProfitResults = new ArrayList<>();
+
+            List<InvestmentPortfolio> portfolios = version.getInvestmentPortfolios() != null
+                    ? version.getInvestmentPortfolios() : List.of();
+            for (InvestmentPortfolio ip : portfolios) {
+                List<PortfolioAllocation> allocations = portfolioAllocationRepository
+                        .findByInvestmentPortfolio_InvestmentPortfolioId(ip.getInvestmentPortfolioId());
+
+                List<PortfolioAllocationPropertyDTO> propertyDTOs = new ArrayList<>();
+                for (PortfolioAllocation alloc : allocations) {
+                    List<PortfolioAllocationProperty> paps = alloc.getPortfolioAllocationProperties() != null
+                            ? alloc.getPortfolioAllocationProperties() : List.of();
+                    for (PortfolioAllocationProperty pap : paps) {
+                        Property property = pap.getProperty();
+                        String propertyName = property != null && property.getTitle() != null
+                                ? property.getTitle() : "Bất động sản";
+
+                        propertyDTOs.add(PortfolioAllocationPropertyDTO.builder()
+                                .portfolioAllocationPropertyId(pap.getPortfolioAllocationPropertyId())
+                                .propertyProjectName(propertyName)
+                                .area(property != null && property.getArea() != null ? property.getArea().intValue() : 0)
+                                .valuePrice(pap.getActualPurchasePrice() != null ? pap.getActualPurchasePrice().doubleValue() : 0.0)
+                                .description(pap.getUsagePurpose())
+                                .build());
+
+                        if (pap.getActualPurchasePrice() != null && pap.getActualPurchasePrice() > 0) {
+                            long initialPrice = pap.getActualPurchasePrice();
+                            long evaluatedPrice = pap.getEvaluatedMarketPrice() != null ? pap.getEvaluatedMarketPrice() : initialPrice;
+                            long monthlyRevenue = pap.getMonthlyRevenue() != null ? pap.getMonthlyRevenue() : 0L;
+                            long monthlyOpCost = pap.getMonthlyOperatingCost() != null ? pap.getMonthlyOperatingCost() : 0L;
+                            int holdingMonths = resolveHoldingMonths(pap.getHoldingMonths());
+
+                            // LƯU Ý: PortfolioAllocationProperty chỉ lưu FK tới Property, KHÔNG
+                            // lưu lại listingId gốc (property SYSTEM có thể đã bị gỡ/đổi listing
+                            // khác sau này, và property MANUAL vốn dĩ không có listingId). Dùng
+                            // propertyId thay thế cho field "listingId" của PropertyProfitResultDTO
+                            // — đủ để FE định danh property, KHÔNG hoàn toàn tương đương listingId
+                            // gốc lúc investor chọn (khác nhẹ so với lúc tạo — chấp nhận được vì
+                            // property KHÔNG đổi, chỉ có thể có nhiều/không có listing bao quanh nó).
+                            propertyProfitResults.add(computeProfitResult(
+                                    property != null ? property.getPropertyId() : null,
+                                    propertyName, pap.getUsagePurpose(),
+                                    initialPrice, evaluatedPrice, monthlyRevenue, monthlyOpCost, holdingMonths));
+                        }
+                    }
+                }
+
+                investmentPortfolios.add(InvestmentPortfolioDTO.builder()
+                        .portfolioId(ip.getPortfolio() != null ? ip.getPortfolio().getPortfolioId() : null)
+                        .portfolioName(ip.getPortfolio() != null ? ip.getPortfolio().getName() : null)
+                        .percentage(ip.getPercentage())
+                        .capital(ip.getCapital())
+                        .allocations(List.of(PortfolioAllocationDTO.builder()
+                                .propertyTypeName(ip.getPortfolio() != null ? ip.getPortfolio().getName() : null)
+                                .properties(propertyDTOs)
+                                .build()))
+                        .build());
+            }
+
+            InvestmentFuturePlanDTO.ComparisonSummaryDTO comparisonDTO = InvestmentFuturePlanDTO.ComparisonSummaryDTO.builder()
+                    .originalExpectedYield(profitSummary.get("originalExpectedYield") != null
+                            ? ((Number) profitSummary.get("originalExpectedYield")).doubleValue() : null)
+                    .actualCalculatedYield(((Number) profitSummary.getOrDefault("totalProfitPercentage", 0.0)).doubleValue())
+                    .yieldDelta(profitSummary.get("yieldDelta") != null
+                            ? ((Number) profitSummary.get("yieldDelta")).doubleValue() : null)
+                    .aiComparisonNote((String) profitSummary.get("aiComparisonNote"))
+                    .aiActionRecommendation((String) profitSummary.get("aiActionRecommendation"))
+                    .build();
+
             InvestmentFuturePlanDTO dto = InvestmentFuturePlanDTO.builder()
                     .newVersionId(version.getProfileVersionId())
                     .newVersionName(version.getProfileVersionName())
@@ -358,11 +409,16 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .sourceVersionName(version.getBaseVersion() != null ? version.getBaseVersion().getProfileVersionName() : null)
                     .scenarios(scenarioDTOs)
                     .executionPlan(executionPlanDTO)
+                    .investmentPortfolios(investmentPortfolios)
+                    .propertyProfitResults(propertyProfitResults)
                     .totalInvestedCapital(((Number) profitSummary.getOrDefault("totalInvestedCapital", 0L)).longValue())
                     .totalMonthlyNetCashflow(((Number) profitSummary.getOrDefault("totalMonthlyNetCashflow", 0L)).longValue())
                     .totalRentalIncomeAccumulated(((Number) profitSummary.getOrDefault("totalRentalIncome", 0L)).longValue())
                     .totalPortfolioProfitAmount(((Number) profitSummary.getOrDefault("totalProfitAmount", 0L)).longValue())
                     .totalPortfolioProfitPercentage(((Number) profitSummary.getOrDefault("totalProfitPercentage", 0.0)).doubleValue())
+                    .portfolioScore(profitSummary.get("portfolioScore") != null
+                            ? ((Number) profitSummary.get("portfolioScore")).intValue() : null)
+                    .comparisonWithSource(comparisonDTO)
                     .build();
 
             return ResponseEntity.ok(ApiResponse.success(dto, "Lấy chi tiết kế hoạch tương lai thành công"));
@@ -389,6 +445,43 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         return listing != null ? listing.getProperty() : null;
     }
 
+    /** Mặc định 6 tháng khi investor không nhập hoặc nhập giá trị không hợp lệ (&lt;= 0). */
+    private static int resolveHoldingMonths(Integer raw) {
+        return raw != null && raw > 0 ? raw : 6;
+    }
+
+    /**
+     * Công thức tính lợi nhuận DÙNG CHUNG — được gọi ở 2 nơi:
+     *  (1) calculatePropertyProfits() lúc TẠO (input từ GenerateFuturePlanRequest),
+     *  (2) getFuturePlanDetail() lúc ĐỌC LẠI (input từ PortfolioAllocationProperty đã lưu).
+     * Tách ra để 2 nơi này KHÔNG BAO GIỜ lệch công thức với nhau.
+     */
+    private PropertyProfitResultDTO computeProfitResult(Integer listingId, String propertyName, String usagePurpose,
+                                                        long initialPrice, long evaluatedPrice,
+                                                        long monthlyRevenue, long monthlyOpCost, int holdingMonths) {
+        long monthlyNetCashflow = monthlyRevenue - monthlyOpCost;
+        long capitalGain = evaluatedPrice - initialPrice;
+        long totalRentalIncome = monthlyNetCashflow * holdingMonths;
+        long totalProfit = capitalGain + totalRentalIncome;
+        double profitPct = initialPrice > 0 ? ((double) totalProfit / initialPrice) * 100.0 : 0.0;
+        double annualizedYield = holdingMonths > 0 ? profitPct / (holdingMonths / 12.0) : 0.0;
+
+        return PropertyProfitResultDTO.builder()
+                .listingId(listingId)
+                .propertyName(propertyName)
+                .usagePurpose(usagePurpose)
+                .initialPrice(initialPrice)
+                .evaluatedMarketPrice(evaluatedPrice)
+                .capitalGain(capitalGain)
+                .monthlyNetCashflow(monthlyNetCashflow)
+                .totalRentalIncome(totalRentalIncome)
+                .holdingMonths(holdingMonths)
+                .totalProfitAmount(totalProfit)
+                .profitPercentage(Math.round(profitPct * 100.0) / 100.0)
+                .annualizedYield(Math.round(annualizedYield * 100.0) / 100.0)
+                .build();
+    }
+
     private List<PropertyProfitResultDTO> calculatePropertyProfits(List<GenerateFuturePlanRequest.SelectedPropertyItem> items) {
         List<PropertyProfitResultDTO> results = new ArrayList<>();
         for (GenerateFuturePlanRequest.SelectedPropertyItem item : items) {
@@ -398,33 +491,14 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             long evaluatedPrice = item.getEvaluatedMarketPrice() != null ? item.getEvaluatedMarketPrice() : initialPrice;
             long monthlyRevenue = item.getMonthlyRevenue() != null ? item.getMonthlyRevenue() : 0L;
             long monthlyOpCost = item.getMonthlyOperatingCost() != null ? item.getMonthlyOperatingCost() : 0L;
-            int holdingMonths = item.getHoldingMonths() != null && item.getHoldingMonths() > 0 ? item.getHoldingMonths() : 6;
-
-            long monthlyNetCashflow = monthlyRevenue - monthlyOpCost;
-            long capitalGain = evaluatedPrice - initialPrice;
-            long totalRentalIncome = monthlyNetCashflow * holdingMonths;
-            long totalProfit = capitalGain + totalRentalIncome;
-            double profitPct = initialPrice > 0 ? ((double) totalProfit / initialPrice) * 100.0 : 0.0;
-            double annualizedYield = holdingMonths > 0 ? profitPct / (holdingMonths / 12.0) : 0.0;
+            int holdingMonths = resolveHoldingMonths(item.getHoldingMonths());
 
             String propertyName = "Bất động sản";
             Property property = resolveProperty(item);
             if (property != null && property.getTitle() != null) propertyName = property.getTitle();
 
-            results.add(PropertyProfitResultDTO.builder()
-                    .listingId(item.getListingId())
-                    .propertyName(propertyName)
-                    .usagePurpose(item.getUsagePurpose())
-                    .initialPrice(initialPrice)
-                    .evaluatedMarketPrice(evaluatedPrice)
-                    .capitalGain(capitalGain)
-                    .monthlyNetCashflow(monthlyNetCashflow)
-                    .totalRentalIncome(totalRentalIncome)
-                    .holdingMonths(holdingMonths)
-                    .totalProfitAmount(totalProfit)
-                    .profitPercentage(Math.round(profitPct * 100.0) / 100.0)
-                    .annualizedYield(Math.round(annualizedYield * 100.0) / 100.0)
-                    .build());
+            results.add(computeProfitResult(item.getListingId(), propertyName, item.getUsagePurpose(),
+                    initialPrice, evaluatedPrice, monthlyRevenue, monthlyOpCost, holdingMonths));
         }
         return results;
     }
@@ -442,13 +516,14 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         return new PortfolioAggregation(invested, monthly, rental, profit, Math.round(pct * 100.0) / 100.0);
     }
 
-    private Map<String, Object> buildProfitSummaryMap(PortfolioAggregation agg, InvestmentFuturePlanDTO.ComparisonSummaryDTO comparison) {
+    private Map<String, Object> buildProfitSummaryMap(PortfolioAggregation agg, InvestmentFuturePlanDTO.ComparisonSummaryDTO comparison, Integer portfolioScore) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("totalInvestedCapital", agg.totalInvestedCapital());
         map.put("totalMonthlyNetCashflow", agg.totalMonthlyNetCashflow());
         map.put("totalRentalIncome", agg.totalRentalIncome());
         map.put("totalProfitAmount", agg.totalProfitAmount());
         map.put("totalProfitPercentage", agg.totalProfitPercentage());
+        map.put("portfolioScore", portfolioScore);
         if (comparison != null) {
             map.put("originalExpectedYield", comparison.getOriginalExpectedYield());
             map.put("yieldDelta", comparison.getYieldDelta());
@@ -530,6 +605,61 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         }
         if (response == null) throw new RuntimeException("Gemini API quá tải. Vui lòng thử lại.");
         return objectMapper.readValue(response.text().trim(), InvestmentPlanDTO.class);
+    }
+
+    // =====================================================================
+    // GET /investment-plans/future/by-source/{sourceVersionId} — danh sách
+    // TÓM TẮT các future-version phái sinh từ 1 version gốc (bước giữa giữa
+    // "get all version" và "get future-version detail" — xem javadoc interface)
+    // =====================================================================
+
+    @Override
+    public ResponseEntity<ApiResponse> getFutureVersionsBySourceVersionId(Integer sourceVersionId) {
+        try {
+            InvestmentProfileVersion sourceVersion = investmentProfileVersionRepository
+                    .findById(sourceVersionId).orElse(null);
+            if (sourceVersion == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Version_Not_Found", "Không tìm thấy phiên bản gốc với ID: " + sourceVersionId));
+            }
+
+            List<InvestmentProfileVersion> futureVersions = investmentProfileVersionRepository
+                    .findByBaseVersion_ProfileVersionIdOrderByCreatedAtDesc(sourceVersionId);
+
+            List<FutureVersionSummaryDTO> result = futureVersions.stream()
+                    .map(v -> {
+                        Map<String, Object> summary = v.getProfitSummary() != null ? v.getProfitSummary() : Map.of();
+                        return FutureVersionSummaryDTO.builder()
+                                .futureVersionId(v.getProfileVersionId())
+                                .futureVersionName(v.getProfileVersionName())
+                                .sourceVersionId(sourceVersionId)
+                                .actualCalculatedYield(toDoubleOrNull(summary.get("totalProfitPercentage")))
+                                .yieldDelta(toDoubleOrNull(summary.get("yieldDelta")))
+                                .portfolioScore(toIntegerOrNull(summary.get("portfolioScore")))
+                                .isActive(v.getIsActive())
+                                .createdAt(v.getCreatedAt())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            String msg = result.isEmpty()
+                    ? "Phiên bản này chưa có kế hoạch tương lai nào được tạo"
+                    : "Danh sách " + result.size() + " kế hoạch tương lai phái sinh từ phiên bản này";
+
+            return ResponseEntity.ok(ApiResponse.success(result, msg));
+        } catch (Exception e) {
+            log.error("[InvestmentFuturePlanService] getFutureVersionsBySourceVersionId lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    private static Double toDoubleOrNull(Object o) {
+        return o instanceof Number ? ((Number) o).doubleValue() : null;
+    }
+
+    private static Integer toIntegerOrNull(Object o) {
+        return o instanceof Number ? ((Number) o).intValue() : null;
     }
 
     private InvestmentFuturePlanDTO.ComparisonSummaryDTO buildComparisonSummary(

@@ -41,4 +41,11 @@ public class NotificationController {
     public ResponseEntity<ApiResponse> markAsRead(@PathVariable("notificationId") UUID notificationId) {
         return notificationService.markAsRead(notificationId);
     }
+
+    @PatchMapping("/read-all")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Đánh dấu TOÀN BỘ thông báo của tôi đã đọc")
+    public ResponseEntity<ApiResponse> markAllAsRead() {
+        return notificationService.markAllAsRead();
+    }
 }
