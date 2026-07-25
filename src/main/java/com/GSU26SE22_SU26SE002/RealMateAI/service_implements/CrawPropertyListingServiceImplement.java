@@ -5,6 +5,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingReposi
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CrawPropertyListingServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
 import com.microsoft.playwright.*;
+import com.microsoft.playwright.options.WaitUntilState;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -39,7 +40,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Autowired
     private HeatmapZoneServiceInterface heatmapZoneService;
 
-    private static final int DAILY_TARGET_LISTINGS = 300;
+    private static final int DAILY_TARGET_LISTINGS = 600;
     private int currentDailyCrawledCount = 0;
 
     @Scheduled(cron = "0 0 0 * * ?")
@@ -76,17 +77,20 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         File crashFileDir = crashDir.toFile();
         if (!crashFileDir.exists()) crashFileDir.mkdirs();
 
-        Path userDataDir = Paths.get(System.getProperty("java.io.tmpdir"), "chrome-profile-bot-" + System.currentTimeMillis()).toAbsolutePath();
+        Path userDataDir = isServer
+                ? Paths.get(System.getProperty("java.io.tmpdir"), "chrome-profile-bot-" + System.currentTimeMillis()).toAbsolutePath()
+                : Paths.get(System.getProperty("user.home"), ".chrome-bot-profile").toAbsolutePath();
         File profileDir = userDataDir.toFile();
         if (!profileDir.exists()) profileDir.mkdirs();
+
+        int totalCrawledInBatch = 0;
+        int pageNum = 1;
+        int consecutiveEmptyPages = 0;
 
         try (Playwright playwright = Playwright.create()) {
             List<String> browserArgs = Arrays.asList(
                     "--no-sandbox",
-                    "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-software-rasterizer",
                     "--disable-blink-features=AutomationControlled",
                     "--disable-infobars",
                     "--disable-session-crashed-bubble",
@@ -94,14 +98,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     "--window-size=1920,1080",
                     "--start-maximized",
                     "--lang=vi-VN,vi",
-                    "--disable-crash-reporter",
-                    "--disable-component-update",
-                    "--no-crash-upload",
-                    "--enable-webgl",
-                    "--ignore-gpu-blocklist",
-                    "--use-gl=angle",
-                    "--use-angle=swiftshader",
-                    "--enable-features=Vulkan,UseSkiaRenderer",
                     "--crash-dumps-dir=" + crashDir.toString()
             );
 
@@ -126,15 +122,30 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     .setArgs(browserArgs)
                     .setViewportSize(1920, 1080);
 
+            if (!isServer) {
+                Path localChromePath = Paths.get("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe");
+                if (localChromePath.toFile().exists()) {
+                    options.setExecutablePath(localChromePath);
+                }
+            }
+
             BrowserContext context = playwright.chromium().launchPersistentContext(userDataDir, options);
 
             context.addInitScript(
-                    "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });\n" +
-                            "window.navigator.chrome = { runtime: {} };\n" +
-                            "Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
-                            "Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
-                            "Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });\n" +
-                            "Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });"
+                    "(() => {\n" +
+                            "    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });\n" +
+                            "    window.chrome = { runtime: {}, app: { isInstalled: false } };\n" +
+                            "    Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
+                            "    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
+                            "    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });\n" +
+                            "    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });\n" +
+                            "    const originalQuery = window.navigator.permissions.query;\n" +
+                            "    window.navigator.permissions.query = (parameters) => (\n" +
+                            "        parameters.name === 'notifications' ?\n" +
+                            "        Promise.resolve({ state: Notification.permission }) :\n" +
+                            "        originalQuery(parameters)\n" +
+                            "    );\n" +
+                            "})();"
             );
 
             Page page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
@@ -145,9 +156,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     .collect(Collectors.toSet());
 
             Set<String> processedUrlsInBatch = new HashSet<>();
-            int totalCrawledInBatch = 0;
-            int pageNum = 1;
-            int consecutiveEmptyPages = 0;
 
             while ((this.currentDailyCrawledCount + totalCrawledInBatch) < DAILY_TARGET_LISTINGS && pageNum <= 100) {
                 String targetUrl = (pageNum == 1)
@@ -158,14 +166,16 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     System.out.println("\n[1] MỞ TRANG DANH SÁCH TỔNG (Trang " + pageNum + "): " + targetUrl);
                     System.out.flush();
 
-                    page.navigate(targetUrl, new Page.NavigateOptions().setTimeout(45000));
+                    page.navigate(targetUrl, new Page.NavigateOptions()
+                            .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                            .setTimeout(45000));
                     page.mouse().move(150, 200);
                     page.mouse().move(350, 450);
                     randomSleep(2500, 4000);
 
                     String pageTitle = page.title();
-                    if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied")) {
-                        System.err.println(" ⚠️ [CLOUDFLARE BLOCK] IP bị Cloudflare chặn tại: " + targetUrl);
+                    if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
+                        System.err.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại: " + targetUrl);
                         break;
                     }
 
@@ -222,7 +232,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         }
 
                         CrawPropertyListing fullListing = fetchCoordinates(candidate, page);
-                        if (fullListing != null) {
+
+                        if (fullListing != null && fullListing.getLatitude() != null && fullListing.getLongitude() != null) {
                             pageResultList.add(fullListing);
                             totalCrawledInBatch++;
                         }
@@ -249,37 +260,39 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             context.close();
 
-            this.currentDailyCrawledCount += totalCrawledInBatch;
-
-            System.out.println("\n=================== KẾT THÚC ĐỢT CÀO ===================");
-            System.out.println("-> Cào được đợt này: " + totalCrawledInBatch + " tin mới.");
-            System.out.println("-> Tổng tích lũy hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
-
-            boolean isQuotaReached = this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS;
-            boolean isSourceExhausted = (totalCrawledInBatch == 0 && this.currentDailyCrawledCount > 0);
-
-            if (isQuotaReached || isSourceExhausted) {
-                System.out.println("\n🔥 [TRIGGER SNAPSHOT] Chốt sổ dữ liệu cào trong ngày (" + this.currentDailyCrawledCount + " tin).");
-                System.out.println("[HEATMAP] Tiến hành lọc mẫu theo ngưỡng (>= N tin) và Tạo Snapshot Heatmap...");
-                System.out.flush();
-                try {
-                    heatmapZoneService.generateDailySnapshot();
-                    System.out.println("[HEATMAP] ✅ Đã hoàn tất tạo Snapshot Heatmap cho ngày hôm nay!");
-                } catch (Exception heatmapEx) {
-                    System.err.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
-                }
-            } else {
-                System.out.println("[HEATMAP] ℹ️ Đang cào dở dang (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ đợt cào tiếp theo để chốt Snapshot.");
-            }
-            System.out.flush();
-
         } catch (Exception e) {
             System.err.println("Lỗi hệ thống Playwright: " + e.getMessage());
         } finally {
-            try {
-                FileSystemUtils.deleteRecursively(userDataDir);
-            } catch (Exception ignored) {}
+            if (isServer) {
+                try {
+                    FileSystemUtils.deleteRecursively(userDataDir);
+                } catch (Exception ignored) {}
+            }
         }
+
+        this.currentDailyCrawledCount += totalCrawledInBatch;
+
+        System.out.println("\n=================== KẾT THÚC ĐỢT CÀO ===================");
+        System.out.println("-> Cào được đợt này: " + totalCrawledInBatch + " tin mới.");
+        System.out.println("-> Tổng tích lũy hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin.");
+
+        boolean isQuotaReached = this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS;
+        boolean isSourceExhausted = (consecutiveEmptyPages >= 15) || (pageNum > 100);
+
+        if (isQuotaReached || isSourceExhausted) {
+            System.out.println("\n🔥 [TRIGGER SNAPSHOT] Chốt sổ dữ liệu cào trong ngày (" + this.currentDailyCrawledCount + " tin).");
+            System.out.println("[HEATMAP] Tiến hành lọc mẫu theo ngưỡng (>= N tin) và Tạo Snapshot Heatmap...");
+            System.out.flush();
+            try {
+                heatmapZoneService.generateDailySnapshot();
+                System.out.println("[HEATMAP] ✅ Đã hoàn tất tạo Snapshot Heatmap cho ngày hôm nay!");
+            } catch (Exception heatmapEx) {
+                System.err.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
+            }
+        } else {
+            System.out.println("[HEATMAP] ℹ️ Đang cào dở dang (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ đợt cào tiếp theo để chốt Snapshot.");
+        }
+        System.out.flush();
     }
 
     private CrawPropertyListing extractBasicInfo(Element card) {
@@ -296,17 +309,29 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             String fullDetailUrl = detailLink.startsWith("http") ? detailLink : "https://batdongsan.com.vn" + detailLink;
 
-            BigDecimal price = parsePrice(card.select(".re__card-config-price").text());
+            String rawPriceText = card.select(".re__card-config-price").text();
             BigDecimal area = parseArea(card.select(".re__card-config-area").text());
+
+            BigDecimal price = null;
+            BigDecimal pricePerM2 = null;
+
+            if (rawPriceText.contains("/m²") || rawPriceText.contains("/m2")) {
+                pricePerM2 = parsePriceTextToAmount(rawPriceText);
+                if (pricePerM2 != null && area != null && area.compareTo(BigDecimal.ZERO) > 0) {
+                    price = pricePerM2.multiply(area).setScale(2, RoundingMode.HALF_UP);
+                }
+            } else {
+                price = parsePriceTextToAmount(rawPriceText);
+                if (price != null && area != null && area.compareTo(BigDecimal.ZERO) > 0) {
+                    pricePerM2 = price.divide(area, 2, RoundingMode.HALF_UP);
+                }
+            }
 
             CrawPropertyListing listing = new CrawPropertyListing();
             listing.setSourceUrl(fullDetailUrl);
             listing.setPrice(price);
             listing.setArea(area);
-
-            if (price != null && area != null && area.compareTo(BigDecimal.ZERO) > 0) {
-                listing.setPricePerM2(price.divide(area, 2, RoundingMode.HALF_UP));
-            }
+            listing.setPricePerM2(pricePerM2);
 
             String dateText = card.select(".re__card-published-date").text();
             listing.setPosted_date(parsePostedDate(dateText));
@@ -319,11 +344,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     }
 
     private CrawPropertyListing fetchCoordinates(CrawPropertyListing listing, Page page) {
-        System.out.println("\n   [2] TRUY CẬP TRANG CHI TIẾT LẤY TỌA ĐỘ: " + listing.getSourceUrl());
-        System.out.flush();
-
         try {
-            page.navigate(listing.getSourceUrl(), new Page.NavigateOptions().setTimeout(30000));
+            page.navigate(listing.getSourceUrl(), new Page.NavigateOptions()
+                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                    .setTimeout(30000));
 
             scrollPageSmoothly(page);
             randomSleep(1500, 2500);
@@ -411,16 +435,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             if (latStr != null && lngStr != null && !latStr.equals("0") && !latStr.isEmpty()) {
                 listing.setLatitude(new BigDecimal(latStr));
                 listing.setLongitude(new BigDecimal(lngStr));
-                System.out.println("     ✅ [SUCCESS TỌA ĐỘ]: Lat=" + latStr + ", Long=" + lngStr);
-            } else {
-                System.out.println("     ⚠️ [WARNING] Không tìm thấy tọa độ cho bài này: " + listing.getSourceUrl());
             }
 
-        } catch (Exception detailEx) {
-            System.out.println("     ❌ [ERROR TIMEOUT/LOAD] Bỏ qua bài này do lỗi: " + detailEx.getMessage());
-        } finally {
-            System.out.flush();
-        }
+        } catch (Exception ignored) {}
 
         return listing;
     }
@@ -484,10 +501,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         } catch (InterruptedException ignored) {}
     }
 
-    private BigDecimal parsePrice(String priceText) {
+    private BigDecimal parsePriceTextToAmount(String priceText) {
         if (priceText == null || priceText.isEmpty() || priceText.contains("Thỏa thuận")) return null;
         try {
             String clean = priceText.replaceAll("[^0-9.,]", "").trim().replace(",", ".");
+            if (clean.isEmpty()) return null;
+
             double value = Double.parseDouble(clean);
             if (priceText.contains("tỷ")) {
                 return BigDecimal.valueOf(value * 1_000_000_000);

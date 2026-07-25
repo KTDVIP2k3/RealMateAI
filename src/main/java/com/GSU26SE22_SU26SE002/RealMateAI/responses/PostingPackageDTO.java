@@ -18,4 +18,5 @@ public class PostingPackageDTO {
     private BigDecimal posting_package_price;
     private BigDecimal  priority;
     private BigDecimal duration;
+    private Boolean isActive;
 }

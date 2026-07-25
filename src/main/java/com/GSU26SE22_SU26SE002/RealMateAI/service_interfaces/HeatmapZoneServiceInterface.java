@@ -11,11 +11,16 @@ public interface HeatmapZoneServiceInterface {
     void generateDailySnapshot();
 
     List<HeatmapZone> getHeatmapZonesByViewport(
-            LocalDate targetDate,
             Integer zoomLevel,
             BigDecimal minLat,
             BigDecimal maxLat,
             BigDecimal minLong,
             BigDecimal maxLong
     );
+
+    List<HeatmapZone> getHeatmapZonesByViewportV2(
+            BigDecimal minLat,
+            BigDecimal maxLat,
+            BigDecimal minLong,
+            BigDecimal maxLong);
 }
