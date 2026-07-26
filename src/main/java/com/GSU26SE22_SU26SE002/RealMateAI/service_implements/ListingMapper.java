@@ -32,6 +32,14 @@ public class ListingMapper {
             Comparator.comparing((ListingImage img) -> !Boolean.TRUE.equals(img.getIsThumbnail()))
                     .thenComparing(ListingImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder()));
 
+    /**
+     * Chi tiết đầy đủ 1 tin đăng — dùng CHUNG cho MỌI nơi hiển thị (public
+     * GET /listings/{id}, GET /seller/listings/{id}, Staff duyệt tin, response
+     * của POST /listings lúc tạo...). KHÔNG còn phân biệt 2 bản "public" vs
+     * "owner" nữa — sellerAvatar/sellerStatus/contactPersonName/
+     * linkSocialContactPerson đã bỏ HẲN khỏi mọi nơi (không chỉ null ở 1 view
+     * cụ thể), wardCode (mã vùng) + email luôn được trả kèm ở MỌI nơi.
+     */
     public ListingDetailResponse toListingDetail(Listing l, Property p) {
 
         List<ListingImageResponse> images = toListingImageResponses(l);
@@ -40,6 +48,7 @@ public class ListingMapper {
 
         Seller seller = l.getSeller();
         Account sellerAccount = seller != null ? seller.getAccount() : null;
+        Ward ward = (p != null && p.getLocation() != null) ? p.getLocation().getWard() : null;
 
         ListingVerification lv = l.getListingVerification();
 
@@ -49,14 +58,11 @@ public class ListingMapper {
                 .description(l.getDescription())
                 .price(l.getPrice())
                 .contactPerson(l.getContactPerson())
-                .contactPersonName(l.getContactPersonName())
                 .contactPersonPhone(l.getContactPersonPhone())
-                .linkSocialContactPerson(l.getLinkSocialContactPerson())
                 .viewingDate(l.getViewingDate())
                 .startTime(l.getStartTime())
                 .endTime(l.getEndTime())
                 .isActive(l.getIsActive())
-                .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .reviewerNote(lv != null ? lv.getReviewerNote() : null)
                 .isVerified(l.getIsVerified())
@@ -65,42 +71,14 @@ public class ListingMapper {
                 .images(images)
                 .sellerId(seller != null ? seller.getSellerId() : null)
                 .sellerName(sellerAccount != null ? sellerAccount.getFull_name() : null)
-                .sellerAvatar(sellerAccount != null ? sellerAccount.getAvatar() : null)
                 .sellerPhone(sellerAccount != null ? sellerAccount.getPhone() : null)
+                .viewCount(l.getViewCount())
+                .wardCode(ward != null ? ward.getWard_code() : null)
+                .email(l.getContactEmail() != null ? l.getContactEmail()
+                        : (sellerAccount != null ? sellerAccount.getEmail() : null))
                 .createdAt(l.getCreatedAt())
                 .updatedAt(l.getUpdatedAt())
                 .build();
-    }
-
-    /**
-     * Chi tiết tin đăng dành RIÊNG cho chính Seller xem tin CỦA MÌNH
-     * (GET /seller/listings/{listingId}) — KHÁC với toListingDetail() dùng
-     * chung cho chi tiết công khai/Staff duyệt:
-     *  - BỎ populate: sellerAvatar, sellerStatus, contactPersonName,
-     *    linkSocialContactPerson (Seller xem tin của chính mình không cần
-     *    những field này — sellerAvatar/sellerStatus là thông tin hiển thị
-     *    cho NGƯỜI KHÁC xem, contactPersonName/linkSocialContactPerson chỉ
-     *    cần khi hiển thị công khai để Investor liên hệ).
-     *  - THÊM: wardCode (mã vùng, lấy phẳng từ property.location.ward — tiện
-     *    hơn cho FE thay vì phải đi sâu vào property.wardCode), email (email
-     *    Seller — thông tin NHẠY CẢM, chỉ lộ ra ở đúng view này, KHÔNG lộ ra
-     *    ở chi tiết công khai GET /listings/{listingId}).
-     */
-    public ListingDetailResponse toListingDetailForOwner(Listing l, Property p) {
-        ListingDetailResponse base = toListingDetail(l, p);
-
-        base.setSellerAvatar(null);
-        base.setSellerStatus(null);
-        base.setContactPersonName(null);
-        base.setLinkSocialContactPerson(null);
-
-        Account sellerAccount = l.getSeller() != null ? l.getSeller().getAccount() : null;
-        Ward ward = (p != null && p.getLocation() != null) ? p.getLocation().getWard() : null;
-
-        base.setWardCode(ward != null ? ward.getWard_code() : null);
-        base.setEmail(sellerAccount != null ? sellerAccount.getEmail() : null);
-
-        return base;
     }
 
     /**
@@ -124,6 +102,7 @@ public class ListingMapper {
                 .legalStatus(p.getLegalStatus())
                 .addressParticular(p.getAddressParticular())
                 .projectName(p.getProjectName())
+                .furniture(p.getFurniture())
                 .propertyTypeName(p.getPropertyType() != null ? p.getPropertyType().getName() : null)
                 .propertyConditionName(p.getPropertyCondition() != null ? p.getPropertyCondition().getName() : null)
                 .latitude(loc != null ? loc.getLatitude() : null)
@@ -140,6 +119,7 @@ public class ListingMapper {
 
     public ListingSummaryResponse toListingSummary(Listing l, boolean isFavorited) {
         Property p = l.getProperty();
+        Location loc = p != null ? p.getLocation() : null;
 
         String thumbnail = resolveThumbnailUrl(l);
 
@@ -155,7 +135,9 @@ public class ListingMapper {
                 .propertyTypeName(p != null && p.getPropertyType() != null ? p.getPropertyType().getName() : null)
                 .thumbnailUrl(thumbnail)
                 .isActive(l.getIsActive())
-                .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
+                .latitude(loc != null ? loc.getLatitude() : null)
+                .longitude(loc != null ? loc.getLongitude() : null)
+                .viewCount(l.getViewCount())
                 .createdAt(l.getCreatedAt())
                 .isFavorited(isFavorited)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)

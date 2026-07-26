@@ -28,14 +28,11 @@ public class UpdateListingRequest {
     @Schema(example = "owner")
     private String contactPerson;
 
-    @Schema(example = "Nguyễn Văn A")
-    private String contactPersonName;
-
     @Schema(example = "0901234567")
     private String contactPersonPhone;
 
-    @Schema(example = "https://zalo.me/0901234567")
-    private String linkSocialContactPerson;
+    @Schema(description = "Email liên hệ RIÊNG cho tin đăng này (optional). null = giữ nguyên, không đổi.", example = "seller-contact@gmail.com")
+    private String contactEmail;
 
     @Schema(example = "2025-08-01")
     private String viewingDate;
@@ -70,6 +67,9 @@ public class UpdateListingRequest {
 
     @Schema(example = "Đông Nam")
     private String direction;
+
+    @Schema(description = "Nội thất — mô tả tự do", example = "Đầy đủ nội thất")
+    private String furniture;
 
     @Schema(example = "1")
     private Integer propertyTypeId;

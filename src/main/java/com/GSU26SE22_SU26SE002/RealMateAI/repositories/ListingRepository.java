@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -197,4 +198,15 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             @Param("propertyTypeId") Integer propertyTypeId,
             @Param("maxPrice") Long maxPrice
     );
+
+    /**
+     * Tăng viewCount +1 — dùng trong ListingServiceImplement#getListingDetail()
+     * mỗi lần GET chi tiết công khai. Update thẳng bằng JPQL (không load
+     * entity ra rồi save lại) để tránh việc set lại các field khác đang có
+     * trong request/entity ngoài ý muốn, và tránh race-condition khi nhiều
+     * người xem cùng lúc (UPDATE ... SET x = x + 1 là atomic ở tầng DB).
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Listing l SET l.viewCount = COALESCE(l.viewCount, 0) + 1 WHERE l.listingId = :listingId")
+    void incrementViewCount(@Param("listingId") Integer listingId);
 }

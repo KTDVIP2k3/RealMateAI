@@ -87,6 +87,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         int pageNum = 1;
         boolean reachedEndOfSource = false;
 
+        BrowserContext context = null;
+        Page page = null;
+
         try (Playwright playwright = Playwright.create()) {
             List<String> browserArgs = Arrays.asList(
                     "--no-sandbox",
@@ -129,7 +132,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 }
             }
 
-            BrowserContext context = playwright.chromium().launchPersistentContext(userDataDir, options);
+            context = playwright.chromium().launchPersistentContext(userDataDir, options);
 
             context.addInitScript(
                     "(() => {\n" +
@@ -148,7 +151,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             "})();"
             );
 
-            Page page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
+            page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
 
             Set<String> existingUrlsInDb = crawPropertyListingRepository.findAll().stream()
                     .map(CrawPropertyListing::getSourceUrl)
@@ -166,11 +169,19 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     System.out.println("\n[1] MỞ TRANG DANH SÁCH TỔNG (Trang " + pageNum + "): " + targetUrl);
                     System.out.flush();
 
-                    page.navigate(targetUrl, new Page.NavigateOptions()
-                            .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                            .setTimeout(45000));
-                    page.mouse().move(150, 200);
-                    page.mouse().move(350, 450);
+                    // Bọc riêng thao tác mở trang để catch TimeoutError
+                    try {
+                        page.navigate(targetUrl, new Page.NavigateOptions()
+                                .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                                .setTimeout(45000));
+                        page.mouse().move(150, 200);
+                        page.mouse().move(350, 450);
+                    } catch (TimeoutError te) {
+                        System.err.println("⚠️ [TIMEOUT] Trang " + pageNum + " phản hồi quá lâu (>45s). Đánh dấu dừng cào!");
+                        reachedEndOfSource = true;
+                        break;
+                    }
+
                     randomSleep(2500, 4000);
 
                     String currentUrl = page.url();
@@ -255,11 +266,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 }
             }
 
-            context.close();
-
         } catch (Exception e) {
             System.err.println("Lỗi hệ thống Playwright: " + e.getMessage());
         } finally {
+            // Dọn dẹp tài nguyên safe-check
+            if (page != null && !page.isClosed()) {
+                try { page.close(); } catch (Exception ignored) {}
+            }
+            if (context != null) {
+                try { context.close(); } catch (Exception ignored) {}
+            }
+
             if (isServer) {
                 try {
                     FileSystemUtils.deleteRecursively(userDataDir);

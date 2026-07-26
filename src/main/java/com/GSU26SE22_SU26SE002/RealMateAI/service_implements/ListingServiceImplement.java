@@ -212,6 +212,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .legalStatus(request.getPropLegalStatus())
                         .addressParticular(request.getPropAddressParticular())
                         .projectName(request.getPropProjectName())
+                        .furniture(request.getPropFurniture())
                         // Property MỚI tạo cùng Listing phải ở trạng thái CHỜ DUYỆT
                         // (isActive=false), chỉ bật lên khi Staff APPROVE bài đăng
                         // (xem ListingVerificationServiceImplement#verifyListing).
@@ -233,6 +234,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .title(request.getTitle())
                     .description(request.getDescription())
                     .price(request.getPrice())
+                    .contactPerson(request.getContactPerson())
+                    .contactPersonPhone(request.getContactPersonPhone())
+                    .contactEmail(request.getContactEmail())
                     .viewingDate(request.getViewingDate())
                     .startTime(request.getStartTime())
                     .endTime(request.getEndTime())
@@ -281,7 +285,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             // chính Seller đang tạo tin.
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(
-                            listingMapper.toListingDetailForOwner(refreshedListing, refreshed), msg));
+                            listingMapper.toListingDetail(refreshedListing, refreshed), msg));
 
         } catch (RuntimeException e) {
             return handleAuthException(e);
@@ -416,6 +420,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account viewer = authenUntil.getCurrentUSer();
             userEventTrackingService.recordSilently(viewer, UserEventTypeEnum.VIEW, listingId);
 
+            // Tăng viewCount (dùng cho sort MOST_VIEWED ở POST /listings/search) —
+            // đếm MỌI lượt xem kể cả khách ẩn danh (khác recordSilently ở trên,
+            // vốn chỉ ghi log khi xác định được người xem).
+            listingRepository.incrementViewCount(listingId);
+
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(listing, listing.getProperty()), "Chi tiết tin đăng"));
         } catch (Exception e) {
@@ -541,9 +550,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             if (request.getDescription() != null) listing.setDescription(request.getDescription());
             if (request.getPrice() != null) listing.setPrice(request.getPrice());
             if (request.getContactPerson() != null) listing.setContactPerson(request.getContactPerson());
-            if (request.getContactPersonName() != null) listing.setContactPersonName(request.getContactPersonName());
             if (request.getContactPersonPhone() != null) listing.setContactPersonPhone(request.getContactPersonPhone());
-            if (request.getLinkSocialContactPerson() != null) listing.setLinkSocialContactPerson(request.getLinkSocialContactPerson());
+            if (request.getContactEmail() != null) listing.setContactEmail(request.getContactEmail());
             if (request.getViewingDate() != null) listing.setViewingDate(request.getViewingDate());
             if (request.getStartTime() != null) listing.setStartTime(request.getStartTime());
             if (request.getEndTime() != null) listing.setEndTime(request.getEndTime());
@@ -561,6 +569,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 if (request.getBedroom() != null) property.setBedroom(request.getBedroom());
                 if (request.getBathroom() != null) property.setBathroom(request.getBathroom());
                 if (request.getDirection() != null) property.setDirection(request.getDirection());
+                if (request.getFurniture() != null) property.setFurniture(request.getFurniture());
 
                 // Update PropertyType, PropertyCondition, Location... (giữ nguyên code cũ)
 
@@ -1124,6 +1133,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 case PRICE_DESC -> Sort.by(Sort.Direction.DESC, "price");
                 case AREA_ASC -> Sort.by(Sort.Direction.ASC, "property.area");
                 case AREA_DESC -> Sort.by(Sort.Direction.DESC, "property.area");
+                case OLDEST -> Sort.by(Sort.Direction.ASC, "createdAt");
+                case MOST_VIEWED -> Sort.by(Sort.Direction.DESC, "viewCount");
                 case NEWEST -> Sort.by(Sort.Direction.DESC, "createdAt");
             };
 

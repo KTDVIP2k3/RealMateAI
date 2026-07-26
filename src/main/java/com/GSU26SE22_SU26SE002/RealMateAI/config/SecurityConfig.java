@@ -89,6 +89,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/posting-packages/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/posting-package-categories/**").permitAll() // Thêm cấu hình GET public ở đây
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/listings/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/media/thumbnail").permitAll()
                         .requestMatchers(
                                 "/locations/**",
