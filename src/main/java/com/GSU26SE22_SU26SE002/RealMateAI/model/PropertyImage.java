@@ -9,6 +9,7 @@ import lombok.*;
 @Entity @Table(name = "property_image")
 public class PropertyImage {
 
+
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "property_image_id")
     private Integer propertyImageId;
