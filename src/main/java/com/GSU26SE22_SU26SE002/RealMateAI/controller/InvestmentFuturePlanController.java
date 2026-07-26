@@ -31,9 +31,10 @@ public class InvestmentFuturePlanController {
     public ResponseEntity<ApiResponse> getFuturePlanDetail(@PathVariable("versionId") Integer versionId) {
         return investmentFuturePlanService.getFuturePlanDetail(versionId);
     }
+
     @GetMapping("/by-source/{sourceVersionId}")
     @PreAuthorize("hasRole('Investor')")
-    @Operation(summary = "Investor: Danh sách TÓM TẮT các kế hoạch tương lai (FUTURE_PLAN) phái sinh từ 1 version gốc (sourceVersionId) — field futureVersionId dùng gọi tiếp GET /investment-plans/future/{futureVersionId}")
+    @Operation(summary = "Investor: Danh sách TÓM TẮT các kế hoạch tương lai phái sinh từ 1 version gốc (sourceVersionId) — field futureVersionId dùng gọi tiếp GET /investment-plans/future/{futureVersionId}")
     public ResponseEntity<ApiResponse> getFutureVersionsBySourceVersionId(@PathVariable("sourceVersionId") Integer sourceVersionId) {
         return investmentFuturePlanService.getFutureVersionsBySourceVersionId(sourceVersionId);
     }

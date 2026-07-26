@@ -198,7 +198,9 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
                 .propertyTypeName(p != null && p.getPropertyType() != null ? p.getPropertyType().getName() : null)
                 .thumbnailUrl(thumbnail)
                 .isActive(l.getIsActive())
-                .sellerStatus(l.getStatus() != null ? l.getStatus().name() : null)
+                .latitude(p != null && p.getLocation() != null ? p.getLocation().getLatitude() : null)
+                .longitude(p != null && p.getLocation() != null ? p.getLocation().getLongitude() : null)
+                .viewCount(l.getViewCount())
                 .createdAt(l.getCreatedAt())
                 .isFavorited(true) // hiển nhiên true — đây là danh sách yêu thích
                 .build();

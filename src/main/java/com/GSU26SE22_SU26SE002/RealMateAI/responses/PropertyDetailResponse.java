@@ -30,6 +30,7 @@ public class PropertyDetailResponse {
     private String legalStatus;
     private String addressParticular;
     private String projectName;
+    private String furniture;
 
     // Loại & tình trạng
     private String propertyTypeName;

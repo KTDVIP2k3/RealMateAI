@@ -8,10 +8,11 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * FE gửi để tạo version mới dạng FUTURE_PLAN từ feedback thực tế của investor.
+ * FE gửi để tạo 1 {@link com.GSU26SE22_SU26SE002.RealMateAI.model.FutureInvestmentPlan}
+ * mới (bảng riêng, tách khỏi InvestmentProfileVersion) từ feedback thực tế của investor.
  *
  * Không tồn tại bảng "feedback" riêng: mỗi item ở đây map 1-1 vào 1 row
- * PortfolioAllocationProperty mới được tạo cho version mới này.
+ * FuturePortfolioAllocationProperty mới được tạo cho future-plan mới này.
  * Tương tự cách processStage2EnrichProperties() ghi PortfolioAllocationPropertyDTO,
  * chỉ khác nguồn dữ liệu là investor nhập tay thay vì AI truy vấn warehouse.
  */

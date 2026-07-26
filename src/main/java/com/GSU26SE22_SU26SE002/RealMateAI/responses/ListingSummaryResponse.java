@@ -28,8 +28,12 @@ public class ListingSummaryResponse {
 
     private Boolean isActive;
 
-    /** Trạng thái Seller tự quản lý: ACTIVE / HIDDEN / DELETED */
-    private String sellerStatus;
+    /** Toạ độ vị trí BĐS — lấy từ property.location (phẳng ra để FE cắm thẳng lên bản đồ, không cần đi sâu property.location) */
+    private java.math.BigDecimal latitude;
+    private java.math.BigDecimal longitude;
+
+    /** Số lượt xem — dùng để hiển thị cùng sort MOST_VIEWED */
+    private Integer viewCount;
 
     private LocalDateTime createdAt;
 

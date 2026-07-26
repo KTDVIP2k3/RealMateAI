@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
 
+@Schema(description = "API tạo tin đăng duy nhất — set reuseExistingProperty=true để dùng lại tài sản có sẵn, false để tạo tài sản mới cùng lúc.")
 @Data
 public class CreateListingRequest {
 
@@ -35,6 +36,15 @@ public class CreateListingRequest {
     @Min(value = 0, message = "Giá phải >= 0")
     @Schema(example = "3500000000")
     private Long price;
+
+    @Schema(example = "owner")
+    private String contactPerson;
+
+    @Schema(example = "0901234567")
+    private String contactPersonPhone;
+
+    @Schema(description = "Email liên hệ RIÊNG cho tin đăng này (optional). Để trống → dùng email tài khoản Seller.", example = "seller-contact@gmail.com")
+    private String contactEmail;
 
     @Schema(example = "2025-08-01")
     private String viewingDate;
@@ -96,6 +106,9 @@ public class CreateListingRequest {
 
     @Schema(example = "26734")
     private String propWardCode;
+
+    @Schema(description = "Nội thất — mô tả tự do", example = "Đầy đủ nội thất")
+    private String propFurniture;
 
     // ── Ảnh (đã upload TRƯỚC qua POST /media/upload/multiple) ───────────────
     @Schema(
