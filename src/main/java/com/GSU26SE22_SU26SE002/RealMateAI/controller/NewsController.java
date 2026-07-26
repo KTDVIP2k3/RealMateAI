@@ -27,7 +27,8 @@ public class NewsController {
 
     @GetMapping("/category/{categoryId}")
     @Operation(summary = "Lấy danh sách bài viết tin tức theo ID danh mục chỉ định (Có phân trang)")
-    public ResponseEntity<ApiResponse> getNewsByCategory(@PathVariable("categoryId") Integer categoryId, @ModelAttribute PageRequest pageRequest) {
-        return newsServiceInterface.getNewsByCategoryIdPaged(categoryId, pageRequest);
+    public ResponseEntity<ApiResponse> getNewsByCategory(@PathVariable("categoryId") Integer categoryId,@RequestParam(name = "page", required = false, defaultValue = "0") int page,
+                                                         @RequestParam(name = "size", required = false, defaultValue = "10") int size) {
+        return newsServiceInterface.getNewsByCategoryIdPaged(categoryId, page, size);
     }
 }

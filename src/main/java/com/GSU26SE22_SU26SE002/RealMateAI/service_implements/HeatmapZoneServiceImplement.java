@@ -62,8 +62,15 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 int gridX = Integer.parseInt(parts[0]);
                 int gridY = Integer.parseInt(parts[1]);
 
-                double centerLon = gridXToLon(gridX + 0.5, zoom);
-                double centerLat = gridYToLat(gridY + 0.5, zoom);
+                double centerLat = gridListings.stream()
+                        .mapToDouble(l -> l.getLatitude().doubleValue())
+                        .average()
+                        .orElseGet(() -> gridYToLat(gridY + 0.5, zoom));
+
+                double centerLon = gridListings.stream()
+                        .mapToDouble(l -> l.getLongitude().doubleValue())
+                        .average()
+                        .orElseGet(() -> gridXToLon(gridX + 0.5, zoom));
 
                 BigDecimal medianPricePerM2 = calculateMedianPricePerM2(gridListings);
 

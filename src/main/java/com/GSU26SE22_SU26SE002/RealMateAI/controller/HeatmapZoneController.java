@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/heatmap")
+@RequestMapping("/heatmap")
 @Tag(name = "Heatmap Zone", description = "Heatmap: Quản lý và truy vấn dữ liệu bản đồ nhiệt giá bất động sản")
 public class HeatmapZoneController {
 

@@ -114,33 +114,77 @@ public class NewsServiceImplements implements NewsServiceInterface {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getNewsByCategoryIdPaged(Integer categoryId, PageRequest pageRequest) {
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse> getNewsByCategoryIdPaged(Integer categoryId, int page, int size) {
         try {
             Optional<NewsCategory> categoryOpt = newsCategoryRepository.findById(categoryId);
             if (categoryOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Category not found"));
             }
 
-            Pageable pageable = org.springframework.data.domain.PageRequest.of(pageRequest.getPage(), pageRequest.getSize(), Sort.by("createdAt").descending());
-            Page<News> newsPage = newsRepository.findByNewsCategoryAndIsActiveTrue(categoryOpt.get(), pageable);
+            List<News> allNews = newsRepository.findByNewsCategoryAndIsActiveTrue(categoryOpt.get());
+            if (allNews == null) {
+                allNews = java.util.Collections.emptyList();
+            }
 
-            List<NewsDTO> dtoList = newsPage.getContent().stream().map(news -> {
-                NewsDTO dto = modelMapper.map(news, NewsDTO.class);
-                dto.setNewsCategoryId(news.getNewsCategory().getNewsCategoryId());
-                dto.setNewsCategoryName(news.getNewsCategory().getName());
-                return dto;
-            }).collect(Collectors.toList());
+            List<News> sortedList = allNews.stream()
+                    .sorted(java.util.Comparator.comparing(
+                            News::getCreatedAt,
+                            java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())
+                    ))
+                    .toList();
 
-            PagedResponseDTO<NewsDTO> pagedResponse = PagedResponseDTO.<NewsDTO>builder()
-                    .content(dtoList)
-                    .pageNo(newsPage.getNumber())
-                    .pageSize(newsPage.getSize())
-                    .totalElements(newsPage.getTotalElements())
-                    .totalPages(newsPage.getTotalPages())
-                    .isLast(newsPage.isLast())
-                    .build();
+            boolean isGetAll = (page == 0 && size == 0);
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(pagedResponse, "Get news by category successfully"));
+            List<NewsDTO> pagedContent;
+            int effectivePage = 0;
+            int effectiveSize = sortedList.size();
+            int totalElements = sortedList.size();
+            int totalPages = 1;
+            boolean isLast = true;
+
+            if (isGetAll) {
+                pagedContent = sortedList.stream().map(news -> {
+                    NewsDTO dto = modelMapper.map(news, NewsDTO.class);
+                    if (news.getNewsCategory() != null) {
+                        dto.setNewsCategoryId(news.getNewsCategory().getNewsCategoryId());
+                        dto.setNewsCategoryName(news.getNewsCategory().getName());
+                    }
+                    return dto;
+                }).collect(Collectors.toList());
+            } else {
+                effectiveSize = size > 0 ? size : 20;
+                effectivePage = Math.max(page, 0);
+
+                int offset = effectivePage * effectiveSize;
+                totalPages = (int) Math.ceil((double) totalElements / effectiveSize);
+                isLast = effectivePage >= totalPages - 1;
+
+                List<News> slicedNews = sortedList.stream()
+                        .skip(offset)
+                        .limit(effectiveSize)
+                        .toList();
+
+                pagedContent = slicedNews.stream().map(news -> {
+                    NewsDTO dto = modelMapper.map(news, NewsDTO.class);
+                    if (news.getNewsCategory() != null) {
+                        dto.setNewsCategoryId(news.getNewsCategory().getNewsCategoryId());
+                        dto.setNewsCategoryName(news.getNewsCategory().getName());
+                    }
+                    return dto;
+                }).collect(Collectors.toList());
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", pagedContent);
+            result.put("page", effectivePage);
+            result.put("size", effectiveSize);
+            result.put("totalElements", totalElements);
+            result.put("totalPages", totalPages);
+            result.put("last", isLast);
+
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "Get news by category successfully"));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
