@@ -18,7 +18,7 @@ public class TransactionController {
 
     private final TransactionServiceInterface transactionService;
 
-    @GetMapping("/my")
+    @GetMapping("/me")
     @PreAuthorize("hasAnyRole('Investor', 'Seller')")
     @Operation(summary = "[FE CALL] Lấy danh sách toàn bộ lịch sử giao dịch của tôi")
     public ResponseEntity<ApiResponse> getMyTransactions(@RequestParam(name = "page", required = false, defaultValue = "0") int page,

@@ -23,11 +23,21 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     @Autowired
     private HeatmapZoneRepository heatmapZoneRepository;
 
+    private static final double MIN_HCM_LAT = 10.35;
+    private static final double MAX_HCM_LAT = 11.16;
+    private static final double MIN_HCM_LON = 106.35;
+    private static final double MAX_HCM_LON = 106.90;
+
     @Override
     @Transactional
     public void generateDailySnapshot() {
         List<CrawPropertyListing> listings = crawPropertyListingRepository.findAll().stream()
                 .filter(l -> l.getLatitude() != null && l.getLongitude() != null)
+                .filter(l -> {
+                    double lat = l.getLatitude().doubleValue();
+                    double lon = l.getLongitude().doubleValue();
+                    return lat >= MIN_HCM_LAT && lat <= MAX_HCM_LAT && lon >= MIN_HCM_LON && lon <= MAX_HCM_LON;
+                })
                 .toList();
 
         if (listings.isEmpty()) {
