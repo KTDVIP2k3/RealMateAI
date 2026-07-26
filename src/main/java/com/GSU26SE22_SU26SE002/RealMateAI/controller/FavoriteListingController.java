@@ -25,7 +25,7 @@ public class FavoriteListingController {
         return favoriteListingService.addFavorite(request);
     }
 
-    @GetMapping(" /investor/favorites")
+    @GetMapping("/investor/favorites")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse> getMyFavorites() {
         return favoriteListingService.getMyFavorites();

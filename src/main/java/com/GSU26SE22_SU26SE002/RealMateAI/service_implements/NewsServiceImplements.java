@@ -122,7 +122,11 @@ public class NewsServiceImplements implements NewsServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Category not found"));
             }
 
-            List<News> allNews = newsRepository.findByNewsCategoryAndIsActiveTrue(categoryOpt.get());
+            List<News> allNews = newsRepository.findAll().stream()
+                    .filter(news -> news.getNewsCategory() != null
+                            && Objects.equals(news.getNewsCategory().getNewsCategoryId(), categoryId)
+                            && Boolean.TRUE.equals(news.getIsActive()))
+                    .toList();
             if (allNews == null) {
                 allNews = java.util.Collections.emptyList();
             }
