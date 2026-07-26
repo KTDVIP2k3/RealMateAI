@@ -23,11 +23,21 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     @Autowired
     private HeatmapZoneRepository heatmapZoneRepository;
 
+    private static final double MIN_HCM_LAT = 10.35;
+    private static final double MAX_HCM_LAT = 11.16;
+    private static final double MIN_HCM_LON = 106.35;
+    private static final double MAX_HCM_LON = 106.90;
+
     @Override
     @Transactional
     public void generateDailySnapshot() {
         List<CrawPropertyListing> listings = crawPropertyListingRepository.findAll().stream()
                 .filter(l -> l.getLatitude() != null && l.getLongitude() != null)
+                .filter(l -> {
+                    double lat = l.getLatitude().doubleValue();
+                    double lon = l.getLongitude().doubleValue();
+                    return lat >= MIN_HCM_LAT && lat <= MAX_HCM_LAT && lon >= MIN_HCM_LON && lon <= MAX_HCM_LON;
+                })
                 .toList();
 
         if (listings.isEmpty()) {
@@ -52,8 +62,15 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 int gridX = Integer.parseInt(parts[0]);
                 int gridY = Integer.parseInt(parts[1]);
 
-                double centerLon = gridXToLon(gridX + 0.5, zoom);
-                double centerLat = gridYToLat(gridY + 0.5, zoom);
+                double centerLat = gridListings.stream()
+                        .mapToDouble(l -> l.getLatitude().doubleValue())
+                        .average()
+                        .orElseGet(() -> gridYToLat(gridY + 0.5, zoom));
+
+                double centerLon = gridListings.stream()
+                        .mapToDouble(l -> l.getLongitude().doubleValue())
+                        .average()
+                        .orElseGet(() -> gridXToLon(gridX + 0.5, zoom));
 
                 BigDecimal medianPricePerM2 = calculateMedianPricePerM2(gridListings);
 
@@ -89,6 +106,11 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             BigDecimal minLong,
             BigDecimal maxLong) {
 
+        BigDecimal actualMinLat = minLat.min(maxLat);
+        BigDecimal actualMaxLat = minLat.max(maxLat);
+        BigDecimal actualMinLong = minLong.min(maxLong);
+        BigDecimal actualMaxLong = minLong.max(maxLong);
+
         List<HeatmapZone> candidateZones = heatmapZoneRepository.findByZoomLevel(zoomLevel);
 
         if (candidateZones.isEmpty()) {
@@ -96,8 +118,8 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         }
 
         return candidateZones.stream()
-                .filter(zone -> zone.getCenterLatitude().compareTo(minLat) >= 0 && zone.getCenterLatitude().compareTo(maxLat) <= 0)
-                .filter(zone -> zone.getCenterLongitude().compareTo(minLong) >= 0 && zone.getCenterLongitude().compareTo(maxLong) <= 0)
+                .filter(zone -> zone.getCenterLatitude().compareTo(actualMinLat) >= 0 && zone.getCenterLatitude().compareTo(actualMaxLat) <= 0)
+                .filter(zone -> zone.getCenterLongitude().compareTo(actualMinLong) >= 0 && zone.getCenterLongitude().compareTo(actualMaxLong) <= 0)
                 .collect(Collectors.toList());
     }
 
@@ -108,6 +130,11 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             BigDecimal minLong,
             BigDecimal maxLong) {
 
+        BigDecimal actualMinLat = minLat.min(maxLat);
+        BigDecimal actualMaxLat = minLat.max(maxLat);
+        BigDecimal actualMinLong = minLong.min(maxLong);
+        BigDecimal actualMaxLong = minLong.max(maxLong);
+
         List<HeatmapZone> candidateZones = heatmapZoneRepository.findAll();
 
         if (candidateZones.isEmpty()) {
@@ -115,8 +142,8 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         }
 
         return candidateZones.stream()
-                .filter(zone -> zone.getCenterLatitude().compareTo(minLat) >= 0 && zone.getCenterLatitude().compareTo(maxLat) <= 0)
-                .filter(zone -> zone.getCenterLongitude().compareTo(minLong) >= 0 && zone.getCenterLongitude().compareTo(maxLong) <= 0)
+                .filter(zone -> zone.getCenterLatitude().compareTo(actualMinLat) >= 0 && zone.getCenterLatitude().compareTo(actualMaxLat) <= 0)
+                .filter(zone -> zone.getCenterLongitude().compareTo(actualMinLong) >= 0 && zone.getCenterLongitude().compareTo(actualMaxLong) <= 0)
                 .collect(Collectors.toList());
     }
 

@@ -12,15 +12,15 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/heatmap")
+@RequestMapping("/heatmap")
 @Tag(name = "Heatmap Zone", description = "Heatmap: Quản lý và truy vấn dữ liệu bản đồ nhiệt giá bất động sản")
 public class HeatmapZoneController {
 
     @Autowired
     private HeatmapZoneServiceInterface heatmapZoneService;
 
-    @GetMapping("/zones")
-    @Operation(summary = "Lấy danh sách các ô Grid Heatmap theo khung nhìn (Viewport) và cấp độ Zoom")
+    @GetMapping("/zones/test")
+    @Operation(summary = "[Test Only]. Lấy danh sách các ô Grid Heatmap theo khung nhìn (Viewport) và cấp độ Zoom")
     public ResponseEntity<List<HeatmapZone>> getHeatmapZones(
             @RequestParam Integer zoom,
             @RequestParam BigDecimal minLat,
@@ -35,7 +35,7 @@ public class HeatmapZoneController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/zones/v2")
+    @GetMapping("/zones")
     @Operation(summary = "Lấy danh sách các ô Grid Heatmap theo khung nhìn (Viewport) bỏ qua cấp độ Zoom")
     public ResponseEntity<List<HeatmapZone>> getHeatmapZonesV2(
             @RequestParam BigDecimal minLat,
@@ -51,7 +51,7 @@ public class HeatmapZoneController {
     }
 
     @PostMapping("/trigger-snapshot")
-    @Operation(summary = "Admin/System: Kích hoạt thủ công tiến trình gom nhóm dữ liệu thô và tính toán Heatmap Snapshot")
+    @Operation(summary = "[Test Only]. Admin/System: Kích hoạt thủ công tiến trình gom nhóm dữ liệu thô và tính toán Heatmap Snapshot")
     public ResponseEntity<String> triggerSnapshot() {
         heatmapZoneService.generateDailySnapshot();
         return ResponseEntity.ok("Trigger snapshot successfully!");

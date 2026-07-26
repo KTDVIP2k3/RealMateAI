@@ -6,6 +6,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface NewsServiceInterface {
     ResponseEntity<ApiResponse> getAllNewsPaged(int page, int size );
-    ResponseEntity<ApiResponse> getNewsByCategoryIdPaged(Integer categoryId, PageRequest pageRequest);
+    public ResponseEntity<ApiResponse> getNewsByCategoryIdPaged(Integer categoryId, int page, int size);
     void autoCrawlNewsData();
 }
