@@ -21,19 +21,11 @@ public class ListingDetailResponse {
     private String description;
     private Long price;
     private String contactPerson;
-    private String contactPersonName;
     private String contactPersonPhone;
-    private String linkSocialContactPerson;
     private String viewingDate;
     private LocalTime startTime;
     private LocalTime endTime;
     private Boolean isActive;
-
-    /**
-     * Trạng thái Seller tự quản lý: ACTIVE / HIDDEN / DELETED.
-     * Khác verificationStatus (đó là quyết định của Staff/Admin).
-     */
-    private String sellerStatus;
 
     /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
     private String verificationStatus;
@@ -63,8 +55,9 @@ public class ListingDetailResponse {
     // Thông tin Seller cơ bản
     private Integer sellerId;
     private String sellerName;
-    private String sellerAvatar;
     private String sellerPhone;
+
+    private Integer viewCount;
 
     private String wardCode;
 

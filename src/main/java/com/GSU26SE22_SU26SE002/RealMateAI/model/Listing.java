@@ -39,6 +39,9 @@ public class Listing {
     private String contactPersonName;
     @Column(name = "contact_person_phone")
     private String contactPersonPhone;
+    /** Email liên hệ RIÊNG cho tin đăng này — nếu để trống, fallback dùng email của Account Seller (xem ListingMapper#toListingDetail). */
+    @Column(name = "contact_email")
+    private String contactEmail;
     @Column(name = "link_social_contact_person")
     private String linkSocialContactPerson;
     @Column(name = "viewing_date")
@@ -48,6 +51,11 @@ public class Listing {
     @Column(name = "end_time")
     private LocalTime endTime;
     private Boolean isActive;
+
+    /** Số lượt xem chi tiết — tăng dần mỗi khi GET /listings/{id} (xem getListingDetail()), dùng để sort MOST_VIEWED */
+    @Column(name = "view_count")
+    @Builder.Default
+    private Integer viewCount = 0;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

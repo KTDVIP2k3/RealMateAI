@@ -49,6 +49,7 @@ public class Property {
     private String legalStatus;
     private String addressParticular;
     private String projectName;
+    private String furniture;
     private Boolean isActive;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "property_attribute", columnDefinition = "json")
