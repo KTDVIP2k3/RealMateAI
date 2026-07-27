@@ -477,18 +477,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .body(ApiResponse.fail("Not_Found", "Bài đăng không tồn tại: id=" + listingId));
             }
 
-            // Ghi nhận VIEW (audit_log/active_log) — xem UserEventTrackingService,
-            // AuditLogController. Chỉ ghi khi xác định được người xem (đã đăng
-            // nhập) — khách ẩn danh bị bỏ qua ngay trong recordSilently. Không
-            // throw ra ngoài dù lỗi gì (đã REQUIRES_NEW + try/catch nội bộ).
-            Account viewer = authenUntil.getCurrentUSer();
-            userEventTrackingService.recordSilently(viewer, UserEventTypeEnum.VIEW, listingId);
-
-            // Tăng viewCount (dùng cho sort MOST_VIEWED ở POST /listings/search) —
-            // đếm MỌI lượt xem kể cả khách ẩn danh (khác recordSilently ở trên,
-            // vốn chỉ ghi log khi xác định được người xem).
-            listingRepository.incrementViewCount(listingId);
-
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(listing, listing.getProperty()), "Chi tiết tin đăng"));
         } catch (Exception e) {
