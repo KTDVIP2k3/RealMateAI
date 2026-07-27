@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.GenerateFuturePlanRequest;
@@ -263,8 +262,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .updatedAt(now)
                         .build());
             }
-
-            // 8. Lưu portfolio + properties — ghi TRỰC TIẾP vào
+// 8. Lưu portfolio + properties — ghi TRỰC TIẾP vào
             //    FuturePortfolioAllocationProperty (bỏ bảng trung gian, xem javadoc
             //    FutureInvestmentPortfolio). Group theo portfolioId investor gửi lên.
             //
@@ -302,7 +300,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 // cũ ở trên dự định. Trước đây code lưu thẳng portfolio=null cho nhóm
                 // "Chưa phân loại"/portfolioId không tồn tại -> luôn crash
                 // DataIntegrityViolationException ngay khi có property không gắn đúng
-                // portfolioId (đây chính là lỗi vừa gặp). Nay dùng 1 Portfolio PLACEHOLDER
+// portfolioId (đây chính là lỗi vừa gặp). Nay dùng 1 Portfolio PLACEHOLDER
                 // tên "Chưa phân loại" (tìm hoặc tự tạo 1 lần) thay cho null.
                 if (portfolio == null) {
                     portfolio = resolveOrCreateUnclassifiedPortfolio();
@@ -324,34 +322,54 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                 .updatedAt(now)
                                 .build());
 
+                for(GenerateFuturePlanRequest.SelectedPropertyItem selectedPropertyItem : request.getSelectedProperties()){
+                    if (selectedPropertyItem.getPropertySource().equalsIgnoreCase("MANUAL")){
+                    FuturePortfolioAllocationProperty futurePortfolioAllocationProperty = new FuturePortfolioAllocationProperty();
+                    futurePortfolioAllocationProperty.setActualPurchasePrice(selectedPropertyItem.getActualPurchasePrice());
+                    futurePortfolioAllocationProperty.setEvaluatedMarketPrice(selectedPropertyItem.getEvaluatedMarketPrice());
+                    futurePortfolioAllocationProperty.setHoldingMonths(selectedPropertyItem.getHoldingMonths());
+                    futurePortfolioAllocationProperty.setMonthlyOperatingCost(selectedPropertyItem.getMonthlyOperatingCost());
+                    futurePortfolioAllocationProperty.setMonthlyRevenue(selectedPropertyItem.getMonthlyRevenue());
+                    futurePortfolioAllocationProperty.setIsActive(true);
+                    futurePortfolioAllocationProperty.setPropertySource(selectedPropertyItem.getPropertySource());
+                    futurePortfolioAllocationProperty.setUsagePurpose(selectedPropertyItem.getUsagePurpose());
+                    futurePortfolioAllocationProperty.setCreatedAt(LocalDateTime.now());
+                    futurePortfolioAllocationProperty.setUpdatedAt(LocalDateTime.now());
+                    futurePortfolioAllocationProperty.setFutureInvestmentPortfolio(futurePortfolio);
+                    futurePortfolioAllocationProperty.setProperty(null);
+                    futurePortfolioAllocationPropertyRepository.save(futurePortfolioAllocationProperty);
+                }}
+
 
                 for (GenerateFuturePlanRequest.SelectedPropertyItem item : items) {
-                    Property property = resolveProperty(item);
-                    if (property == null) {
-                        skippedItems.add(describeItem(item) + ": không tìm thấy property (kiểm tra lại listingId/manualPropertyId), bỏ qua");
-                        continue;
-                    }
+                   if(item.getPropertySource().equalsIgnoreCase("SYSTEM")){
+                       Property property = resolveProperty(item);
+                       if (property == null) {
+                           skippedItems.add(describeItem(item) + ": không tìm thấy property (kiểm tra lại listingId/manualPropertyId), bỏ qua");
+                           continue;
+                       }
 
-                    futurePortfolioAllocationPropertyRepository.save(
-                            FuturePortfolioAllocationProperty.builder()
-                                    .futureInvestmentPortfolio(futurePortfolio)
-                                    .property(property)
-                                    // SỬA: không còn lấy thẳng item.getPropertySource() (có thể
-                                    // null/sai chuỗi từ FE) — chuẩn hoá lại theo ĐÚNG ID đã dùng
-                                    // để resolve ra property này, tránh lưu sai nhãn nguồn gốc.
-                                    .propertySource(item.getManualPropertyId() != null ? "MANUAL" : "SYSTEM")
-                                    .usagePurpose(item.getUsagePurpose())
-                                    .monthlyRevenue(item.getMonthlyRevenue())
-                                    .monthlyOperatingCost(item.getMonthlyOperatingCost())
-                                    .actualPurchasePrice(item.getActualPurchasePrice())
-                                    .evaluatedMarketPrice(item.getEvaluatedMarketPrice())
-                                    .holdingMonths(resolveHoldingMonths(item.getHoldingMonths()))
-                                    .isActive(true)
-                                    .createdAt(now)
-                                    .updatedAt(now)
-                                    .build());
+                       futurePortfolioAllocationPropertyRepository.save(
+                               FuturePortfolioAllocationProperty.builder()
+                                       .futureInvestmentPortfolio(futurePortfolio)
+                                       .property(property)
+                                       // SỬA: không còn lấy thẳng item.getPropertySource() (có thể
+                                       // null/sai chuỗi từ FE) — chuẩn hoá lại theo ĐÚNG ID đã dùng
+                                       // để resolve ra property này, tránh lưu sai nhãn nguồn gốc.
+                                       .propertySource(item.getManualPropertyId() != null ? "MANUAL" : "SYSTEM")
+                                       .usagePurpose(item.getUsagePurpose())
+                                       .monthlyRevenue(item.getMonthlyRevenue())
+                                       .monthlyOperatingCost(item.getMonthlyOperatingCost())
+                                       .actualPurchasePrice(item.getActualPurchasePrice())
+                                       .evaluatedMarketPrice(item.getEvaluatedMarketPrice())
+                                       .holdingMonths(resolveHoldingMonths(item.getHoldingMonths()))
+                                       .isActive(true)
+                                       .createdAt(now)
+                                       .updatedAt(now)
+                                       .build());
+                   }}
                 }
-            }
+
 
             if (!skippedItems.isEmpty()) {
                 log.warn("[InvestmentFuturePlanService] generateAndSaveFuturePlan: futurePlanId={}, {} item bị bỏ qua: {}",
@@ -495,7 +513,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                     initialPrice, evaluatedPrice, monthlyRevenue, monthlyOpCost, holdingMonths));
                         }
                     }
-
                     allocationDTOs.add(PortfolioAllocationDTO.builder()
                             .propertyTypeName(group.getKey())
                             .properties(propertyDTOs)
@@ -539,7 +556,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .newVersionName(plan.getName())
                     .sourceVersionId(sourceVersion != null ? sourceVersion.getProfileVersionId() : null)
                     .sourceVersionName(sourceVersion != null ? sourceVersion.getProfileVersionName() : null)
-                    // MỚI: snapshot "thông tin cơ bản" hướng đi tiếp theo — trước đây
+// MỚI: snapshot "thông tin cơ bản" hướng đi tiếp theo — trước đây
                     // CÓ lưu vào DB nhưng chưa từng map ra response GET.
                     .equity(plan.getEquity())
                     .loanCapital(plan.getLoanCapital())
@@ -634,8 +651,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     // =====================================================================
     // PRIVATE HELPERS
     // =====================================================================
-
-    // ═════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════
     // SỬA (bug đã báo cáo): trước đây bắt buộc propertySource phải khớp
     // CHÍNH XÁC chuỗi "MANUAL" (equalsIgnoreCase) thì mới chịu tra theo
     // manualPropertyId; nếu FE gửi propertySource khác đi (rỗng, null, hoặc
@@ -733,7 +749,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 skippedOut.add(describeItem(item) + ": thiếu actualPurchasePrice (hoặc <= 0), không tính lợi nhuận cho property này");
                 continue;
             }
-
             long initialPrice = item.getActualPurchasePrice();
             long evaluatedPrice = item.getEvaluatedMarketPrice() != null ? item.getEvaluatedMarketPrice() : initialPrice;
             long monthlyRevenue = item.getMonthlyRevenue() != null ? item.getMonthlyRevenue() : 0L;
@@ -779,7 +794,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         }
         return map;
     }
-
     // SỬA: trước đây nhận thẳng `sourceVersion` và đọc equity/loanCapital/
     // expectedRoi/durationYear từ ĐÓ — nghĩa là dù investor nhập tham số MỚI
     // cho hướng đi tiếp theo (effEquity/effLoanCapital/...), AI vẫn luôn phân

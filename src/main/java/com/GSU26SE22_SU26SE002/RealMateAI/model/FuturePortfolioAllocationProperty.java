@@ -28,7 +28,7 @@ public class FuturePortfolioAllocationProperty {
     private FutureInvestmentPortfolio futureInvestmentPortfolio;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "property_id", nullable = false)
+    @JoinColumn(name = "property_id", nullable = true)
     private Property property;
 
     /** SYSTEM (chọn từ listing đề xuất) | MANUAL (investor tự thêm) */
