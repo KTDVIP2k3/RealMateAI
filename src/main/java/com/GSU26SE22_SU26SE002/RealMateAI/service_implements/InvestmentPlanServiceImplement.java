@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.InvestmentPlanServiceInterface;
 import com.fasterxml.jackson.core.Version;
@@ -30,6 +31,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
     @Autowired
     private Client geminiClient;
+
+    @Autowired
+    private MembershipSubscriptionRepository membershipSubscriptionRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -474,6 +478,34 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(null, "Investor survey does not exist. Please create to use this function"));
             }
 
+            if (account.getWallet() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("WALLET_NOT_FOUND", "You don't have a wallet. Please deposit money into your wallet to use this feature."));
+            }
+
+            Investor investor = account.getInvestor();
+            if (investor == null || investor.getMembershipSubscriptions() == null || investor.getMembershipSubscriptions().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("MEMBERSHIP_NOT_FOUND", "You don't have any membership subscription. Please purchase a plan to use this feature."));
+            }
+
+            MembershipSubscription activeSubscription = investor.getMembershipSubscriptions().stream()
+                    .filter(sub -> sub.getMembershipSubscriptionEnum_status() != null
+                            && sub.getMembershipSubscriptionEnum_status().equals(MembershipSubscriptionEnum.Using)
+                            && Boolean.TRUE.equals(sub.getIsActive()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (activeSubscription == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("SUBSCRIPTION_NOT_ACTIVATED", "You have purchased a membership subscription, but it is not activated yet. Please activate your subscription to use this feature."));
+            }
+
+            if (activeSubscription.getQuantity_using() == null || activeSubscription.getQuantity_using() <= 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
+            }
+
 //            final String inputName = request.getName() != null ? request.getName().trim() : "";
 //            if (!inputName.isEmpty()) {
 //                final Integer currentInvestorId = account.getInvestor().getInvestorId();
@@ -495,6 +527,20 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             processStage2EnrichProperties(request, portfolios);
             InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(request, portfolios, account.getInvestor());
             saveInvestmentPlanToDatabase(request, finalOutput, strategy);
+
+            activeSubscription.setQuantity_using(activeSubscription.getQuantity_using() - 1);
+
+            int remainingQuantity = activeSubscription.getQuantity_using() - 1;
+            activeSubscription.setQuantity_using(remainingQuantity);
+
+
+            if (remainingQuantity <= 0) {
+                activeSubscription.setIsActive(false);
+                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            }
+
+            activeSubscription.setUpdatedAt(LocalDateTime.now());
+            membershipSubscriptionRepository.save(activeSubscription);
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(finalOutput, "Generate and save complete investment plan successfully"));
@@ -890,7 +936,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         InvestmentProfile savedProfile = investmentProfileRepository.save(profile);
         int currentVersionsCount = 0;
         int nextVersionNumber = currentVersionsCount + 1;
-        String autoVersionName = savedProfile.getName() + " - Version " + nextVersionNumber;
+        String autoVersionName = strategy.getName() + " " + request.getWardName() + " - Version " + nextVersionNumber;
         String autoVersionCode = "V" + nextVersionNumber;
 
 
@@ -1057,6 +1103,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             }
         }
     }
+
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) {
@@ -1067,9 +1114,38 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.fail("Profile_Not_Found", "The investment profile you want to update does not exist."));
             }
 
-            if (oldProfile.getInvestor() == null) {
+            Account account = authenUntil.getCurrentUSer();
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist."));
+            }
+
+            if (account.getWallet() == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail(null, "Investor survey does not exist. Please create to use this function"));
+                        .body(ApiResponse.fail("WALLET_NOT_FOUND", "You don't have a wallet. Please deposit money into your wallet to use this feature."));
+            }
+
+            Investor investor = account.getInvestor();
+            if (investor == null || investor.getMembershipSubscriptions() == null || investor.getMembershipSubscriptions().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("MEMBERSHIP_NOT_FOUND", "You don't have any membership subscription. Please purchase a plan to use this feature."));
+            }
+
+            MembershipSubscription activeSubscription = investor.getMembershipSubscriptions().stream()
+                    .filter(sub -> sub.getMembershipSubscriptionEnum_status() != null
+                            && sub.getMembershipSubscriptionEnum_status().equals(MembershipSubscriptionEnum.Using)
+                            && Boolean.TRUE.equals(sub.getIsActive()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (activeSubscription == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("SUBSCRIPTION_NOT_ACTIVATED", "You have purchased a membership subscription, but it is not activated yet. Please activate your subscription to use this feature."));
+            }
+
+            if (activeSubscription.getQuantity_using() == null || activeSubscription.getQuantity_using() <= 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
             }
 
             Strategy strategy = strategyRepository.findById(request.getStrategy_id()).orElse(null);
@@ -1087,11 +1163,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             internalRequest.setConsciousName(request.getConsciousName());
             internalRequest.setWardName(request.getWardName());
             internalRequest.setExpectedRoi(request.getExpectedRoi());
-//            internalRequest.setMinProfit(request.getMinProfit());
             internalRequest.setRiskToleranceLevel(request.getRiskToleranceLevel());
             internalRequest.setDurationYear(request.getDurationYear());
             internalRequest.setStartDate(request.getStartDate());
-//            internalRequest.setInvestmentType(request.getInvestmentType());
             internalRequest.setInvestmentStrategyDetail(request.getInvestmentStrategyDetail());
             internalRequest.setLegalStatus(request.getLegalStatus());
             internalRequest.setCriteriaList(request.getCriteriaList());
@@ -1100,6 +1174,17 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             processStage2EnrichProperties(internalRequest, portfolios);
             InvestmentPlanDTO finalOutput = processStage3ScenariosAndExecution(internalRequest, portfolios, oldProfile.getInvestor());
             saveUpdatePlanToDatabase(oldProfile, internalRequest, finalOutput, strategy);
+
+            int remainingQuantity = activeSubscription.getQuantity_using() - 1;
+            activeSubscription.setQuantity_using(remainingQuantity);
+
+            if (remainingQuantity <= 0) {
+                activeSubscription.setIsActive(false);
+                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            }
+
+            activeSubscription.setUpdatedAt(LocalDateTime.now());
+            membershipSubscriptionRepository.save(activeSubscription);
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(finalOutput, "Updated and saved new version of investment plan successfully"));
@@ -1129,7 +1214,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         int currentVersionsCount = (savedProfile.getProfileVersions() != null) ? savedProfile.getProfileVersions().size() : 0;
         int nextVersionNumber = currentVersionsCount + 1;
-        String autoVersionName = savedProfile.getName() + " - Version " + nextVersionNumber;
+        String autoVersionName = strategy.getName() + " " + request.getWardName() + " - Version " + nextVersionNumber;
         String autoVersionCode = "V" + nextVersionNumber;
 
         final Integer currentInvestorId = oldProfile.getInvestor() != null ? oldProfile.getInvestor().getInvestorId() : null;

@@ -39,4 +39,11 @@ public class MembershipSubscriptionController {
     public ResponseEntity<ApiResponse> renewMemberShipSubscriptions(@PathVariable("subscriptionId") Integer subscriptionId) {
         return membershipSubscriptionServiceInterface.renewMemberShipSubscriptions(subscriptionId);
     }
+
+    @PutMapping("/{memberSubscriptionId}/active")
+    @PreAuthorize("hasRole('Investor')")
+    @Operation(summary = "Investor: Kích hoạt sử dụng  gói thành viên đã mua sang trạng thái đang sử dụng")
+    public ResponseEntity<ApiResponse> activeMembershipSubscriptions(@PathVariable("memberSubscriptionId") Integer memberSubscriptionId) {
+        return membershipSubscriptionServiceInterface.activeMembershipSubscriptions(memberSubscriptionId);
+    }
 }
