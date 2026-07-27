@@ -23,7 +23,6 @@ public class PostingPackageOrder {
     @JoinColumn(name = "posting_package_id", nullable = false)
     private PostingPackage postingPackage;
 
-//    private String status;
 
     private BigDecimal totalAmount;
     private LocalDateTime startDate;

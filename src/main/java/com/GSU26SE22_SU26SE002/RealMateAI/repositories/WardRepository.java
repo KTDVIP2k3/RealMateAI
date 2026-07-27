@@ -23,4 +23,7 @@ public interface WardRepository extends JpaRepository<Ward, String> {
     @Query("SELECT w FROM Ward w LEFT JOIN FETCH w.province WHERE w.province.province_code = '79'")
     List<Ward> findWardsOnlyInHCM();
 
+    /** MỚI: Gợi ý Location (nhóm Phường/Xã) cho GET /listings/search/suggestions. */
+    List<Ward> findTop5ByNameContainingIgnoreCaseOrFullNameContainingIgnoreCase(String name, String fullName);
+
 }

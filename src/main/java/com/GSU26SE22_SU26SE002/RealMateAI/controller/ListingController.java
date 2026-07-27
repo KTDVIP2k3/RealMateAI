@@ -147,7 +147,7 @@ public class ListingController {
     // trả về đưa vào "draftImagePublicIds" — ảnh mới sẽ được NỐI THÊM vào bộ
     // ảnh hiện có của Listing (không xoá ảnh cũ).
     // ─────────────────────────────────────────────────────────────────────────
-    @PutMapping(" /seller/listings/{listingId}")
+    @PutMapping("/seller/listings/{listingId}")
     @PreAuthorize("hasAnyRole('Seller', 'Admin', 'Staff')")
     @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS (ảnh mới — nếu có — upload trước qua POST /media/upload/multiple)")
     public ResponseEntity<ApiResponse> updateListing(
@@ -194,5 +194,59 @@ public class ListingController {
     public ResponseEntity<ApiResponse> searchListings(
             @RequestBody(required = false) ListingSearchRequest request) {
         return listingService.searchListings(request != null ? request : new ListingSearchRequest());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MỚI: GET /listings/search — bản query-string của API tìm kiếm ở trên, để
+    // FE dựng được URL chia sẻ/back-forward được (VD /listings/search?q=vin&province=79)
+    // mà không cần gửi body JSON. KHÔNG viết lại logic lọc/JOIN/phân trang lần 2 —
+    // chỉ map query param sang đúng ListingSearchRequest rồi tái sử dụng lại
+    // ListingServiceInterface#searchListings() đã có, tránh lệch hành vi giữa 2 API.
+    // bedrooms/bathrooms là số lượng TỐI THIỂU (tương đương minBedroom/minBathroom
+    // của bản POST), propertyType là propertyTypeId (số).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/investor/listings/search")
+    @Operation(summary = "Tìm kiếm nâng cao tin đăng công khai bằng query string (q, propertyType, minPrice, maxPrice, minArea, maxArea, bedrooms, bathrooms, province, ward)")
+    public ResponseEntity<ApiResponse> searchListingsByQuery(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) Integer propertyType,
+            @RequestParam(required = false) Long minPrice,
+            @RequestParam(required = false) Long maxPrice,
+            @RequestParam(required = false) Double minArea,
+            @RequestParam(required = false) Double maxArea,
+            @RequestParam(required = false) Integer bedrooms,
+            @RequestParam(required = false) Integer bathrooms,
+            @RequestParam(required = false) String province,
+            @RequestParam(required = false) String ward) {
+
+        ListingSearchRequest request = new ListingSearchRequest();
+        request.setKeyword(q);
+        request.setPage(page);
+        request.setSize(size);
+        request.setPropertyTypeId(propertyType);
+        request.setMinPrice(minPrice);
+        request.setMaxPrice(maxPrice);
+        request.setMinArea(minArea);
+        request.setMaxArea(maxArea);
+        request.setMinBedroom(bedrooms);
+        request.setMinBathroom(bathrooms);
+        request.setProvinceCode(province);
+        request.setWardCode(ward);
+
+        return listingService.searchListings(request);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MỚI: GET /listings/search/suggestions — Autocomplete Suggestion cho ô tìm
+    // kiếm. VD q="vin" -> gợi ý gộp 4 nhóm: Location / Listing / Property Type /
+    // Recent Search (nhóm cuối chỉ có khi đã đăng nhập).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/investor/listings/search/suggestions")
+    @Operation(summary = "Autocomplete Suggestion cho ô tìm kiếm (Location / Listing / Property Type / Recent Search)")
+    public ResponseEntity<ApiResponse> getSearchSuggestions(
+            @RequestParam(required = false) String q) {
+        return listingService.getSearchSuggestions(q);
     }
 }

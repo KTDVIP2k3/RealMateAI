@@ -209,4 +209,21 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Listing l SET l.viewCount = COALESCE(l.viewCount, 0) + 1 WHERE l.listingId = :listingId")
     void incrementViewCount(@Param("listingId") Integer listingId);
+
+    /**
+     * MỚI: Gợi ý nhóm Listing/Dự án cho GET /listings/search/suggestions.
+     * Khớp theo tiêu đề tin đăng HOẶC tên dự án (property.projectName, VD "Vinhome
+     * Grand Park") — chỉ tin đang công khai (isActive=true ở cả Listing lẫn
+     * Property), ưu tiên tin nhiều lượt xem hơn rồi tới tin mới hơn.
+     * Dùng Pageable (PageRequest.of(0, N)) từ service để giới hạn top N kết quả.
+     */
+    @Query("""
+            SELECT l FROM Listing l
+            JOIN l.property p
+            WHERE l.isActive = true AND p.isActive = true
+              AND (LOWER(l.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(p.projectName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            ORDER BY COALESCE(l.viewCount, 0) DESC, l.createdAt DESC
+            """)
+    List<Listing> searchSuggestionsByTitleOrProjectName(@Param("keyword") String keyword, Pageable pageable);
 }

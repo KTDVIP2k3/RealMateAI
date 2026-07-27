@@ -7,6 +7,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.PostingPackageOrderRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDTO;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingVerificationServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PostingPackageOrderServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,9 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
 
     @Autowired
     private TransactionRepository transactionRepository;
+
+    @Autowired
+    private ListingVerificationServiceInterface listingVerificationServiceInterface;
 
     @Override
     public ResponseEntity<ApiResponse> getPostingPackageOrders(int page, int size) {
@@ -173,12 +177,13 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             PostingPackageOrder postingPackageOrder = new PostingPackageOrder();
             postingPackageOrder.setPostingPackage(postingPackage);
             postingPackageOrder.setListing(listing);
-            postingPackageOrder.setIsActive(true);
             postingPackageOrder.setDuration(durationDays);
-            postingPackageOrder.setStartDate(startDate);
-            postingPackageOrder.setEndDate(startDate.plusDays(durationDays));
             postingPackageOrder.setTotalAmount(totalAmount);
             postingPackageOrder.setCreatedAt(LocalDateTime.now());
+
+            // SỬA: KHÔNG còn set thẳng isActive/startDate/endDate ở đây — tách
+            // riêng ra transitionListingForNewPackageOrder() (xem javadoc bên dưới).
+            transitionListingForNewPackageOrder(listing, postingPackageOrder, startDate);
 
             Transaction transaction = Transaction.builder()
                     .wallet(wallet)
@@ -255,6 +260,23 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
+        }
+    }
+
+
+    private void transitionListingForNewPackageOrder(Listing listing,
+                                                     PostingPackageOrder postingPackageOrder,
+                                                     LocalDateTime startDate) {
+        boolean listingAlreadyApproved = listingVerificationServiceInterface.transitionToPendingOnPayment(listing);
+
+        if (listingAlreadyApproved) {
+            postingPackageOrder.setIsActive(true);
+            postingPackageOrder.setStartDate(startDate);
+            postingPackageOrder.setEndDate(startDate.plusDays(postingPackageOrder.getDuration()));
+        } else {
+            postingPackageOrder.setIsActive(false);
+            postingPackageOrder.setStartDate(null);
+            postingPackageOrder.setEndDate(null);
         }
     }
 }

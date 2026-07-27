@@ -25,7 +25,7 @@ public class AuditLogController {
         return userEventTrackingService.getViewCount(listingId);
     }
 
-    @GetMapping("/account/viewed-listings")
+    @GetMapping("/investor/viewed-listings")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Danh sách tin đăng tôi đã xem (mặc định 10/trang, mới nhất trước)")
     public ResponseEntity<ApiResponse> getMyViewedListings(
