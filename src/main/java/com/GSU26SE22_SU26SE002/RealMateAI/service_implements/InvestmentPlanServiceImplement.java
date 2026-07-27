@@ -727,22 +727,15 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 ward, propertyTypeId, maxPriceAllowed
         );
 
-        if (matchedListings.isEmpty() && ward != null) {
-            Long flexPrice = (long) (maxPriceAllowed * 1.15);
-            matchedListings = listingRepository.findRealPropertiesByAiStrategy(
-                    ward, propertyTypeId, flexPrice
-            );
-        }
-
         if (matchedListings.isEmpty()) {
-            matchedListings = listingRepository.findRealPropertiesByAiStrategy(
-                    null,
-                    propertyTypeId,
-                    maxPriceAllowed
-            );
-        }
+//            return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
+//                    .portfolioAllocationPropertyId(null)
+//                    .propertyProjectName(null)
+//                    .area(0)
+//                    .valuePrice(0.0)
+//                    .description(null)
+//                    .build());
 
-        if (matchedListings.isEmpty()) {
             return Collections.singletonList(PortfolioAllocationPropertyDTO.builder()
                     .portfolioAllocationPropertyId(null)
                     .propertyProjectName(null)
