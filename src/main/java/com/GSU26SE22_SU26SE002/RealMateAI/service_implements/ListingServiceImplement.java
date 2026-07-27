@@ -5,10 +5,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.*;
-import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CloudinaryMediaServiceInterface;
-import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingServiceInterface;
-import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
-import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.UserEventTrackingService;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.TwoStepPaginationUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,8 +55,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final AuthenUntil authenUntil;
     private final Client geminiClient;
     private final ObjectMapper objectMapper;
-    // MỚI: dùng cho recordSearchHistory() + nhóm "Recent Search" của
-    // GET /listings/search/suggestions.
+    private final PostingPackageOrderServiceInterface postingPackageOrderServiceInterface;
     private final SearchHistoryRepository searchHistoryRepository;
 
     private static final int PAGE_SIZE = 10;
@@ -105,6 +101,23 @@ public class ListingServiceImplement implements ListingServiceInterface {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
+
+            // MỚI: validate sớm — nếu Seller muốn thanh toán ngay lúc tạo tin
+            // (truyền postingPackageId) thì duration/totalAmount là BẮT BUỘC.
+            // Chặn ở đây TRƯỚC khi tạo Property/Listing để tránh tạo ra 1
+            // Listing "treo" do request thanh toán thiếu field ngay từ đầu.
+            if (request.getPostingPackageId() != null) {
+                if (request.getDuration() == null || request.getDuration() <= 0) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail("Bad_Request",
+                                    "duration phải lớn hơn 0 khi có postingPackageId"));
+                }
+                if (request.getTotalAmount() == null) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail("Bad_Request",
+                                    "totalAmount không được để trống khi có postingPackageId"));
+                }
+            }
 
             boolean reuseExisting = Boolean.TRUE.equals(request.getReuseExistingProperty());
 
@@ -284,6 +297,47 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Property refreshed = propertyRepository.findByIdWithDetails(property.getPropertyId()).orElse(property);
             Listing refreshedListing = listingRepository.findByIdWithDetails(saved.getListingId()).orElse(saved);
 
+            Object listingDetail = listingMapper.toListingDetail(refreshedListing, refreshed);
+
+            // ════════════════════════════════════════════════════════════════
+            // MỚI: Thanh toán TỰ ĐỘNG ngay khi tạo tin nếu request kèm
+            // postingPackageId. Listing/Property ở trên ĐÃ commit (save+flush
+            // riêng, không chung transaction với attemptAutoPaymentForNewListing
+            // vì hàm đó chạy REQUIRES_NEW) — nên dù thanh toán thất bại (ví
+            // null/không đủ tiền), Listing VẪN tồn tại đúng ở trạng thái
+            // WAITING_PAYMENT, KHÔNG bị rollback theo. FE dựa vào
+            // data.paymentStatus để quyết định điều hướng sang trang thanh toán
+            // (paymentStatus=FAILED kèm paymentErrorCode/paymentMessage) hay coi
+            // như xong (paymentStatus=SUCCESS, tin đã chuyển WAITING_PAYMENT ->
+            // PENDING, chờ Staff duyệt).
+            // Không truyền postingPackageId -> GIỮ NGUYÊN hành vi cũ hoàn toàn
+            // (data = listingDetail thẳng, không bọc thêm object) để không phá
+            // vỡ FE hiện tại chưa cập nhật theo luồng thanh toán mới.
+            // ════════════════════════════════════════════════════════════════
+            if (request.getPostingPackageId() != null) {
+                PaymentAttemptResult paymentResult = postingPackageOrderServiceInterface
+                        .attemptAutoPaymentForNewListing(saved.getListingId(), request.getPostingPackageId(),
+                                request.getDuration(), request.getTotalAmount());
+
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("listing", listingDetail);
+                data.put("paymentStatus", paymentResult.isSuccess() ? "SUCCESS" : "FAILED");
+                data.put("paymentErrorCode", paymentResult.getErrorCode());
+                data.put("paymentMessage", paymentResult.getMessage());
+                data.put("postingPackageOrderId", paymentResult.getPostingPackageOrderId());
+
+                String suffix = (reparented > 0 ? ", kèm " + reparented + " ảnh" : "");
+                String finalMsg = paymentResult.isSuccess()
+                        ? "Bài đăng tạo thành công" + suffix + ", đã thanh toán gói dịch vụ đăng tin, đang chờ Staff duyệt"
+                        : "Bài đăng tạo thành công" + suffix + ", nhưng thanh toán gói dịch vụ đăng tin THẤT BẠI ("
+                        + paymentResult.getMessage() + ") — vui lòng thanh toán lại để gửi duyệt";
+
+                log.info("[ListingService] createListing: thanh toán tự động listingId={}, success={}, errorCode={}",
+                        saved.getListingId(), paymentResult.isSuccess(), paymentResult.getErrorCode());
+
+                return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(data, finalMsg));
+            }
+
             String msg = "Bài đăng tạo thành công"
                     + (reparented > 0 ? ", kèm " + reparented + " ảnh" : "")
                     + ", vui lòng thanh toán gói dịch vụ đăng tin để gửi duyệt";
@@ -293,8 +347,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             // công khai), THAY VÀO ĐÓ trả thêm wardCode (mã vùng) + email của
             // chính Seller đang tạo tin.
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(
-                            listingMapper.toListingDetail(refreshedListing, refreshed), msg));
+                    .body(ApiResponse.success(listingDetail, msg));
 
         } catch (RuntimeException e) {
             return handleAuthException(e);

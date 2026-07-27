@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Output trả về FE sau khi tạo version FUTURE_PLAN thành công.
@@ -18,6 +20,7 @@ import java.util.List;
  * Nếu sau này cần luồng "xem trước rồi mới lưu", nên xử lý ở tầng FE (giữ payload
  * tạm trong state), không cần BE lưu bản nháp xuống DB.
  */
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -30,6 +33,26 @@ public class InvestmentFuturePlanDTO {
 
     private Integer sourceVersionId;
     private String sourceVersionName;
+
+    // ═════════════════════════════════════════════════════════════════════
+    // MỚI: "Thông tin cơ bản" cho HƯỚNG ĐI TIẾP THEO — snapshot các tham số
+    // tài chính ĐÃ LƯU vào FutureInvestmentPlan (ưu tiên input investor nhập
+    // mới lúc tạo, fallback sourceVersion nếu để trống). Trước đây các field
+    // này CÓ lưu vào DB nhưng KHÔNG được map ra response GET.
+    // ═════════════════════════════════════════════════════════════════════
+    private Long equity;
+    private Long loanCapital;
+    private Long reserveFund;
+    private String consciousName;
+    private String wardName;
+    private Long expectedRoi;
+    private String riskToleranceLevel;
+    private Long durationYear;
+    private LocalDate startDate;
+    private List<String> legalStatus;
+    private Integer strategyId;
+    private String strategyName;
+    private Map<String, Object> investmentStrategyDetail;
 
     private List<InvestmentScenarioDTO> scenarios;
     private ExecutionPlanDTO executionPlan;

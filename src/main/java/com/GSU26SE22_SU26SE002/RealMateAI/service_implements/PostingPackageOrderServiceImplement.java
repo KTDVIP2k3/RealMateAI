@@ -6,10 +6,13 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.PostingPackageOrderRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.PaymentAttemptResult;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingVerificationServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PostingPackageOrderServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
+import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class PostingPackageOrderServiceImplement implements PostingPackageOrderServiceInterface {
 
@@ -49,6 +53,10 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
     @Autowired
     private TransactionRepository transactionRepository;
 
+    // SỬA: thêm dependency này để payPostingPackage() không còn tự set thẳng
+    // isActive/startDate/endDate — tách qua transitionListingForNewPackageOrder()
+    // gọi đúng ListingVerificationServiceInterface#transitionToPendingOnPayment
+    // (nơi DUY NHẤT xử lý vòng đời trạng thái Listing/ListingVerification).
     @Autowired
     private ListingVerificationServiceInterface listingVerificationServiceInterface;
 
@@ -144,9 +152,11 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ApiResponse> payPostingPackage(PostingPackageOrderRequest postingPackageOrderRequest) {
         try {
-            PostingPackage postingPackage = postingPackageRepository.findById(postingPackageOrderRequest.getPostingPackageId()).orElse(null);
+            PostingPackage postingPackage = postingPackageRepository
+                    .findById(postingPackageOrderRequest.getPostingPackageId()).orElse(null);
             if (postingPackage == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package id does not exist"));
             }
@@ -156,56 +166,113 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Listing id does not exist"));
             }
 
-            Account account = listing.getSeller().getAccount();
-            int accountId = account.getAccountId();
+            // SỬA: phần xử lý ví/thanh toán/transition thực tế được TÁCH RIÊNG
+            // sang executePayment() — dùng CHUNG với attemptAutoPaymentForNewListing()
+            // (gọi từ ListingServiceImplement#createListing) để không viết 2 lần
+            // cùng 1 logic thanh toán.
+            PaymentAttemptResult result = executePayment(listing, postingPackage,
+                    postingPackageOrderRequest.getDuration(), postingPackageOrderRequest.getTotalAmount());
 
-            Wallet wallet = walletRepository.findByAccount_AccountId(accountId).orElse(null);
-            if (wallet == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Wallet of this account does not exist"));
+            if (!result.isSuccess()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), result.getMessage()));
             }
-
-            BigDecimal totalAmount = postingPackageOrderRequest.getTotalAmount();
-            if (wallet.getBalance().compareTo(totalAmount) < 0) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Insufficient wallet balance"));
-            }
-            wallet.setBalance(wallet.getBalance().subtract(totalAmount));
-            wallet.setUpdatedAt(LocalDateTime.now());
-
-            LocalDateTime startDate = LocalDateTime.now();
-            int durationDays = postingPackageOrderRequest.getDuration();
-
-            PostingPackageOrder postingPackageOrder = new PostingPackageOrder();
-            postingPackageOrder.setPostingPackage(postingPackage);
-            postingPackageOrder.setListing(listing);
-            postingPackageOrder.setDuration(durationDays);
-            postingPackageOrder.setTotalAmount(totalAmount);
-            postingPackageOrder.setCreatedAt(LocalDateTime.now());
-
-            // SỬA: KHÔNG còn set thẳng isActive/startDate/endDate ở đây — tách
-            // riêng ra transitionListingForNewPackageOrder() (xem javadoc bên dưới).
-            transitionListingForNewPackageOrder(listing, postingPackageOrder, startDate);
-
-            Transaction transaction = Transaction.builder()
-                    .wallet(wallet)
-                    .account(account)
-                    .transactionType(TransactionTypeEnum.POSTING_PACKAGE_PAYMENT)
-                    .transactionDate(LocalDateTime.now())
-                    .totalAmount(totalAmount.longValue())
-                    .transactionCode("PAY_" + System.currentTimeMillis())
-                    .contentDescription("Thanh toán gói dịch vụ đăng tin RealMateAI")
-                    .transactionStatus("SUCCESS")
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
-            transactionRepository.save(transaction);
-            walletRepository.save(wallet);
-            postingPackageOrderRepository.save(postingPackageOrder);
-
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Payment for posting package successfully"));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MỚI: Thanh toán TỰ ĐỘNG cho Listing vừa tạo — gọi từ
+    // ListingServiceImplement#createListing khi request kèm postingPackageId.
+    // REQUIRES_NEW: đây là ĐIỂM MẤU CHỐT của yêu cầu — nếu thanh toán fail (ví
+    // null / không đủ tiền), transaction NÀY rollback RIÊNG (không tạo order,
+    // không trừ tiền), nhưng KHÔNG được kéo theo rollback transaction tạo
+    // Listing ở tầng gọi. Nhờ vậy Listing vẫn tồn tại (WAITING_PAYMENT) để FE
+    // điều hướng Seller sang trang thanh toán, trả sau vẫn thanh toán được
+    // đúng listing này qua POST /seller/posting-package-orders.
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public PaymentAttemptResult attemptAutoPaymentForNewListing(Integer listingId, Integer postingPackageId,
+                                                                Integer duration, BigDecimal totalAmount) {
+        try {
+            PostingPackage postingPackage = postingPackageRepository.findById(postingPackageId).orElse(null);
+            if (postingPackage == null) {
+                return PaymentAttemptResult.fail("POSTING_PACKAGE_NOT_FOUND", "Gói dịch vụ đăng tin không tồn tại");
+            }
+
+            Listing listing = listingRepository.findById(listingId).orElse(null);
+            if (listing == null) {
+                return PaymentAttemptResult.fail("LISTING_NOT_FOUND", "Tin đăng không tồn tại");
+            }
+
+            return executePayment(listing, postingPackage, duration, totalAmount);
+        } catch (Exception e) {
+            log.error("[PostingPackageOrderService] attemptAutoPaymentForNewListing lỗi: listingId={}", listingId, e);
+            return PaymentAttemptResult.fail("PAYMENT_ERROR", e.getMessage());
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MỚI: Logic thanh toán DÙNG CHUNG cho payPostingPackage() (API public) VÀ
+    // attemptAutoPaymentForNewListing() (nội bộ, gọi từ createListing). Kiểm
+    // tra ví -> trừ tiền -> transitionListingForNewPackageOrder() -> ghi
+    // Transaction -> lưu PostingPackageOrder. Trả PaymentAttemptResult thay vì
+    // ResponseEntity để dùng được ở cả 2 nơi gọi khác nhau (1 nơi trả HTTP
+    // response, 1 nơi chỉ cần biết success/fail để quyết định message cho FE).
+    // ════════════════════════════════════════════════════════════════════════
+    private PaymentAttemptResult executePayment(Listing listing, PostingPackage postingPackage,
+                                                Integer duration, BigDecimal totalAmount) {
+        Account account = listing.getSeller().getAccount();
+        int accountId = account.getAccountId();
+
+        Wallet wallet = walletRepository.findByAccount_AccountId(accountId).orElse(null);
+        if (wallet == null) {
+            return PaymentAttemptResult.fail("WALLET_NOT_FOUND",
+                    "Tài khoản chưa có ví — vui lòng tạo/nạp ví trước khi thanh toán gói dịch vụ đăng tin");
+        }
+
+        if (wallet.getBalance().compareTo(totalAmount) < 0) {
+            return PaymentAttemptResult.fail("INSUFFICIENT_BALANCE",
+                    "Số dư ví không đủ để thanh toán gói dịch vụ đăng tin, vui lòng nạp thêm tiền");
+        }
+
+        wallet.setBalance(wallet.getBalance().subtract(totalAmount));
+        wallet.setUpdatedAt(LocalDateTime.now());
+
+        LocalDateTime startDate = LocalDateTime.now();
+
+        PostingPackageOrder postingPackageOrder = new PostingPackageOrder();
+        postingPackageOrder.setPostingPackage(postingPackage);
+        postingPackageOrder.setListing(listing);
+        postingPackageOrder.setDuration(duration);
+        postingPackageOrder.setTotalAmount(totalAmount);
+        postingPackageOrder.setCreatedAt(LocalDateTime.now());
+
+        // KHÔNG set thẳng isActive/startDate/endDate ở đây — tách riêng ra
+        // transitionListingForNewPackageOrder() (xem javadoc bên dưới).
+        transitionListingForNewPackageOrder(listing, postingPackageOrder, startDate);
+
+        Transaction transaction = Transaction.builder()
+                .wallet(wallet)
+                .account(account)
+                .transactionType(TransactionTypeEnum.POSTING_PACKAGE_PAYMENT)
+                .transactionDate(LocalDateTime.now())
+                .totalAmount(totalAmount.longValue())
+                .transactionCode("PAY_" + System.currentTimeMillis())
+                .contentDescription("Thanh toán gói dịch vụ đăng tin RealMateAI")
+                .transactionStatus("SUCCESS")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        transactionRepository.save(transaction);
+        walletRepository.save(wallet);
+        PostingPackageOrder savedOrder = postingPackageOrderRepository.save(postingPackageOrder);
+
+        return PaymentAttemptResult.ok(savedOrder.getPostingPackageOrderId());
     }
 
     @Override
