@@ -13,42 +13,42 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/investment-plans")
+@RequestMapping("/investor/investment-plans")
 @Tag(name = "Investment Plan", description = "Investor: Quản lý phương án và kế hoạch đầu tư")
 public class InvestmentPlanController {
 
     @Autowired
     private InvestmentPlanServiceInterface investmentPlanServiceInterface;
 
-    @GetMapping("/investor/investment-plans/me")
+    @GetMapping("/me")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Lấy danh sách CHA (InvestmentProfile) - thông số hiển thị lấy từ bản CON (InvestmentProfileVersion) mới nhất")
     public ResponseEntity<ApiResponse> getProfilesByInvest(){
         return investmentPlanServiceInterface.getListProfileByInvestor();
     }
 
-    @GetMapping("/investor/investment-plans/{profileId}/versions")
+    @GetMapping("/{profileId}/versions")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Lấy danh sách các CON (InvestmentProfileVersion) thuộc về CHA (InvestmentProfile) này")
     public ResponseEntity<ApiResponse> getProfilesByInvest(@PathVariable("profileId") Integer profileId){
         return investmentPlanServiceInterface.getListViewsByProfileId(profileId);
     }
 
-    @GetMapping("/investor/investment-plans/versions/{versionId}/inputs")
+    @GetMapping("/versions/{versionId}/inputs")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xem chi tiết thông số cài đặt đầu vào của CON (InvestmentProfileVersion)")
     public ResponseEntity<ApiResponse> getProfileDetailById(@PathVariable("versionId") Integer versionId) {
         return investmentPlanServiceInterface.getProfileVersionDetailById(versionId);
     }
 
-    @GetMapping("/investor/investment-plans/versions/{versionId}/results")
+    @GetMapping("/versions/{versionId}/results")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xem chi tiết kết quả dòng tiền và giỏ hàng của CON (InvestmentProfileVersion)")
     public ResponseEntity<ApiResponse> getInvestmentPlanDetailByProfileId(@PathVariable("versionId") Integer versionId) {
         return investmentPlanServiceInterface.getInvestmentPlanDetailByVersionId(versionId);
     }
 
-    @PostMapping("/investor/investment-plans")
+    @PostMapping
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Gửi thông số đầu vào để AI phân bổ -> Tạo mới 1 bản CHA (InvestmentProfile) và 1 bản CON (InvestmentProfileVersion)")
     public ResponseEntity<ApiResponse> generateInvestmentPlan(@RequestBody InvestmentPlanRequest request) {
@@ -71,14 +71,14 @@ public class InvestmentPlanController {
         return investmentPlanServiceInterface.deleteInvestmentPlanVersion(versionId);
     }
 
-    @DeleteMapping("/investor/investment-plans/{profileId}")
+    @DeleteMapping("/{profileId}")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Xóa mềm thực thể CHA (InvestmentProfile) và tất cả các phiên bản con liên quan")
     public ResponseEntity<ApiResponse> deleteInvestmentProfile(@PathVariable("profileId") Integer profileId){
         return investmentPlanServiceInterface.deleteInvestmentPlan(profileId);
     }
 
-    @PatchMapping("/investor/investment-plans/{profileId}")
+    @PatchMapping("/{profileId}")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Cập nhật duy nhất trường Name cho thực thể CHA (InvestmentProfile)")
     public ResponseEntity<ApiResponse> updateProfileName(
@@ -87,7 +87,7 @@ public class InvestmentPlanController {
         return investmentPlanServiceInterface.updateProfileName(profileId, request.getName());
     }
 
-    @PatchMapping("/investor/investment-plans/versions/{versionId}")
+    @PatchMapping("/versions/{versionId}")
     @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Investor: Cập nhật duy nhất trường Name cho thực thể CON (InvestmentProfileVersion)")
     public ResponseEntity<ApiResponse> updateVersionName(

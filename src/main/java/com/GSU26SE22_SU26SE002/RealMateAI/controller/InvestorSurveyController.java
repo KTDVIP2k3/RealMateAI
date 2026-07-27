@@ -20,7 +20,7 @@ public class InvestorSurveyController {
         return investorServiceInterface.getInvestorSurvey();
     }
 
-    @PostMapping(value = "/survey")
+    @PostMapping(value = "/survey/me")
     @PreAuthorize("hasRole('Investor')")
     public ResponseEntity<ApiResponse> createInvestorSurvey(@RequestBody InvestorSurveyRequest investorSurveyRequest){
         return investorServiceInterface.createInvestorSurvey(investorSurveyRequest);
