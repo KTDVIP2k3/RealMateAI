@@ -300,7 +300,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
             if (remainingQuantity <= 0) {
                 activeSubscription.setIsActive(false);
-                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
             }
 
             activeSubscription.setUpdatedAt(now);
