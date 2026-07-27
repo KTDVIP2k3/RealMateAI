@@ -926,7 +926,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         InvestmentProfile profile = InvestmentProfile.builder()
                 .investor(dbInvestor)
-                .name(request.getName() != null ? request.getName() : "AI Investment Plan - " + now)
+                .name("Kế hoạch"  +  " " + strategy.getName() + " " + request.getWardName())
                 .createdAt(now)
                 .isActive(true)
                 .updatedAt(now)
@@ -936,7 +936,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         InvestmentProfile savedProfile = investmentProfileRepository.save(profile);
         int currentVersionsCount = 0;
         int nextVersionNumber = currentVersionsCount + 1;
-        String autoVersionName = strategy.getName() + " " + request.getWardName() + " - Version " + nextVersionNumber;
+        String autoVersionName = "Kế hoạch"  +  " " + strategy.getName() + " " + request.getWardName() + " - Version " + nextVersionNumber;
         String autoVersionCode = "V" + nextVersionNumber;
 
 
