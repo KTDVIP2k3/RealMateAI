@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.GenerateFuturePlanRequest;
@@ -19,13 +20,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 /**
  * Future Plan — ĐÃ TÁCH HOÀN TOÀN khỏi InvestmentProfileVersion (thiết kế cũ
  * dùng version="FUTURE_PLAN" đã bỏ). Giờ dùng 5 bảng RIÊNG:
@@ -81,10 +82,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     @Autowired
     private PortfolioRepository portfolioRepository;
 
-    // MỚI: resolve strategyId investor nhập (nếu có) khi tạo hướng đi tiếp theo.
-    @Autowired
-    private StrategyRepository strategyRepository;
-
     // ── Bảng RIÊNG cho Future Plan (tách hoàn toàn khỏi investment_profile_version) ──
     @Autowired
     private FutureInvestmentPlanRepository futureInvestmentPlanRepository;
@@ -101,6 +98,9 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     @Autowired
     private FuturePortfolioAllocationPropertyRepository futurePortfolioAllocationPropertyRepository;
 
+    @Autowired
+    private MembershipSubscriptionRepository membershipSubscriptionRepository;
+
     // =====================================================================
     // GENERATE + SAVE — 1 transaction duy nhất, không có bước "preview" rời
     // =====================================================================
@@ -109,17 +109,45 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     @Transactional
     public ResponseEntity<ApiResponse> generateAndSaveFuturePlan(GenerateFuturePlanRequest request) {
         try {
+            Account currentAccount = authenUntil.getCurrentUSer();
+            if (currentAccount == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist."));
+            }
+
+            if (currentAccount.getWallet() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("WALLET_NOT_FOUND", "You don't have a wallet. Please deposit money into your wallet to use this feature."));
+            }
+
+            Investor investor = currentAccount.getInvestor();
+            if (investor == null || investor.getMembershipSubscriptions() == null || investor.getMembershipSubscriptions().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("MEMBERSHIP_NOT_FOUND", "You don't have any membership subscription. Please purchase a plan to use this feature."));
+            }
+
+            MembershipSubscription activeSubscription = investor.getMembershipSubscriptions().stream()
+                    .filter(sub -> sub.getMembershipSubscriptionEnum_status() != null
+                            && sub.getMembershipSubscriptionEnum_status().equals(MembershipSubscriptionEnum.Using)
+                            && Boolean.TRUE.equals(sub.getIsActive()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (activeSubscription == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("SUBSCRIPTION_NOT_ACTIVATED", "You have purchased a membership subscription, but it is not activated yet. Please activate your subscription to use this feature."));
+            }
+
+            if (activeSubscription.getQuantity_using() == null || activeSubscription.getQuantity_using() <= 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
+            }
+
             InvestmentProfileVersion sourceVersion = investmentProfileVersionRepository
                     .findById(request.getSourceVersionId()).orElse(null);
             if (sourceVersion == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail("Version_Not_Found", "Không tìm thấy phiên bản kế hoạch gốc với ID: " + request.getSourceVersionId()));
-            }
-
-            Account currentAccount = authenUntil.getCurrentUSer();
-            if (currentAccount == null || currentAccount.getInvestor() == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(ApiResponse.fail("Unauthorized", "Không tìm thấy thông tin nhà đầu tư."));
             }
 
             if (request.getSelectedProperties() == null || request.getSelectedProperties().isEmpty()) {
@@ -129,66 +157,13 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
             List<String> skippedItems = new ArrayList<>();
 
-            // 1. Tính lợi nhuận từng property (thuần Java, không cần AI vì đây là phép toán xác định)
             List<PropertyProfitResultDTO> profitResults = calculatePropertyProfits(request.getSelectedProperties(), skippedItems);
             PortfolioAggregation aggregation = aggregate(profitResults);
 
-            // ═════════════════════════════════════════════════════════════════
-            // MỚI: Tính "effective values" cho hướng đi tiếp theo — ưu tiên giá
-            // trị investor NHẬP MỚI trong request, chỉ fallback về sourceVersion
-            // khi field đó investor để trống (null). Trước đây code LUÔN LUÔN
-            // clone y hệt sourceVersion, bỏ qua hoàn toàn input investor gửi lên
-            // (dù request đã có field) — đây là nguyên nhân "nhập nhưng không
-            // lưu, không trả ra khi get".
-            // ═════════════════════════════════════════════════════════════════
-            Long effEquity = request.getEquity() != null ? request.getEquity() : sourceVersion.getEquity();
-            Long effLoanCapital = request.getLoanCapital() != null ? request.getLoanCapital() : sourceVersion.getLoanCapital();
-            Long effReserveFund = request.getReserveFund() != null ? request.getReserveFund() : sourceVersion.getReserveFund();
-            String effConscious = request.getConsciousName() != null ? request.getConsciousName() : sourceVersion.getConscious();
-            String effWard = request.getWardName() != null ? request.getWardName() : sourceVersion.getWard();
-            Long effExpectedRoi = request.getExpectedRoi() != null ? request.getExpectedRoi() : sourceVersion.getExpectedRoi();
-            String effRiskTolerance = request.getRiskToleranceLevel() != null ? request.getRiskToleranceLevel() : sourceVersion.getRiskToleranceLevel();
-            Long effDurationYear = request.getDurationYear() != null ? request.getDurationYear() : sourceVersion.getDurationYear();
-            LocalDate effStartDate = request.getStartDate() != null ? request.getStartDate() : sourceVersion.getStartDate();
-            Map<String, Object> effInvestmentStrategyDetail = request.getInvestmentStrategyDetail() != null
-                    ? request.getInvestmentStrategyDetail() : sourceVersion.getInvestmentStrategyDetail();
+            InvestmentPlanDTO aiOutput = callGeminiForFutureScenarios(sourceVersion, profitResults, aggregation);
 
-            Strategy effStrategy = sourceVersion.getStrategy();
-            if (request.getStrategyId() != null) {
-                Strategy requestedStrategy = strategyRepository.findById(request.getStrategyId()).orElse(null);
-                if (requestedStrategy != null) {
-                    effStrategy = requestedStrategy;
-                } else {
-                    skippedItems.add("strategyId=" + request.getStrategyId() + ": không tồn tại, giữ nguyên strategy của sourceVersion");
-                }
-            }
-
-            // legalStatus: sourceVersion lưu String JSON ("["Sổ đỏ","Sổ hồng"]") —
-            // investor gửi List<String> giống hệt format InvestmentPlanRequest,
-            // serialize lại đúng kiểu JSON String để đồng nhất với dữ liệu cũ.
-            String effLegalStatus = sourceVersion.getLegalStatus();
-            if (request.getLegalStatus() != null) {
-                try {
-                    effLegalStatus = objectMapper.writeValueAsString(request.getLegalStatus());
-                } catch (Exception e) {
-                    log.warn("[InvestmentFuturePlanService] Không serialize được legalStatus mới, giữ nguyên sourceVersion: {}", e.getMessage());
-                }
-            }
-
-            // 2. Gọi AI sinh scenarios + executionPlan dựa trên số liệu THỰC TẾ vừa tính
-            //    VÀ tham số hướng đi tiếp theo MỚI (effEquity/effLoanCapital/...) thay
-            //    vì chỉ lặp lại y hệt sourceVersion như trước.
-            InvestmentPlanDTO aiOutput = callGeminiForFutureScenarios(
-                    effEquity, effLoanCapital, effExpectedRoi, effDurationYear, profitResults, aggregation);
-
-            // 3. Gọi AI sinh nhận xét so sánh ngắn gọn — so với sourceVersion GỐC
-            //    (KHÔNG dùng effExpectedRoi ở đây — mục đích so sánh là đối chiếu
-            //    kết quả thực tế với kỳ vọng BAN ĐẦU, không phải kỳ vọng mới vừa nhập).
             InvestmentFuturePlanDTO.ComparisonSummaryDTO comparison = buildComparisonSummary(sourceVersion, aggregation);
 
-            // 4. Đếm số future-plan ĐÃ CÓ của CÙNG investment profile để tự sinh tên
-            //    "Kết quả dự đoán N" — KHÔNG còn deactivate version gốc nữa (future-plan
-            //    giờ là bản ghi con độc lập, không cạnh tranh vị trí "active" của profile).
             InvestmentProfile profile = sourceVersion.getInvestmentProfile();
             LocalDateTime now = LocalDateTime.now();
             long existingCount = profile != null
@@ -200,24 +175,22 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
             Map<String, Object> profitSummaryMap = buildProfitSummaryMap(aggregation, comparison, aiOutput.getScore());
 
-            // 5. Tạo FutureInvestmentPlan — dùng "effective values" (ưu tiên input
-            //    MỚI investor gửi, fallback sourceVersion nếu để trống).
             FutureInvestmentPlan newPlan = FutureInvestmentPlan.builder()
                     .investmentProfile(profile)
                     .sourceVersion(sourceVersion)
                     .name(autoName)
-                    .strategy(effStrategy)
-                    .equity(effEquity)
-                    .loanCapital(effLoanCapital)
-                    .reserveFund(effReserveFund)
-                    .conscious(effConscious)
-                    .ward(effWard)
-                    .expectedRoi(effExpectedRoi)
-                    .riskToleranceLevel(effRiskTolerance)
-                    .durationYear(effDurationYear)
-                    .startDate(effStartDate)
-                    .investmentStrategyDetail(effInvestmentStrategyDetail)
-                    .legalStatus(effLegalStatus)
+                    .strategy(sourceVersion.getStrategy())
+                    .equity(sourceVersion.getEquity())
+                    .loanCapital(sourceVersion.getLoanCapital())
+                    .reserveFund(sourceVersion.getReserveFund())
+                    .conscious(sourceVersion.getConscious())
+                    .ward(sourceVersion.getWard())
+                    .expectedRoi(sourceVersion.getExpectedRoi())
+                    .riskToleranceLevel(sourceVersion.getRiskToleranceLevel())
+                    .durationYear(sourceVersion.getDurationYear())
+                    .startDate(sourceVersion.getStartDate())
+                    .investmentStrategyDetail(sourceVersion.getInvestmentStrategyDetail())
+                    .legalStatus(sourceVersion.getLegalStatus())
                     .profitSummary(profitSummaryMap)
                     .isActive(true)
                     .createdAt(now)
@@ -226,8 +199,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
             FutureInvestmentPlan savedPlan = futureInvestmentPlanRepository.save(newPlan);
 
-            // 6. Lưu scenarios từ AI output — LƯU ĐỦ CẢ 8 FIELD (fix bug null trước đây
-            //    chỉ lưu 3/8 field khiến GET lại thiếu chi tiết lợi nhuận đã add vào)
             if (aiOutput.getScenarios() != null) {
                 for (InvestmentScenarioDTO s : aiOutput.getScenarios()) {
                     futureInvestmentScenarioRepository.save(FutureInvestmentScenario.builder()
@@ -248,7 +219,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 }
             }
 
-            // 7. Lưu execution plan
             if (aiOutput.getExecutionPlan() != null) {
                 String descJson = objectMapper.writeValueAsString(aiOutput.getExecutionPlan());
                 futureExecutionPlanRepository.save(FutureExecutionPlan.builder()
@@ -261,18 +231,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .build());
             }
 
-            // 8. Lưu portfolio + properties — ghi TRỰC TIẾP vào
-            //    FuturePortfolioAllocationProperty (bỏ bảng trung gian, xem javadoc
-            //    FutureInvestmentPortfolio). Group theo portfolioId investor gửi lên.
-            //
-            //    FIX quan trọng: TRƯỚC ĐÂY property thiếu portfolioId (thường gặp
-            //    với property MANUAL) bị LỌC BỎ HOÀN TOÀN ở bước này — dù vẫn được
-            //    tính vào phân tích lợi nhuận tổng ở calculatePropertyProfits() phía
-            //    trên (chạy trên TOÀN BỘ selectedProperties, không lọc theo
-            //    portfolioId) — gây ra tình trạng "vẫn phân tích nhưng không hiện
-            //    trong danh sách". Giờ dùng sentinel key UNCLASSIFIED_KEY để nhóm
-            //    NHỮNG property này vào 1 FutureInvestmentPortfolio riêng với
-            //    portfolio=null ("Chưa phân loại") — KHÔNG BAO GIỜ bị mất nữa.
             Map<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> byPortfolio = request.getSelectedProperties()
                     .stream()
                     .collect(Collectors.groupingBy(item ->
@@ -299,8 +257,8 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 FutureInvestmentPortfolio futurePortfolio = futureInvestmentPortfolioRepository.save(
                         FutureInvestmentPortfolio.builder()
                                 .futureInvestmentPlan(savedPlan)
-                                .portfolio(portfolio) // null khi "Chưa phân loại" hoặc portfolioId không tồn tại
-                                .percentage(0) // future plan không tính lại % phân bổ AI, giữ 0 vì capital đã thực
+                                .portfolio(portfolio)
+                                .percentage(0)
                                 .capital(capitalForThisPortfolio)
                                 .isActive(true)
                                 .createdAt(now)
@@ -318,10 +276,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                             FuturePortfolioAllocationProperty.builder()
                                     .futureInvestmentPortfolio(futurePortfolio)
                                     .property(property)
-                                    // SỬA: không còn lấy thẳng item.getPropertySource() (có thể
-                                    // null/sai chuỗi từ FE) — chuẩn hoá lại theo ĐÚNG ID đã dùng
-                                    // để resolve ra property này, tránh lưu sai nhãn nguồn gốc.
-                                    .propertySource(item.getManualPropertyId() != null ? "MANUAL" : "SYSTEM")
+                                    .propertySource(item.getPropertySource() != null ? item.getPropertySource() : "SYSTEM")
                                     .usagePurpose(item.getUsagePurpose())
                                     .monthlyRevenue(item.getMonthlyRevenue())
                                     .monthlyOperatingCost(item.getMonthlyOperatingCost())
@@ -340,8 +295,17 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         savedPlan.getFutureInvestmentPlanId(), skippedItems.size(), skippedItems);
             }
 
-            // 9. Response GỌN — chỉ xác nhận đã tạo + newVersionId (= futureInvestmentPlanId)
-            //    để FE gọi GET /investment-plans/future/{newVersionId} lấy output đầy đủ.
+            int remainingQuantity = activeSubscription.getQuantity_using() - 1;
+            activeSubscription.setQuantity_using(remainingQuantity);
+
+            if (remainingQuantity <= 0) {
+                activeSubscription.setIsActive(false);
+                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            }
+
+            activeSubscription.setUpdatedAt(now);
+            membershipSubscriptionRepository.save(activeSubscription);
+
             FuturePlanCreatedResponse responseDTO = FuturePlanCreatedResponse.builder()
                     .newVersionId(savedPlan.getFutureInvestmentPlanId())
                     .newVersionName(savedPlan.getName())
@@ -363,7 +327,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .body(ApiResponse.fail("Server_Error", "Đã xảy ra lỗi: " + e.getMessage()));
         }
     }
-
     /** Mô tả ngắn 1 item cho mục đích log/skippedItems (không lộ toàn bộ payload, chỉ đủ để investor/dev nhận diện). */
     private static String describeItem(GenerateFuturePlanRequest.SelectedPropertyItem item) {
         if (item.getListingId() != null) return "listingId=" + item.getListingId();
@@ -457,11 +420,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                 .area(property != null && property.getArea() != null ? property.getArea().intValue() : 0)
                                 .valuePrice(pap.getActualPurchasePrice() != null ? pap.getActualPurchasePrice().doubleValue() : 0.0)
                                 .description(pap.getUsagePurpose())
-                                // MỚI: trước đây propertySource CÓ lưu vào DB (future_portfolio_
-                                // allocation_property.property_source) nhưng KHÔNG được map ra
-                                // response GET — FE không có cách nào biết property này là SYSTEM
-                                // hay MANUAL khi xem lại chi tiết kế hoạch. Bổ sung map lại tại đây.
-                                .propertySource(pap.getPropertySource())
                                 .build());
 
                         if (pap.getActualPurchasePrice() != null && pap.getActualPurchasePrice() > 0) {
@@ -503,39 +461,11 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .aiActionRecommendation((String) profitSummary.get("aiActionRecommendation"))
                     .build();
 
-            // MỚI: giải mã legalStatus JSON String -> List<String> (cùng cách
-            // InvestmentPlanServiceImplement đang làm cho InvestmentProfileVersion,
-            // giữ đồng nhất format giữa 2 nơi).
-            List<String> legalStatusList = new ArrayList<>();
-            if (plan.getLegalStatus() != null && !plan.getLegalStatus().isBlank()) {
-                try {
-                    legalStatusList = objectMapper.readValue(plan.getLegalStatus(), new TypeReference<List<String>>() {});
-                } catch (Exception e) {
-                    log.warn("[InvestmentFuturePlanService] Lỗi giải mã legalStatus JSON của futurePlanId={}: {}",
-                            futurePlanId, e.getMessage());
-                }
-            }
-
             InvestmentFuturePlanDTO dto = InvestmentFuturePlanDTO.builder()
                     .newVersionId(plan.getFutureInvestmentPlanId())
                     .newVersionName(plan.getName())
                     .sourceVersionId(sourceVersion != null ? sourceVersion.getProfileVersionId() : null)
                     .sourceVersionName(sourceVersion != null ? sourceVersion.getProfileVersionName() : null)
-                    // MỚI: snapshot "thông tin cơ bản" hướng đi tiếp theo — trước đây
-                    // CÓ lưu vào DB nhưng chưa từng map ra response GET.
-                    .equity(plan.getEquity())
-                    .loanCapital(plan.getLoanCapital())
-                    .reserveFund(plan.getReserveFund())
-                    .consciousName(plan.getConscious())
-                    .wardName(plan.getWard())
-                    .expectedRoi(plan.getExpectedRoi())
-                    .riskToleranceLevel(plan.getRiskToleranceLevel())
-                    .durationYear(plan.getDurationYear())
-                    .startDate(plan.getStartDate())
-                    .legalStatus(legalStatusList)
-                    .strategyId(plan.getStrategy() != null ? plan.getStrategy().getStrategyId() : null)
-                    .strategyName(plan.getStrategy() != null ? plan.getStrategy().getName() : null)
-                    .investmentStrategyDetail(plan.getInvestmentStrategyDetail())
                     .scenarios(scenarioDTOs)
                     .executionPlan(executionPlanDTO)
                     .investmentPortfolios(investmentPortfolios)
@@ -617,28 +547,15 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     // PRIVATE HELPERS
     // =====================================================================
 
-    // ═════════════════════════════════════════════════════════════════════
-    // SỬA (bug đã báo cáo): trước đây bắt buộc propertySource phải khớp
-    // CHÍNH XÁC chuỗi "MANUAL" (equalsIgnoreCase) thì mới chịu tra theo
-    // manualPropertyId; nếu FE gửi propertySource khác đi (rỗng, null, hoặc
-    // 1 giá trị không đúng "MANUAL") trong khi VẪN gửi manualPropertyId hợp
-    // lệ, property đó bị rơi NHẦM xuống nhánh SYSTEM (tra theo listingId=null)
-    // -> luôn trả null -> bị liệt vào skippedItems dù property có thật trong
-    // DB (đây chính là lỗi "manualPropertyId=...: không tìm thấy property").
-    // Nay ưu tiên theo ID THỰC SỰ ĐƯỢC GỬI LÊN, không còn phụ thuộc chuỗi
-    // propertySource: có manualPropertyId -> LUÔN tra theo property đó trước;
-    // chỉ dùng listingId khi KHÔNG có manualPropertyId. Áp dụng cho cả 2 nơi
-    // gọi resolveProperty() (lúc lưu portfolio VÀ lúc tính lợi nhuận).
-    // ═════════════════════════════════════════════════════════════════════
     private Property resolveProperty(GenerateFuturePlanRequest.SelectedPropertyItem item) {
-        if (item.getManualPropertyId() != null) {
+        if ("MANUAL".equalsIgnoreCase(item.getPropertySource())) {
+            if (item.getManualPropertyId() == null) return null;
             return propertyRepository.findById(item.getManualPropertyId()).orElse(null);
         }
-        if (item.getListingId() != null) {
-            Listing listing = listingRepository.findById(item.getListingId()).orElse(null);
-            return listing != null ? listing.getProperty() : null;
-        }
-        return null;
+        // SYSTEM: resolve qua listing
+        if (item.getListingId() == null) return null;
+        Listing listing = listingRepository.findById(item.getListingId()).orElse(null);
+        return listing != null ? listing.getProperty() : null;
     }
 
     /** Mặc định 6 tháng khi investor không nhập hoặc nhập giá trị không hợp lệ (&lt;= 0). */
@@ -738,21 +655,16 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         return map;
     }
 
-    // SỬA: trước đây nhận thẳng `sourceVersion` và đọc equity/loanCapital/
-    // expectedRoi/durationYear từ ĐÓ — nghĩa là dù investor nhập tham số MỚI
-    // cho hướng đi tiếp theo (effEquity/effLoanCapital/...), AI vẫn luôn phân
-    // tích dựa trên số liệu GỐC. Nay nhận thẳng "effective values" đã tính ở
-    // generateAndSaveFuturePlan() (ưu tiên input mới, fallback sourceVersion).
     private InvestmentPlanDTO callGeminiForFutureScenarios(
-            Long effEquity, Long effLoanCapital, Long effExpectedRoi, Long effDurationYear,
+            InvestmentProfileVersion sourceVersion,
             List<PropertyProfitResultDTO> profitResults,
             PortfolioAggregation aggregation) throws Exception {
 
         String profitSummaryJson = objectMapper.writeValueAsString(profitResults);
 
         String prompt = "Bạn là chuyên gia phân tích tài chính bất động sản.\n\n" +
-                "Kế hoạch (hướng đi tiếp theo): Vốn tự có " + effEquity + " VNĐ, Vốn vay " + effLoanCapital +
-                " VNĐ, ROI kỳ vọng " + effExpectedRoi + "%, thời gian " + effDurationYear + " năm.\n\n" +
+                "Kế hoạch gốc: Vốn tự có " + sourceVersion.getEquity() + " VNĐ, Vốn vay " + sourceVersion.getLoanCapital() +
+                " VNĐ, ROI kỳ vọng " + sourceVersion.getExpectedRoi() + "%, thời gian " + sourceVersion.getDurationYear() + " năm.\n\n" +
                 "Nhà đầu tư đã THỰC TẾ chọn các bất động sản với kết quả tính toán thực:\n" + profitSummaryJson + "\n\n" +
                 "Tổng hợp: Vốn đầu tư " + aggregation.totalInvestedCapital() + " VNĐ, dòng tiền thuần/tháng " +
                 aggregation.totalMonthlyNetCashflow() + " VNĐ, lợi nhuận tổng " + aggregation.totalProfitAmount() +
