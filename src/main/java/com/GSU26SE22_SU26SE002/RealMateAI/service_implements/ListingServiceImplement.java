@@ -27,6 +27,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -50,17 +51,25 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final FavoriteListingRepository favoriteListingRepository;
     private final WardRepository wardRepository;
     private final MediaAssetRepository mediaAssetRepository;
+    private final ProvinceRepository provinceRepository;
     private final ListingMapper listingMapper;
     private final NotificationService notificationService;
     private final UserEventTrackingService userEventTrackingService;
     private final AuthenUntil authenUntil;
     private final Client geminiClient;
     private final ObjectMapper objectMapper;
+    // MỚI: dùng cho recordSearchHistory() + nhóm "Recent Search" của
+    // GET /listings/search/suggestions.
+    private final SearchHistoryRepository searchHistoryRepository;
 
     private static final int PAGE_SIZE = 10;
     private static final int GEMINI_MAX_RETRY = 5;
     private static final long GEMINI_RETRY_DELAY_MS = 8000;
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
+    // MỚI: số gợi ý tối đa mỗi nhóm ở GET /listings/search/suggestions.
+    private static final int SUGGESTION_LIMIT = 5;
+    // MỚI: số dòng lịch sử tìm kiếm tối đa lưu cho mỗi tài khoản.
+    private static final int SEARCH_HISTORY_CAP = 20;
 
     private static class ListingConflictException extends RuntimeException {
         final HttpStatus status;
@@ -269,7 +278,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     saved.getListingId(), property.getPropertyId(), seller.getSellerId(), isNewProperty, reparented);
 
             notificationService.notify(seller.getAccount(),
-                    "Bạn vừa đăng tin \"" + saved.getTitle() + "\" thành công, đang chờ Staff duyệt.",
+                    "Bạn vừa đăng tin \"" + saved.getTitle() + "\" thành công, vui lòng thanh toán gói dịch vụ đăng tin để gửi duyệt.",
                     NotificationTypeEnum.LISTING);
 
             Property refreshed = propertyRepository.findByIdWithDetails(property.getPropertyId()).orElse(property);
@@ -277,7 +286,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             String msg = "Bài đăng tạo thành công"
                     + (reparented > 0 ? ", kèm " + reparented + " ảnh" : "")
-                    + ", đang chờ Staff duyệt";
+                    + ", vui lòng thanh toán gói dịch vụ đăng tin để gửi duyệt";
 
             // Dùng mapper "ForOwner" — KHÔNG trả sellerAvatar/sellerStatus/
             // contactPersonName/linkSocialContactPerson (chỉ dành cho người XEM
@@ -297,19 +306,21 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // Helper: Tạo bản ghi ListingVerification ở trạng thái PENDING ngay khi
-    // Listing được tạo — bắt buộc để GET /staff/listings/pending nhìn thấy
-    // bài đăng mới ngay lập tức (trước đây record này chỉ được tạo khi Staff
-    // gọi verify lần đầu → hàng đợi chờ duyệt luôn rỗng với bài đăng mới).
+    // Helper: Tạo bản ghi ListingVerification ở trạng thái WAITING_PAYMENT ngay
+    // khi Listing được tạo — tin đăng KHÔNG vào hàng đợi chờ Staff duyệt
+    // (GET /staff/listings/pending chỉ lọc theo PENDING) cho tới khi Seller
+    // thanh toán xong gói dịch vụ đăng tin (xem
+    // PostingPackageOrderServiceImplement#payPostingPackage — nơi DUY NHẤT
+    // chuyển WAITING_PAYMENT -> PENDING).
     // ════════════════════════════════════════════════════════════════════════
     private void createPendingVerification(Listing listing) {
         ListingVerification verification = ListingVerification.builder()
                 .listing(listing)
-                .status(ListingStatusEnum.PENDING)
+                .status(ListingStatusEnum.WAITING_PAYMENT)
                 .build();
         listingVerificationRepository.save(verification);
         // Gán ngược để object Listing trong bộ nhớ phản ánh đúng ngay lập tức
-        // (response trả về sau khi tạo cũng hiển thị verificationStatus=PENDING).
+        // (response trả về sau khi tạo cũng hiển thị verificationStatus=WAITING_PAYMENT).
         listing.setListingVerification(verification);
     }
 
@@ -1163,6 +1174,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 }
             }
 
+            // Ghi lịch sử tìm kiếm — CHỈ khi đã đăng nhập VÀ có từ khoá thật sự (không
+            // ghi khi chỉ lọc theo giá/diện tích... mà không gõ chữ gì) — dùng cho mục
+            // "Recent Search" ở GET /listings/search/suggestions.
+            if (currentUser != null && request.getKeyword() != null && !request.getKeyword().isBlank()) {
+                recordSearchHistory(currentUser, request.getKeyword().trim());
+            }
+
             final Set<Integer> favIds = favoritedIds;
             List<ListingSummaryResponse> content = listingPage.getContent().stream()
                     .map(l -> listingMapper.toListingSummary(l, favIds.contains(l.getListingId())))
@@ -1183,6 +1201,175 @@ public class ListingServiceImplement implements ListingServiceInterface {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // SỬA (lỗi biên dịch thiếu hàm): searchListings() ở trên gọi
+    // recordSearchHistory(currentUser, keyword) nhưng hàm này CHƯA từng được
+    // định nghĩa — bổ sung tại đây. UPSERT theo (account, keyword không phân
+    // biệt hoa/thường): nếu đã tìm keyword y hệt trước đó thì chỉ cập nhật
+    // updatedAt (đẩy lên đầu danh sách "gần đây"), không tạo dòng trùng. Đây
+    // cũng là nguồn dữ liệu DUY NHẤT cho nhóm "Recent Search" ở
+    // GET /listings/search/suggestions (xem buildRecentSearchSuggestions).
+    // Lỗi ở hàm này KHÔNG được làm hỏng luồng tìm kiếm chính — chỉ log lại.
+    // ════════════════════════════════════════════════════════════════════════
+    private void recordSearchHistory(Account account, String keyword) {
+        try {
+            String trimmed = keyword.trim();
+            LocalDateTime now = LocalDateTime.now();
+
+            SearchHistory existing = searchHistoryRepository
+                    .findByAccount_AccountIdAndKeywordIgnoreCase(account.getAccountId(), trimmed)
+                    .orElse(null);
+
+            if (existing != null) {
+                existing.setUpdatedAt(now);
+                searchHistoryRepository.save(existing);
+                return;
+            }
+
+            SearchHistory history = SearchHistory.builder()
+                    .account(account)
+                    .keyword(trimmed)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+            searchHistoryRepository.save(history);
+
+            // Giới hạn tối đa SEARCH_HISTORY_CAP dòng/tài khoản — dọn bớt bản ghi
+            // cũ nhất nếu vượt ngưỡng, tránh bảng phình vô hạn theo thời gian.
+            long total = searchHistoryRepository.countByAccount_AccountId(account.getAccountId());
+            if (total > SEARCH_HISTORY_CAP) {
+                searchHistoryRepository
+                        .findTop5ByAccount_AccountIdOrderByUpdatedAtAsc(account.getAccountId())
+                        .stream()
+                        .limit(total - SEARCH_HISTORY_CAP)
+                        .forEach(searchHistoryRepository::delete);
+            }
+        } catch (Exception e) {
+            log.warn("[ListingService] recordSearchHistory lỗi, bỏ qua: {}", e.getMessage());
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MỚI: GET /listings/search/suggestions — Autocomplete Suggestion.
+    // q rỗng/null: chỉ trả Recent Search (nếu đã đăng nhập), 3 nhóm còn lại rỗng
+    // (không lọc dữ liệu Location/Listing/PropertyType theo chuỗi rỗng để tránh
+    // trả về ngẫu nhiên hàng nghìn dòng không có ý nghĩa gợi ý).
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> getSearchSuggestions(String q) {
+        try {
+            String keyword = q == null ? "" : q.trim();
+
+            List<SearchSuggestionItem> locations = Collections.emptyList();
+            List<SearchSuggestionItem> listings = Collections.emptyList();
+            List<SearchSuggestionItem> propertyTypes = Collections.emptyList();
+
+            if (StringUtils.hasText(keyword)) {
+                locations = buildLocationSuggestions(keyword);
+                listings = buildListingSuggestions(keyword);
+                propertyTypes = buildPropertyTypeSuggestions(keyword);
+            }
+
+            Account currentUser = authenUntil.getCurrentUSer();
+            List<SearchSuggestionItem> recentSearches = currentUser != null
+                    ? buildRecentSearchSuggestions(currentUser, keyword)
+                    : Collections.emptyList();
+
+            SearchSuggestionResponse result = SearchSuggestionResponse.builder()
+                    .locations(locations)
+                    .listings(listings)
+                    .propertyTypes(propertyTypes)
+                    .recentSearches(recentSearches)
+                    .build();
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Gợi ý tìm kiếm"));
+        } catch (Exception e) {
+            log.error("[ListingService] getSearchSuggestions lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // Nhóm LOCATION — khớp tên Phường/Xã trước (cụ thể hơn), rồi tới Tỉnh/Thành,
+    // gộp chung rồi cắt về đúng SUGGESTION_LIMIT.
+    private List<SearchSuggestionItem> buildLocationSuggestions(String keyword) {
+        List<SearchSuggestionItem> result = new ArrayList<>();
+
+        wardRepository
+                .findTop5ByNameContainingIgnoreCaseOrFullNameContainingIgnoreCase(keyword, keyword)
+                .forEach(w -> result.add(SearchSuggestionItem.builder()
+                        .type("LOCATION")
+                        .label(w.getProvince() != null
+                                ? w.getFullName() + ", " + w.getProvince().getName()
+                                : w.getFullName())
+                        .value(w.getFullName())
+                        .code(w.getWard_code())
+                        .build()));
+
+        provinceRepository
+                .findTop5ByNameContainingIgnoreCaseOrFullNameContainingIgnoreCase(keyword, keyword)
+                .forEach(p -> result.add(SearchSuggestionItem.builder()
+                        .type("LOCATION")
+                        .label(p.getFullName())
+                        .value(p.getFullName())
+                        .code(p.getProvince_code())
+                        .build()));
+
+        return result.stream().limit(SUGGESTION_LIMIT).toList();
+    }
+
+    // Nhóm LISTING — khớp tiêu đề tin đăng hoặc tên dự án (property.projectName).
+    // Label ưu tiên tên dự án (VD "Vinhome Grand Park") vì đó là cách người dùng
+    // thường gõ tìm — fallback về tiêu đề tin nếu property không có projectName.
+    private List<SearchSuggestionItem> buildListingSuggestions(String keyword) {
+        Pageable top = PageRequest.of(0, SUGGESTION_LIMIT);
+        return listingRepository.searchSuggestionsByTitleOrProjectName(keyword, top).stream()
+                .map(l -> {
+                    String label = (l.getProperty() != null && StringUtils.hasText(l.getProperty().getProjectName()))
+                            ? l.getProperty().getProjectName()
+                            : l.getTitle();
+                    return SearchSuggestionItem.builder()
+                            .type("LISTING")
+                            .label(label)
+                            .value(label)
+                            .code(String.valueOf(l.getListingId()))
+                            .build();
+                })
+                .toList();
+    }
+
+    // Nhóm PROPERTY_TYPE — khớp tên loại BĐS đang active.
+    private List<SearchSuggestionItem> buildPropertyTypeSuggestions(String keyword) {
+        Pageable top = PageRequest.of(0, SUGGESTION_LIMIT);
+        return propertyTypeRepository.findTop5ByIsActiveTrueAndNameContainingIgnoreCase(keyword).stream()
+                .map(pt -> SearchSuggestionItem.builder()
+                        .type("PROPERTY_TYPE")
+                        .label(pt.getName())
+                        .value(pt.getName())
+                        .code(String.valueOf(pt.getPropertyTypeId()))
+                        .build())
+                .toList();
+    }
+
+    // Nhóm RECENT_SEARCH — lịch sử tìm kiếm CỦA CHÍNH tài khoản đang đăng nhập.
+    // keyword rỗng -> trả về gần đây nhất không lọc; có keyword -> lọc theo chuỗi đang gõ.
+    private List<SearchSuggestionItem> buildRecentSearchSuggestions(Account account, String keyword) {
+        List<SearchHistory> histories = StringUtils.hasText(keyword)
+                ? searchHistoryRepository.findTop5ByAccount_AccountIdAndKeywordContainingIgnoreCaseOrderByUpdatedAtDesc(
+                account.getAccountId(), keyword)
+                : searchHistoryRepository.findTop5ByAccount_AccountIdOrderByUpdatedAtDesc(account.getAccountId());
+
+        return histories.stream()
+                .map(h -> SearchSuggestionItem.builder()
+                        .type("RECENT_SEARCH")
+                        .label(h.getKeyword())
+                        .value(h.getKeyword())
+                        .code(null)
+                        .build())
+                .toList();
     }
 
     // ════════════════════════════════════════════════════════════════════════

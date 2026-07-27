@@ -1,17 +1,17 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.ListingVerification;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Property;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingVerificationRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PostingPackageOrderRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PropertyRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.VerifyListingRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ListingVerificationResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingVerificationServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -32,6 +33,8 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
     private final PropertyRepository propertyRepository;
     private final ListingMapper listingMapper;
     private final AuthenUntil authenUntil;
+    private final PostingPackageOrderRepository postingPackageOrderRepository;
+    private final NotificationService notificationService;
 
     private Account getCurrentStaffOrAdmin() {
         Account currentUser = authenUntil.getCurrentUSer();
@@ -150,6 +153,41 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
                         property.getPropertyId(), listingId, approved);
             }
 
+            // ── Kích hoạt/từ chối các gói dịch vụ đăng tin ĐÃ THANH TOÁN nhưng
+            // CHƯA bắt đầu tính ngày (startDate == null) của CHÍNH listing này —
+            // đây là nơi DUY NHẤT bắt đầu tính startDate/endDate (KHÔNG phải lúc
+            // thanh toán, xem PostingPackageOrderServiceImplement#payPostingPackage).
+            // Đây cũng chính là bước "public = tính ngày bắt đầu gói" trong luồng:
+            // WAITING_PAYMENT -> (thanh toán) -> PENDING -> (duyệt) -> APPROVED.
+            List<PostingPackageOrder> pendingOrders = postingPackageOrderRepository
+                    .findByListing_ListingIdAndStartDateIsNull(listingId);
+            if (!pendingOrders.isEmpty()) {
+                LocalDateTime activationTime = LocalDateTime.now();
+                for (PostingPackageOrder order : pendingOrders) {
+                    if (approved) {
+                        order.setIsActive(true);
+                        order.setStartDate(activationTime);
+                        order.setEndDate(activationTime.plusDays(order.getDuration()));
+                    } else {
+                        order.setIsActive(false);
+                        // startDate giữ nguyên null — REJECTED không kích hoạt, không tự hoàn tiền.
+                    }
+                    order.setUpdatedAt(activationTime);
+                    postingPackageOrderRepository.save(order);
+                }
+
+                Account sellerAccount = listing.getSeller() != null ? listing.getSeller().getAccount() : null;
+                if (sellerAccount != null) {
+                    String packageNotifyMsg = approved
+                            ? "Tin \"" + listing.getTitle() + "\" đã được duyệt — gói dịch vụ đăng tin đã kích hoạt, bắt đầu tính ngày sử dụng."
+                            : "Tin \"" + listing.getTitle() + "\" bị từ chối — gói dịch vụ đăng tin đã mua không được kích hoạt.";
+                    notificationService.notify(sellerAccount, packageNotifyMsg, NotificationTypeEnum.TRANSACTION);
+                }
+
+                log.info("[ListingVerification] Cập nhật {} posting-package-order của listingId={}: approved={}",
+                        pendingOrders.size(), listingId, approved);
+            }
+
             String msg = approved ? "Duyệt thành công" : "Từ chối duyệt";
 
             return ResponseEntity.ok(ApiResponse.success(toVerificationResponse(verification), msg));
@@ -185,18 +223,16 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
     }
 
     private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
-        String message = e.getMessage();
-        if (message != null && message.contains("Unauthorized")) {
+        if (e.getMessage().contains("Unauthorized")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
         }
-        if (message != null && message.contains("Forbidden")) {
+        if (e.getMessage().contains("Forbidden")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.fail("Forbidden", message));
+                    .body(ApiResponse.fail("Forbidden", e.getMessage()));
         }
-        log.error("[ListingVerificationService] Lỗi không xác định", e);
         return ResponseEntity.internalServerError()
-                .body(ApiResponse.fail("Server_Error", message != null ? message : e.getClass().getSimpleName()));
+                .body(ApiResponse.fail("Server_Error", e.getMessage()));
     }
 
     private ListingVerificationResponse toVerificationResponse(ListingVerification lv) {
@@ -210,5 +246,21 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
                 .listing(lv.getListing() != null ?
                         listingMapper.toListingDetail(lv.getListing(), lv.getListing().getProperty()) : null)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public boolean transitionToPendingOnPayment(Listing listing) {
+        ListingVerification verification = listing.getListingVerification();
+        boolean listingAlreadyApproved = verification != null && verification.getStatus() == ListingStatusEnum.APPROVED;
+
+        if (verification != null && verification.getStatus() == ListingStatusEnum.WAITING_PAYMENT) {
+            verification.setStatus(ListingStatusEnum.PENDING);
+            listingVerificationRepository.save(verification);
+            log.info("[ListingVerification] listingId={}: WAITING_PAYMENT -> PENDING sau khi thanh toán gói dịch vụ đăng tin, chờ Staff duyệt",
+                    listing.getListingId());
+        }
+
+        return listingAlreadyApproved;
     }
 }

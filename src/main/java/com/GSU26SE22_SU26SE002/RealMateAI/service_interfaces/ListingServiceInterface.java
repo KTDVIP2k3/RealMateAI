@@ -67,4 +67,14 @@ public interface ListingServiceInterface {
      * (từ khoá, loại BĐS, vị trí, khoảng giá, khoảng diện tích, số phòng, hướng...).
      */
     ResponseEntity<ApiResponse> searchListings(ListingSearchRequest request);
+
+    /**
+     * MỚI: GET /listings/search/suggestions — Autocomplete Suggestion khi Investor
+     * gõ vào ô tìm kiếm (q). Gộp 4 nhóm: Location (Phường/Tỉnh khớp tên), Listing
+     * (tin đăng/dự án khớp tên), Property Type (loại BĐS khớp tên), Recent Search
+     * (lịch sử tìm kiếm gần đây CỦA CHÍNH người dùng đang đăng nhập — rỗng nếu
+     * chưa đăng nhập). q rỗng/null: chỉ trả Recent Search (nếu đã đăng nhập), 3
+     * nhóm còn lại rỗng.
+     */
+    ResponseEntity<ApiResponse> getSearchSuggestions(String q);
 }

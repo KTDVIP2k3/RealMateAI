@@ -11,7 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/investment-plans/future")
+@RequestMapping("investor/investment-plans/future")
 @Tag(name = "Investment Future Plan", description = "Investor: Tạo phiên bản kế hoạch đầu tư tương lai từ phản hồi thực tế trên property đã chọn")
 public class InvestmentFuturePlanController {
 
