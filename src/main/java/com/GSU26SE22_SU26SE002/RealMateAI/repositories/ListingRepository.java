@@ -172,32 +172,24 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             """)
     List<Listing> findOtherListingsOfPropertyWithImages(@Param("propertyId") Integer propertyId,
                                                         @Param("excludeListingId") Integer excludeListingId);
-
-
-
-
-    /**
-     * Đếm số Listing (mọi trạng thái) hiện đang tham chiếu tới 1 Property.
-     * Dùng để hiển thị "tài sản này đã được đăng N lần" trong GET /seller/properties.
-     */
+    long countByProperty_PropertyId(Integer propertyId);
     @Query("SELECT l FROM Listing l " +
             "JOIN l.property p " +
             "JOIN p.propertyCondition pc " +
             "JOIN pc.propertyType pt " +
             "JOIN p.location loc " +
-            "LEFT JOIN loc.ward w " +
-            "WHERE (:ward IS NULL OR w.name = :ward) " +
+            "JOIN loc.ward w " +
+            "WHERE (w.name = :ward OR :ward IS NULL) " +
             "AND pt.propertyTypeId = :propertyTypeId " +
             "AND l.price <= :maxPrice " +
             "AND l.isActive = true " +
             "AND p.isActive = true " +
-            "ORDER BY l.price ASC")
+            "ORDER BY l.price DESC")
     List<Listing> findRealPropertiesByAiStrategy(
             @Param("ward") String ward,
             @Param("propertyTypeId") Integer propertyTypeId,
             @Param("maxPrice") Long maxPrice
     );
-
 
     /**
      * Tăng viewCount +1 — dùng trong ListingServiceImplement#getListingDetail()
