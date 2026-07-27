@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * FE gửi để tạo 1 {@link com.GSU26SE22_SU26SE002.RealMateAI.model.FutureInvestmentPlan}
@@ -30,6 +32,27 @@ public class GenerateFuturePlanRequest {
 
     /** Danh sách property investor đã chọn, kèm thông số sử dụng thực tế */
     private List<SelectedPropertyItem> selectedProperties;
+
+    // ═════════════════════════════════════════════════════════════════════
+    // MỚI: "Thông tin cơ bản" cho HƯỚNG ĐI TIẾP THEO của kế hoạch — investor
+    // có thể nhập lại tham số tài chính MỚI (khác sourceVersion) để AI phân
+    // tích 3 kịch bản dựa trên định hướng MỚI này, thay vì chỉ lặp lại y hệt
+    // số liệu cũ. MỌI field đều OPTIONAL — để trống (null) thì giữ nguyên
+    // hành vi cũ: clone y hệt giá trị tương ứng từ sourceVersion. Cùng field
+    // set với InvestmentPlanRequest (tạo phương án gốc) để đồng bộ ý nghĩa.
+    // ═════════════════════════════════════════════════════════════════════
+    private Long equity;
+    private Long loanCapital;
+    private Long reserveFund;
+    private String consciousName;
+    private String wardName;
+    private Long expectedRoi;
+    private String riskToleranceLevel;
+    private Long durationYear;
+    private LocalDate startDate;
+    private List<String> legalStatus;
+    private Integer strategyId;
+    private Map<String, Object> investmentStrategyDetail;
 
     @Data
     @Builder
