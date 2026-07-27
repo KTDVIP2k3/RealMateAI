@@ -85,6 +85,13 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                         .listings(gridListings)
                         .build();
 
+                for (CrawPropertyListing listing : gridListings) {
+                    if (listing.getHeatmapZones() == null) {
+                        listing.setHeatmapZones(new ArrayList<>());
+                    }
+                    listing.getHeatmapZones().add(zone);
+                }
+
                 levelZones.add(zone);
             });
 

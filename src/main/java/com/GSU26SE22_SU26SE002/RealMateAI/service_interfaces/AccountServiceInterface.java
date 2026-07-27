@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminUpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateAccountRequest;
@@ -19,4 +20,6 @@ public interface AccountServiceInterface {
     ResponseEntity<ApiResponse> createAccount(CreateAccountRequestV2 createAccountRequestV2);
 
     ResponseEntity<ApiResponse> updateAccount(UpdateAccountRequest updateAccountRequest);
+
+    public ResponseEntity<ApiResponse> updateAccountByAdmin(Integer accountId, AdminUpdateAccountRequest request);
 }

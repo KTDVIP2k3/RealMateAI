@@ -24,11 +24,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class AdminAccountServiceImplement implements AdminAccountServiceInterface {
 
     @Autowired
@@ -52,6 +55,11 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
     public ResponseEntity<ApiResponse> getAllAccounts(Pageable pageable, String role, String keyword) {
         try {
             List<Account> all = accountRepository.findAll();
+
+            all = all.stream()
+                    .filter(Objects::nonNull)
+                    .sorted(Comparator.comparing(Account::getAccountId, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .collect(Collectors.toList());
 
             // filter by role
             if (role != null && !role.isBlank()) {
@@ -214,7 +222,7 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
             if (request.getGender() != null) account.setGender(request.getGender());
             account.setUpdateAt(LocalDateTime.now());
 
-            accountRepository.save(account);
+            accountRepository.saveAndFlush(account);
             return ResponseEntity.ok(ApiResponse.success(toDetailDTO(account), "Cập nhật tài khoản thành công"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

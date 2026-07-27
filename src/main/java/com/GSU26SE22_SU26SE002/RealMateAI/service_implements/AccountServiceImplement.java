@@ -3,6 +3,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminUpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateAccountRequest;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -157,6 +159,30 @@ public class AccountServiceImplement implements AccountServiceInterface {
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Create account successfully"));
         }catch (Exception e)    {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> updateAccountByAdmin(Integer accountId, AdminUpdateAccountRequest request) {
+        try {
+            Account account = accountRepository.findById(accountId).orElse(null);
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found", "Không tìm thấy tài khoản ID: " + accountId));
+            }
+
+            if (request.getFullName() != null) account.setFull_name(request.getFullName());
+            if (request.getPhone() != null) account.setPhone(request.getPhone());
+            if (request.getBirthDate() != null) account.setBirth_date(request.getBirthDate());
+            if (request.getGender() != null) account.setGender(request.getGender());
+            account.setUpdateAt(LocalDateTime.now());
+
+            accountRepository.saveAndFlush(account);
+            return ResponseEntity.ok(ApiResponse.success(null, "Cập nhật tài khoản thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 

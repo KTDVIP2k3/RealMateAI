@@ -49,7 +49,7 @@ public class AccountController {
     public ResponseEntity<ApiResponse> adminUpdateAccount(
             @PathVariable Integer accountId,
             @ModelAttribute AdminUpdateAccountRequest request) {
-        return adminAccountServiceInterface.updateAccount(accountId, request);
+        return accountServiceInterface.updateAccountByAdmin(accountId, request);
     }
 
 //    @PostMapping(value = "/admin/accounts/staff", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
