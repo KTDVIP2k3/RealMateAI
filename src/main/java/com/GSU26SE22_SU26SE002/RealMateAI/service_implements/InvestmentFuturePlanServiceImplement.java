@@ -57,6 +57,9 @@ import java.util.stream.Collectors;
 @Service
 public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePlanServiceInterface {
 
+    /** Sentinel key nhóm các property KHÔNG có portfolioId — không phải giá trị portfolioId thật nào (portfolio_id thật luôn > 0). */
+    private static final Integer UNCLASSIFIED_PORTFOLIO_KEY = -1;
+
     @Autowired
     private Client geminiClient;
 
@@ -209,24 +212,31 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             // 8. Lưu portfolio + properties — ghi TRỰC TIẾP vào
             //    FuturePortfolioAllocationProperty (bỏ bảng trung gian, xem javadoc
             //    FutureInvestmentPortfolio). Group theo portfolioId investor gửi lên.
-            //    MỌI item KHÔNG resolve được property đều được ghi vào skippedItems —
-            //    KHÔNG còn bị bỏ qua âm thầm như thiết kế cũ.
+            //
+            //    FIX quan trọng: TRƯỚC ĐÂY property thiếu portfolioId (thường gặp
+            //    với property MANUAL) bị LỌC BỎ HOÀN TOÀN ở bước này — dù vẫn được
+            //    tính vào phân tích lợi nhuận tổng ở calculatePropertyProfits() phía
+            //    trên (chạy trên TOÀN BỘ selectedProperties, không lọc theo
+            //    portfolioId) — gây ra tình trạng "vẫn phân tích nhưng không hiện
+            //    trong danh sách". Giờ dùng sentinel key UNCLASSIFIED_KEY để nhóm
+            //    NHỮNG property này vào 1 FutureInvestmentPortfolio riêng với
+            //    portfolio=null ("Chưa phân loại") — KHÔNG BAO GIỜ bị mất nữa.
             Map<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> byPortfolio = request.getSelectedProperties()
                     .stream()
-                    .filter(item -> {
-                        if (item.getPortfolioId() == null) {
-                            skippedItems.add(describeItem(item) + ": thiếu portfolioId, bỏ qua");
-                            return false;
-                        }
-                        return true;
-                    })
-                    .collect(Collectors.groupingBy(GenerateFuturePlanRequest.SelectedPropertyItem::getPortfolioId));
+                    .collect(Collectors.groupingBy(item ->
+                            item.getPortfolioId() != null ? item.getPortfolioId() : UNCLASSIFIED_PORTFOLIO_KEY));
 
             for (Map.Entry<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> entry : byPortfolio.entrySet()) {
-                Portfolio portfolio = portfolioRepository.findById(entry.getKey()).orElse(null);
-                if (portfolio == null) {
-                    skippedItems.add("portfolioId=" + entry.getKey() + ": không tồn tại, bỏ qua " + entry.getValue().size() + " property");
-                    continue;
+                boolean isUnclassified = UNCLASSIFIED_PORTFOLIO_KEY.equals(entry.getKey());
+                Portfolio portfolio = null;
+                if (!isUnclassified) {
+                    portfolio = portfolioRepository.findById(entry.getKey()).orElse(null);
+                    if (portfolio == null) {
+                        skippedItems.add("portfolioId=" + entry.getKey() + ": không tồn tại, " + entry.getValue().size()
+                                + " property được chuyển sang nhóm \"Chưa phân loại\" thay vì bỏ qua");
+                    }
+                } else {
+                    skippedItems.add(entry.getValue().size() + " property không có portfolioId — đã lưu vào nhóm \"Chưa phân loại\" (vẫn hiện trong danh sách, chỉ không thuộc danh mục Tăng trưởng/Thanh khoản cụ thể)");
                 }
 
                 List<GenerateFuturePlanRequest.SelectedPropertyItem> items = entry.getValue();
@@ -237,7 +247,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 FutureInvestmentPortfolio futurePortfolio = futureInvestmentPortfolioRepository.save(
                         FutureInvestmentPortfolio.builder()
                                 .futureInvestmentPlan(savedPlan)
-                                .portfolio(portfolio)
+                                .portfolio(portfolio) // null khi "Chưa phân loại" hoặc portfolioId không tồn tại
                                 .percentage(0) // future plan không tính lại % phân bổ AI, giữ 0 vì capital đã thực
                                 .capital(capitalForThisPortfolio)
                                 .isActive(true)
@@ -416,7 +426,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
                 investmentPortfolios.add(InvestmentPortfolioDTO.builder()
                         .portfolioId(fip.getPortfolio() != null ? fip.getPortfolio().getPortfolioId() : null)
-                        .portfolioName(fip.getPortfolio() != null ? fip.getPortfolio().getName() : null)
+                        .portfolioName(fip.getPortfolio() != null ? fip.getPortfolio().getName() : "Chưa phân loại")
                         .percentage(fip.getPercentage())
                         .capital(fip.getCapital() != null ? fip.getCapital().doubleValue() : 0.0)
                         .allocations(allocationDTOs)

@@ -31,9 +31,17 @@ public class FutureInvestmentPortfolio {
     @JoinColumn(name = "future_investment_plan_id", nullable = false)
     private FutureInvestmentPlan futureInvestmentPlan;
 
-    /** Danh mục (Tăng trưởng / Thanh khoản...) — bảng Portfolio dùng chung với luồng bình thường. */
+    /**
+     * Danh mục (Tăng trưởng / Thanh khoản...) — bảng Portfolio dùng chung với
+     * luồng bình thường. CÓ THỂ NULL — đại diện nhóm "Chưa phân loại" khi
+     * investor/FE không gửi kèm portfolioId cho 1 property (thường gặp với
+     * property thêm bằng tay - MANUAL). Trước đây property thiếu portfolioId
+     * bị BỎ QUA HOÀN TOÀN (không lưu, không hiện trong danh sách) dù vẫn được
+     * tính vào phân tích lợi nhuận tổng — gây lệch giữa "phân tích" và "danh
+     * sách hiển thị". Cho phép null để KHÔNG BAO GIỜ mất property nào.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "portfolio_id", nullable = false)
+    @JoinColumn(name = "portfolio_id", nullable = true)
     private Portfolio portfolio;
 
     private Integer percentage;

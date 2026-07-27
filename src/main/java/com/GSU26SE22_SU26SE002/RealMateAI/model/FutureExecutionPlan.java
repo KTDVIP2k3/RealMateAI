@@ -5,17 +5,12 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-@NoArgsConstructor
-@AllArgsConstructor
-@Getter
-@Setter
-@Builder
-@Entity
-@Table(name = "future_execution_plan")
+@NoArgsConstructor @AllArgsConstructor @Getter
+@Setter @Builder
+@Entity @Table(name = "future_execution_plan")
 public class FutureExecutionPlan {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "future_execution_plan_id")
     private Integer futureExecutionPlanId;
 

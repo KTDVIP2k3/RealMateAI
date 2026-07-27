@@ -17,7 +17,7 @@ public class PostingPackageOrderController {
     @Autowired
     private PostingPackageOrderServiceInterface postingPackageOrderServiceInterface;
 
-    @GetMapping("/posting-package-orders")
+    @GetMapping("/seller/posting-package-orders")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Lấy danh sách lịch sử đơn hàng mua gói dịch vụ đăng tin của cá nhân")
     public ResponseEntity<ApiResponse> getPostingPackageOrders (
@@ -27,14 +27,14 @@ public class PostingPackageOrderController {
         return postingPackageOrderServiceInterface.getPostingPackageOrders(page, size);
     }
 
-    @PostMapping("/posting-package-orders")
+    @PostMapping("/seller/posting-package-orders")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Thanh toán mua mới một gói dịch vụ đăng tin cho bài viết cụ thể bằng số dư ví")
     public ResponseEntity<ApiResponse> payPostingPackage(@RequestBody PostingPackageOrderRequest request) {
         return postingPackageOrderServiceInterface.payPostingPackage(request);
     }
 
-    @PostMapping("/posting-package-orders/{orderId}/renew")
+    @PostMapping("/seller/posting-package-orders/{orderId}/renew")
     @PreAuthorize("hasRole('Seller')")
     @Operation(summary = "Seller: Gia hạn gói dịch vụ đăng tin đã mua trước đó cho bài viết bằng số dư ví")
     public ResponseEntity<ApiResponse> renewPostingPackage(@PathVariable("orderId") Integer orderId) {

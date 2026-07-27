@@ -147,7 +147,7 @@ public class ListingController {
     // trả về đưa vào "draftImagePublicIds" — ảnh mới sẽ được NỐI THÊM vào bộ
     // ảnh hiện có của Listing (không xoá ảnh cũ).
     // ─────────────────────────────────────────────────────────────────────────
-    @PutMapping("/listings/{listingId}")
+    @PutMapping(" /seller/listings/{listingId}")
     @PreAuthorize("hasAnyRole('Seller', 'Admin', 'Staff')")
     @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS (ảnh mới — nếu có — upload trước qua POST /media/upload/multiple)")
     public ResponseEntity<ApiResponse> updateListing(
