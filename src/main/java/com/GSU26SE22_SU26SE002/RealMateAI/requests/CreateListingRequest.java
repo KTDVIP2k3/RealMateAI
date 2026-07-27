@@ -110,6 +110,15 @@ public class CreateListingRequest {
     @Schema(description = "Nội thất — mô tả tự do", example = "Đầy đủ nội thất")
     private String propFurniture;
 
+    @Schema(description = "OPTIONAL — truyền để tự động thanh toán ngay khi tạo tin. Để trống nếu muốn thanh toán sau.", example = "19")
+    private Integer postingPackageId;
+
+    @Schema(description = "Bắt buộc kèm postingPackageId. Số ngày đăng tin.", example = "30")
+    private Integer duration;
+
+    @Schema(description = "Bắt buộc kèm postingPackageId. Số tiền thanh toán (khớp giá gói).", example = "1111.00")
+    private BigDecimal totalAmount;
+
     // ── Ảnh (đã upload TRƯỚC qua POST /media/upload/multiple) ───────────────
     @Schema(
             description = "Danh sách publicId ảnh đã upload TRƯỚC đó qua "

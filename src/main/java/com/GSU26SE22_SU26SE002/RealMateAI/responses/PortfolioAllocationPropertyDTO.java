@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,4 +18,7 @@ public class PortfolioAllocationPropertyDTO {
     private Integer area;
     private Double valuePrice;
     private String description;
+
+    /** MỚI: SYSTEM (chọn từ listing AI đề xuất) | MANUAL (investor tự chọn theo property_id có sẵn). */
+    private String propertySource;
 }
