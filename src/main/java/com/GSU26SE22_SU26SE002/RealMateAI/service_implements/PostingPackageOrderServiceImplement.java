@@ -53,10 +53,6 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
     @Autowired
     private TransactionRepository transactionRepository;
 
-    // SỬA: thêm dependency này để payPostingPackage() không còn tự set thẳng
-    // isActive/startDate/endDate — tách qua transitionListingForNewPackageOrder()
-    // gọi đúng ListingVerificationServiceInterface#transitionToPendingOnPayment
-    // (nơi DUY NHẤT xử lý vòng đời trạng thái Listing/ListingVerification).
     @Autowired
     private ListingVerificationServiceInterface listingVerificationServiceInterface;
 
@@ -166,10 +162,6 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Listing id does not exist"));
             }
 
-            // SỬA: phần xử lý ví/thanh toán/transition thực tế được TÁCH RIÊNG
-            // sang executePayment() — dùng CHUNG với attemptAutoPaymentForNewListing()
-            // (gọi từ ListingServiceImplement#createListing) để không viết 2 lần
-            // cùng 1 logic thanh toán.
             PaymentAttemptResult result = executePayment(listing, postingPackage,
                     postingPackageOrderRequest.getDuration(), postingPackageOrderRequest.getTotalAmount());
 
@@ -184,16 +176,7 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // MỚI: Thanh toán TỰ ĐỘNG cho Listing vừa tạo — gọi từ
-    // ListingServiceImplement#createListing khi request kèm postingPackageId.
-    // REQUIRES_NEW: đây là ĐIỂM MẤU CHỐT của yêu cầu — nếu thanh toán fail (ví
-    // null / không đủ tiền), transaction NÀY rollback RIÊNG (không tạo order,
-    // không trừ tiền), nhưng KHÔNG được kéo theo rollback transaction tạo
-    // Listing ở tầng gọi. Nhờ vậy Listing vẫn tồn tại (WAITING_PAYMENT) để FE
-    // điều hướng Seller sang trang thanh toán, trả sau vẫn thanh toán được
-    // đúng listing này qua POST /seller/posting-package-orders.
-    // ════════════════════════════════════════════════════════════════════════
+
     @Override
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public PaymentAttemptResult attemptAutoPaymentForNewListing(Integer listingId, Integer postingPackageId,
