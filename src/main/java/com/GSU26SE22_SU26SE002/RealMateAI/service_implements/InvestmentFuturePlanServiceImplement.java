@@ -324,6 +324,28 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                 .updatedAt(now)
                                 .build());
 
+            for(GenerateFuturePlanRequest.SelectedPropertyItem selectedPropertyItem : request.getSelectedProperties()){
+                Property property = resolveProperty(selectedPropertyItem);
+                if (property == null) {
+                    skippedItems.add(describeItem(selectedPropertyItem) + ": không tìm thấy property (kiểm tra lại listingId/manualPropertyId), bỏ qua");
+                    continue;
+                }
+                FuturePortfolioAllocationProperty futurePortfolioAllocationProperty = new FuturePortfolioAllocationProperty();
+                futurePortfolioAllocationProperty.setActualPurchasePrice(selectedPropertyItem.getActualPurchasePrice());
+                futurePortfolioAllocationProperty.setEvaluatedMarketPrice(selectedPropertyItem.getEvaluatedMarketPrice());
+                futurePortfolioAllocationProperty.setHoldingMonths(selectedPropertyItem.getHoldingMonths());
+                futurePortfolioAllocationProperty.setMonthlyOperatingCost(selectedPropertyItem.getMonthlyOperatingCost());
+                futurePortfolioAllocationProperty.setMonthlyRevenue(selectedPropertyItem.getMonthlyRevenue());
+                futurePortfolioAllocationProperty.setIsActive(true);
+                futurePortfolioAllocationProperty.setPropertySource(selectedPropertyItem.getPropertySource());
+                futurePortfolioAllocationProperty.setUsagePurpose(selectedPropertyItem.getUsagePurpose());
+                futurePortfolioAllocationProperty.setCreatedAt(LocalDateTime.now());
+                futurePortfolioAllocationProperty.setUpdatedAt(LocalDateTime.now());
+                futurePortfolioAllocationProperty.setFutureInvestmentPortfolio(futurePortfolio);
+                futurePortfolioAllocationProperty.setProperty(property);
+                futurePortfolioAllocationPropertyRepository.save(futurePortfolioAllocationProperty);
+            }
+
 
                 for (GenerateFuturePlanRequest.SelectedPropertyItem item : items) {
                     Property property = resolveProperty(item);
