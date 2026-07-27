@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -249,6 +250,65 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
+        }
+    }
+
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> activeMembershipSubscriptions(Integer membershipSubscriptionId) {
+        try {
+            Account account = authenUntil.getCurrentUSer();
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
+            }
+
+            Investor investor = account.getInvestor();
+            if (investor == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Investor account does not exist"));
+            }
+
+            MembershipSubscription subscription = membershipSubscriptionRepository.findById(membershipSubscriptionId).orElse(null);
+            if (subscription == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership subscription ID does not exist"));
+            }
+
+            if (subscription.getInvestor() == null ||
+                    !subscription.getInvestor().getInvestorId().equals(investor.getInvestorId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.fail(HttpStatus.FORBIDDEN.toString(), "You do not have permission to activate this subscription"));
+            }
+
+            if (MembershipSubscriptionEnum.Using.equals(subscription.getMembershipSubscriptionEnum_status())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership subscription is already in using status"));
+            }
+
+            boolean existsUsingStatus = investor.getMembershipSubscriptions() != null &&
+                    investor.getMembershipSubscriptions().stream()
+                            .anyMatch(m -> m.getMembershipSubscriptionEnum_status() != null
+                                    && m.getMembershipSubscriptionEnum_status().equals(MembershipSubscriptionEnum.Using));
+
+            if (existsUsingStatus) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "You already have an active membership subscription in USING status. Please expire or cancel it first."));
+            }
+
+            subscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.Using);
+            subscription.setIsActive(true);
+            subscription.setUpdatedAt(LocalDateTime.now());
+
+            membershipSubscriptionRepository.save(subscription);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Activate membership subscription successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
         }
     }
 }

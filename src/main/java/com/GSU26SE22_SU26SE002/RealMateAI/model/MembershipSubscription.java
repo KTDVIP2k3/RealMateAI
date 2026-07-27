@@ -28,6 +28,8 @@ public class MembershipSubscription {
 //    private LocalDateTime startDate;
 //    private LocalDateTime endDate;
 //    private String status;
+
+    @Enumerated(EnumType.STRING)
     private MembershipSubscriptionEnum membershipSubscriptionEnum_status;
     private BigDecimal price_pay;
     private Integer quantity_using;

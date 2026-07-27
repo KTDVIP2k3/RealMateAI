@@ -7,4 +7,5 @@ public interface MembershipSubscriptionServiceInterface {
     ResponseEntity<ApiResponse> getMembershipSubscriptions(int page, int size);
     ResponseEntity<ApiResponse> payMemberShipSubscriptions(Integer membershipPlanId);
     ResponseEntity<ApiResponse> renewMemberShipSubscriptions(Integer membershipSubscriptionId);
+    ResponseEntity<ApiResponse> activeMembershipSubscriptions(Integer membershipPlanId);
 }
