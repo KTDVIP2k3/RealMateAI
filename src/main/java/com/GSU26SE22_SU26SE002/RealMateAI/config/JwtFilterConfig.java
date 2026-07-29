@@ -77,6 +77,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/wallets/deposit/cancel")
                 || requestURI.equals("/wallets/deposit/webhook")
                 || (requestURI.startsWith("/listings") && "GET".equalsIgnoreCase(method))
+                || (requestURI.startsWith("/investor/listings") && "GET".equalsIgnoreCase(method))
                 || (requestURI.startsWith("/posting-packages/") && "GET".equalsIgnoreCase(method))
                 || (requestURI.startsWith("/posting-package-categories") && "GET".equalsIgnoreCase(method)) // Bỏ qua kiểm tra Token cho các request GET tới posting-package-categories
                 || (requestURI.startsWith("/membership-plans/") && "GET".equalsIgnoreCase(method) && !requestURI.contains("/admin/"))
