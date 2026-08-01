@@ -40,4 +40,13 @@ public class PostingPackageOrderController {
     public ResponseEntity<ApiResponse> renewPostingPackage(@PathVariable("orderId") Integer orderId) {
         return postingPackageOrderServiceInterface.renewPostingPackage(orderId);
     }
+
+    // MỚI: Thanh toán LẠI cho order đang status=FAILED (ví null/không đủ tiền
+
+    @PostMapping("/seller/posting-package-orders/{orderId}/retry-pay")
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Thanh toán LẠI cho 1 đơn hàng gói dịch vụ đăng tin đã tạo nhưng thanh toán thất bại trước đó")
+    public ResponseEntity<ApiResponse> retryPayPostingPackage(@PathVariable("orderId") Integer orderId) {
+        return postingPackageOrderServiceInterface.retryPayPostingPackage(orderId);
+    }
 }

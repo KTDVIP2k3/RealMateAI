@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -15,7 +16,6 @@ public class PaymentAttemptResult {
     private String errorCode;
     private String message;
 
-    /** null nếu success=false. */
     private Integer postingPackageOrderId;
 
     public static PaymentAttemptResult ok(Integer postingPackageOrderId) {
@@ -26,11 +26,22 @@ public class PaymentAttemptResult {
                 .build();
     }
 
+    /** Dùng khi chưa kịp tạo order (postingPackageId/listingId không tồn tại). */
     public static PaymentAttemptResult fail(String errorCode, String message) {
         return PaymentAttemptResult.builder()
                 .success(false)
                 .errorCode(errorCode)
                 .message(message)
+                .build();
+    }
+
+    /** MỚI: dùng khi order ĐÃ được tạo (status=FAILED) — kèm orderId để FE gọi retry-pay. */
+    public static PaymentAttemptResult fail(String errorCode, String message, Integer postingPackageOrderId) {
+        return PaymentAttemptResult.builder()
+                .success(false)
+                .errorCode(errorCode)
+                .message(message)
+                .postingPackageOrderId(postingPackageOrderId)
                 .build();
     }
 }

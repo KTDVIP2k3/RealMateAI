@@ -21,4 +21,5 @@ public class PostingPackageOrderDTO {
     private LocalDateTime endDate;
     private Integer duration;
     private Boolean isActive;
+    private String status;
 }

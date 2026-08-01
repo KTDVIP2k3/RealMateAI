@@ -56,9 +56,7 @@ public class InvestmentFuturePlanDTO {
 
     private List<InvestmentScenarioDTO> scenarios;
     private ExecutionPlanDTO executionPlan;
-    private List<InvestmentPortfolioDTO> investmentPortfolios;
-
-    /** Chi tiết lợi nhuận từng property — đọc trực tiếp từ PortfolioAllocationProperty vừa lưu */
+    private List<FutureInvestmentPortfolioDTO> investmentPortfolios;
     private List<PropertyProfitResultDTO> propertyProfitResults;
 
     private Long totalInvestedCapital;
