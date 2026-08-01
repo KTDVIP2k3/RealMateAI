@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 
+
 public interface PostingPackageOrderServiceInterface {
     ResponseEntity<ApiResponse> getPostingPackageOrders(int page, int size);
     ResponseEntity<ApiResponse> payPostingPackage(PostingPackageOrderRequest postingPackageOrderRequest);
@@ -15,4 +16,11 @@ public interface PostingPackageOrderServiceInterface {
 
     PaymentAttemptResult attemptAutoPaymentForNewListing(Integer listingId, Integer postingPackageId,
                                                          Integer duration, BigDecimal totalAmount);
+
+    /**
+     * MỚI: Thanh toán LẠI cho 1 order đang status=FAILED (ví null/không đủ tiền
+     * lúc đầu) — KHÔNG tạo order mới, chỉ update lại order này. Thành công thì
+     * status -> SUCCESS, Listing chuyển WAITING_PAYMENT -> PENDING.
+     */
+    ResponseEntity<ApiResponse> retryPayPostingPackage(Integer postingPackageOrderId);
 }

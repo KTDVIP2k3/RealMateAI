@@ -16,6 +16,8 @@ import com.google.genai.types.Schema;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +58,18 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final Client geminiClient;
     private final ObjectMapper objectMapper;
     private final PostingPackageOrderServiceInterface postingPackageOrderServiceInterface;
+
+    // MỚI: self-reference qua Spring proxy (KHÔNG dùng "this." trực tiếp) —
+    // bắt buộc để persistNewListingCore() bên dưới thực sự chạy trong 1
+    // transaction ĐỘC LẬP, COMMIT XONG trước khi gọi thanh toán tự động (xem
+    // javadoc persistNewListingCore để hiểu rõ lý do). Dùng chính class cụ
+    // thể (không phải interface) vì persistNewListingCore là hàm NỘI BỘ,
+    // không muốn lộ ra ngoài ListingServiceInterface (public API). Field
+    // injection + @Lazy để tránh vòng lặp khởi tạo bean (bean tự phụ thuộc
+    // chính nó).
+    @Autowired
+    @Lazy
+    private ListingServiceImplement self;
     private final SearchHistoryRepository searchHistoryRepository;
 
     private static final int PAGE_SIZE = 10;
@@ -96,7 +110,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
     // Listing vừa tạo.
     // ════════════════════════════════════════════════════════════════════════
     @Override
-    @Transactional
     public ResponseEntity<ApiResponse> createListing(CreateListingRequest request) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
@@ -119,180 +132,17 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 }
             }
 
-            boolean reuseExisting = Boolean.TRUE.equals(request.getReuseExistingProperty());
-
-            LocalDateTime now = LocalDateTime.now();
-            Property property;
-            boolean isNewProperty;
-
-            if (reuseExisting) {
-                // ── Nhánh: dùng lại tài sản ĐÃ CÓ SẴN ────────────────────────
-                if (request.getExistingPropertyId() == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request",
-                                    "existingPropertyId không được để trống khi reuseExistingProperty=true"));
-                }
-
-                property = propertyRepository.findById(request.getExistingPropertyId()).orElse(null);
-                if (property == null) {
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(ApiResponse.fail("Not_Found",
-                                    "Tài sản không tồn tại: id=" + request.getExistingPropertyId()));
-                }
-                if (property.getSeller() == null ||
-                        !property.getSeller().getSellerId().equals(seller.getSellerId())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                            .body(ApiResponse.fail("Forbidden", "Tài sản này không thuộc sở hữu của bạn"));
-                }
-                isNewProperty = false;
-
-            } else {
-                // ── Nhánh: tạo tài sản MỚI ───────────────────────────────────
-                if (request.getPropTitle() == null || request.getPropTitle().isBlank()) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "propTitle không được để trống"));
-                }
-                if (request.getPropPrice() == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "propPrice không được để trống"));
-                }
-                if (request.getPropArea() == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "propArea không được để trống"));
-                }
-                if (request.getPropPropertyTypeId() == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "propPropertyTypeId không được để trống"));
-                }
-                if (request.getPropLatitude() == null || request.getPropLongitude() == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "propLatitude/propLongitude không được để trống"));
-                }
-                if (request.getPropWardCode() == null || request.getPropWardCode().isBlank()) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "propWardCode không được để trống"));
-                }
-                // Tài sản mới chưa có ảnh nào để tự động dùng lại → bắt buộc Seller
-                // phải upload ảnh trước và truyền publicId vào draftImagePublicIds.
-                if (request.getDraftImagePublicIds() == null || request.getDraftImagePublicIds().isEmpty()) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request",
-                                    "Tạo tài sản mới phải kèm ít nhất 1 ảnh (draftImagePublicIds) — "
-                                            + "upload trước qua POST /media/upload/multiple"));
-                }
-
-                PropertyType propertyType = propertyTypeRepository
-                        .findById(request.getPropPropertyTypeId()).orElse(null);
-                if (propertyType == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request", "Loại bất động sản không hợp lệ"));
-                }
-
-                PropertyCondition propertyCondition = null;
-                Integer conditionId = request.getPropPropertyConditionId();
-                if (conditionId != null) {
-                    if (conditionId <= 0) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.fail("Bad_Request", "propPropertyConditionId phải lớn hơn 0"));
-                    }
-                    propertyCondition = propertyConditionRepository.findById(conditionId).orElse(null);
-                    if (propertyCondition == null) {
-                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.fail("Bad_Request",
-                                        "Tình trạng bất động sản không tồn tại với id = " + conditionId));
-                    }
-                }
-
-                Ward ward = wardRepository.findById(request.getPropWardCode()).orElse(null);
-                if (ward == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request",
-                                    "Mã phường/xã không hợp lệ: " + request.getPropWardCode()));
-                }
-
-                Location location = Location.builder()
-                        .latitude(request.getPropLatitude())
-                        .longitude(request.getPropLongitude())
-                        .postalCode(request.getPropPostalCode())
-                        .ward(ward)
-                        .build();
-                Location savedLocation = locationRepository.save(location);
-
-                Property newProperty = Property.builder()
-                        .seller(seller)
-                        .propertyType(propertyType)
-                        .propertyCondition(propertyCondition)
-                        .location(savedLocation)
-                        .title(request.getPropTitle())
-                        .description(request.getPropDescription())
-                        .price(request.getPropPrice())
-                        .area(request.getPropArea())
-                        .floor(request.getPropFloor())
-                        .bedroom(request.getPropBedroom())
-                        .bathroom(request.getPropBathroom())
-                        .direction(request.getPropDirection())
-                        .legalStatus(request.getPropLegalStatus())
-                        .addressParticular(request.getPropAddressParticular())
-                        .projectName(request.getPropProjectName())
-                        .furniture(request.getPropFurniture())
-                        // Property MỚI tạo cùng Listing phải ở trạng thái CHỜ DUYỆT
-                        // (isActive=false), chỉ bật lên khi Staff APPROVE bài đăng
-                        // (xem ListingVerificationServiceImplement#verifyListing).
-                        .isActive(false)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                property = propertyRepository.save(newProperty);
-                propertyRepository.flush();
-                isNewProperty = true;
-            }
-
-            // ── Tạo Listing (KHÔNG còn fill contactPersonName/linkSocialContactPerson
-            //    khi tạo — 2 field này chỉ có thể bổ sung sau qua PUT /listings/{id}) ──
-            Listing listing = Listing.builder()
-                    .property(property)
-                    .seller(seller)
-                    .title(request.getTitle())
-                    .description(request.getDescription())
-                    .price(request.getPrice())
-                    .contactPerson(request.getContactPerson())
-                    .contactPersonPhone(request.getContactPersonPhone())
-                    .contactEmail(request.getContactEmail())
-                    .viewingDate(request.getViewingDate())
-                    .startTime(request.getStartTime())
-                    .endTime(request.getEndTime())
-                    .isActive(false)
-                    .status(SellerListingStatusEnum.ACTIVE)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            Listing saved = listingRepository.save(listing);
-            listingRepository.flush();
-            createPendingVerification(saved);
-
-            // ── Ảnh: re-parent từ draftImagePublicIds (đã upload sẵn qua Media API).
-            // Property tái sử dụng mà Seller không gửi ảnh mới → tự động copy lại
-            // ảnh từ 1 Listing khác cùng Property (giữ đúng trải nghiệm cũ).
-            int reparented;
-            if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
-                reparented = reparentUploadedImagesToListing(
-                        request.getDraftImagePublicIds(), currentUser, saved, request.getThumbnailImageIndex());
-                if (isNewProperty && reparented == 0) {
-                    throw new ListingConflictException(HttpStatus.CONFLICT,
-                            "Không thể gắn ảnh vào bài đăng. Vui lòng kiểm tra lại publicId đã upload.");
-                }
-            } else {
-                reparented = copyImagesFromOtherListingsOfProperty(property, saved);
-            }
-
-            log.info("[ListingService] createListing: listingId={}, propertyId={}, sellerId={}, tàiSảnMới={}, ảnh={}",
-                    saved.getListingId(), property.getPropertyId(), seller.getSellerId(), isNewProperty, reparented);
-
-            notificationService.notify(seller.getAccount(),
-                    "Bạn vừa đăng tin \"" + saved.getTitle() + "\" thành công, vui lòng thanh toán gói dịch vụ đăng tin để gửi duyệt.",
-                    NotificationTypeEnum.LISTING);
+            // ════════════════════════════════════════════════════════════════
+            // SỬA (fix bug crash thật): gọi qua self-proxy để persistNewListingCore()
+            // chạy trong 1 TRANSACTION RIÊNG, COMMIT XONG trước khi tiếp tục — xem
+            // javadoc đầy đủ ở persistNewListingCore() bên dưới để hiểu lý do bắt
+            // buộc phải tách như vậy (liên quan tới attemptAutoPaymentForNewListing
+            // chạy REQUIRES_NEW không thấy được Listing nếu nó chưa thực sự commit).
+            // ════════════════════════════════════════════════════════════════
+            NewListingCreationResult creationResult = self.persistNewListingCore(request, currentUser, seller);
+            Property property = creationResult.property;
+            Listing saved = creationResult.listing;
+            int reparented = creationResult.reparentedImageCount;
 
             Property refreshed = propertyRepository.findByIdWithDetails(property.getPropertyId()).orElse(property);
             Listing refreshedListing = listingRepository.findByIdWithDetails(saved.getListingId()).orElse(saved);
@@ -300,19 +150,24 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Object listingDetail = listingMapper.toListingDetail(refreshedListing, refreshed);
 
             // ════════════════════════════════════════════════════════════════
-            // MỚI: Thanh toán TỰ ĐỘNG ngay khi tạo tin nếu request kèm
-            // postingPackageId. Listing/Property ở trên ĐÃ commit (save+flush
-            // riêng, không chung transaction với attemptAutoPaymentForNewListing
-            // vì hàm đó chạy REQUIRES_NEW) — nên dù thanh toán thất bại (ví
-            // null/không đủ tiền), Listing VẪN tồn tại đúng ở trạng thái
-            // WAITING_PAYMENT, KHÔNG bị rollback theo. FE dựa vào
-            // data.paymentStatus để quyết định điều hướng sang trang thanh toán
-            // (paymentStatus=FAILED kèm paymentErrorCode/paymentMessage) hay coi
-            // như xong (paymentStatus=SUCCESS, tin đã chuyển WAITING_PAYMENT ->
-            // PENDING, chờ Staff duyệt).
+            // Thanh toán TỰ ĐỘNG ngay khi tạo tin nếu request kèm postingPackageId.
+            // Tại đây Listing/Property ĐÃ COMMIT XONG THẬT SỰ (persistNewListingCore
+            // ở trên đã return, transaction của nó đã đóng) — nên
+            // attemptAutoPaymentForNewListing() (REQUIRES_NEW, chạy transaction
+            // KHÁC ở PostingPackageOrderServiceImplement) chắc chắn nhìn thấy được
+            // Listing này. Nếu thanh toán thất bại (ví null/không đủ tiền), Listing
+            // VẪN tồn tại đúng ở trạng thái WAITING_PAYMENT, KHÔNG bị rollback theo
+            // (2 transaction độc lập), VÀ 1 PostingPackageOrder với status=FAILED
+            // đã được tạo sẵn (xem PostingPackageOrderServiceImplement#executePayment)
+            // — FE dùng data.postingPackageOrderId để gọi
+            // POST /seller/posting-package-orders/{id}/retry-pay thanh toán lại.
+            // FE dựa vào data.paymentStatus để quyết định điều hướng sang trang
+            // thanh toán (paymentStatus=FAILED kèm paymentErrorCode/paymentMessage)
+            // hay coi như xong (paymentStatus=SUCCESS, tin đã chuyển WAITING_PAYMENT
+            // -> PENDING, chờ Staff duyệt).
             // Không truyền postingPackageId -> GIỮ NGUYÊN hành vi cũ hoàn toàn
-            // (data = listingDetail thẳng, không bọc thêm object) để không phá
-            // vỡ FE hiện tại chưa cập nhật theo luồng thanh toán mới.
+            // (data = listingDetail thẳng, không bọc thêm object) để không phá vỡ
+            // FE hiện tại chưa cập nhật theo luồng thanh toán mới.
             // ════════════════════════════════════════════════════════════════
             if (request.getPostingPackageId() != null) {
                 PaymentAttemptResult paymentResult = postingPackageOrderServiceInterface
@@ -330,10 +185,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 String finalMsg = paymentResult.isSuccess()
                         ? "Bài đăng tạo thành công" + suffix + ", đã thanh toán gói dịch vụ đăng tin, đang chờ Staff duyệt"
                         : "Bài đăng tạo thành công" + suffix + ", nhưng thanh toán gói dịch vụ đăng tin THẤT BẠI ("
-                        + paymentResult.getMessage() + ") — vui lòng thanh toán lại để gửi duyệt";
+                        + paymentResult.getMessage() + ") — vui lòng gọi retry-pay với postingPackageOrderId="
+                        + paymentResult.getPostingPackageOrderId() + " để thanh toán lại";
 
-                log.info("[ListingService] createListing: thanh toán tự động listingId={}, success={}, errorCode={}",
-                        saved.getListingId(), paymentResult.isSuccess(), paymentResult.getErrorCode());
+                log.info("[ListingService] createListing: thanh toán tự động listingId={}, success={}, errorCode={}, orderId={}",
+                        saved.getListingId(), paymentResult.isSuccess(), paymentResult.getErrorCode(), paymentResult.getPostingPackageOrderId());
 
                 return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(data, finalMsg));
             }
@@ -356,6 +212,206 @@ public class ListingServiceImplement implements ListingServiceInterface {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
+    }
+
+    /** MỚI: kết quả nội bộ của persistNewListingCore() — không phải response HTTP. */
+    private static class NewListingCreationResult {
+        Property property;
+        Listing listing;
+        int reparentedImageCount;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MỚI (fix bug crash thật đã gặp khi test): tách phần TẠO + LƯU
+    // Property/Listing/Verification/Ảnh ra 1 hàm @Transactional RIÊNG, PHẢI
+    // được gọi qua self-proxy (self.persistNewListingCore(...) ở createListing()
+    // — KHÔNG được gọi "this.persistNewListingCore(...)" trực tiếp, vì gọi trực
+    // tiếp trong cùng object sẽ bị Spring BỎ QUA annotation @Transactional
+    // (self-invocation không đi qua AOP proxy) — hàm này sẽ không tạo transaction
+    // riêng thật sự nếu gọi sai cách.
+    //
+    // LÝ DO BẮT BUỘC TÁCH: PostgreSQL (và JPA nói chung) KHÔNG cho 1 transaction
+    // B nhìn thấy dữ liệu CHƯA COMMIT của transaction A, kể cả khi A chỉ đang
+    // "suspend" (REQUIRES_NEW mở transaction B trên 1 connection RIÊNG hoàn
+    // toàn). Trước đây createListing() dùng 1 @Transactional DUY NHẤT bao trọn
+    // cả việc tạo Listing LẪN việc gọi thanh toán — khi
+    // attemptAutoPaymentForNewListing() (REQUIRES_NEW, ở service khác) cố
+    // listingRepository.findById(listingId) để lấy lại Listing vừa tạo, nó
+    // KHÔNG THẤY ĐƯỢC (transaction ngoài bao quanh createListing() chưa commit,
+    // mới chỉ flush() trong session hiện tại) -> luôn trả "LISTING_NOT_FOUND"
+    // dù Listing đã tồn tại thật (đúng bug đã gặp: "success=false,
+    // errorCode=LISTING_NOT_FOUND" ngay sau khi vừa tạo listing đó). Nay bắt
+    // buộc phải tách để hàm này THỰC SỰ commit xong (transaction đóng lại khi
+    // return) trước khi createListing() gọi tiếp bước thanh toán.
+    // ════════════════════════════════════════════════════════════════════════
+    @Transactional
+    public NewListingCreationResult persistNewListingCore(CreateListingRequest request, Account currentUser, Seller seller) {
+        boolean reuseExisting = Boolean.TRUE.equals(request.getReuseExistingProperty());
+
+        LocalDateTime now = LocalDateTime.now();
+        Property property;
+        boolean isNewProperty;
+
+        if (reuseExisting) {
+            // ── Nhánh: dùng lại tài sản ĐÃ CÓ SẴN ────────────────────────
+            if (request.getExistingPropertyId() == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST,
+                        "existingPropertyId không được để trống khi reuseExistingProperty=true");
+            }
+
+            property = propertyRepository.findById(request.getExistingPropertyId()).orElse(null);
+            if (property == null) {
+                throw new ListingConflictException(HttpStatus.NOT_FOUND,
+                        "Tài sản không tồn tại: id=" + request.getExistingPropertyId());
+            }
+            if (property.getSeller() == null ||
+                    !property.getSeller().getSellerId().equals(seller.getSellerId())) {
+                throw new ListingConflictException(HttpStatus.FORBIDDEN, "Tài sản này không thuộc sở hữu của bạn");
+            }
+            isNewProperty = false;
+
+        } else {
+            // ── Nhánh: tạo tài sản MỚI ───────────────────────────────────
+            if (request.getPropTitle() == null || request.getPropTitle().isBlank()) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propTitle không được để trống");
+            }
+            if (request.getPropPrice() == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propPrice không được để trống");
+            }
+            if (request.getPropArea() == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propArea không được để trống");
+            }
+            if (request.getPropPropertyTypeId() == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propPropertyTypeId không được để trống");
+            }
+            if (request.getPropLatitude() == null || request.getPropLongitude() == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propLatitude/propLongitude không được để trống");
+            }
+            if (request.getPropWardCode() == null || request.getPropWardCode().isBlank()) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propWardCode không được để trống");
+            }
+            // Tài sản mới chưa có ảnh nào để tự động dùng lại → bắt buộc Seller
+            // phải upload ảnh trước và truyền publicId vào draftImagePublicIds.
+            if (request.getDraftImagePublicIds() == null || request.getDraftImagePublicIds().isEmpty()) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST,
+                        "Tạo tài sản mới phải kèm ít nhất 1 ảnh (draftImagePublicIds) — "
+                                + "upload trước qua POST /media/upload/multiple");
+            }
+
+            PropertyType propertyType = propertyTypeRepository
+                    .findById(request.getPropPropertyTypeId()).orElse(null);
+            if (propertyType == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "Loại bất động sản không hợp lệ");
+            }
+
+            PropertyCondition propertyCondition = null;
+            Integer conditionId = request.getPropPropertyConditionId();
+            if (conditionId != null) {
+                if (conditionId <= 0) {
+                    throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propPropertyConditionId phải lớn hơn 0");
+                }
+                propertyCondition = propertyConditionRepository.findById(conditionId).orElse(null);
+                if (propertyCondition == null) {
+                    throw new ListingConflictException(HttpStatus.BAD_REQUEST,
+                            "Tình trạng bất động sản không tồn tại với id = " + conditionId);
+                }
+            }
+
+            Ward ward = wardRepository.findById(request.getPropWardCode()).orElse(null);
+            if (ward == null) {
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST,
+                        "Mã phường/xã không hợp lệ: " + request.getPropWardCode());
+            }
+
+            Location location = Location.builder()
+                    .latitude(request.getPropLatitude())
+                    .longitude(request.getPropLongitude())
+                    .postalCode(request.getPropPostalCode())
+                    .ward(ward)
+                    .build();
+            Location savedLocation = locationRepository.save(location);
+
+            Property newProperty = Property.builder()
+                    .seller(seller)
+                    .propertyType(propertyType)
+                    .propertyCondition(propertyCondition)
+                    .location(savedLocation)
+                    .title(request.getPropTitle())
+                    .description(request.getPropDescription())
+                    .price(request.getPropPrice())
+                    .area(request.getPropArea())
+                    .floor(request.getPropFloor())
+                    .bedroom(request.getPropBedroom())
+                    .bathroom(request.getPropBathroom())
+                    .direction(request.getPropDirection())
+                    .legalStatus(request.getPropLegalStatus())
+                    .addressParticular(request.getPropAddressParticular())
+                    .projectName(request.getPropProjectName())
+                    .furniture(request.getPropFurniture())
+                    // Property MỚI tạo cùng Listing phải ở trạng thái CHỜ DUYỆT
+                    // (isActive=false), chỉ bật lên khi Staff APPROVE bài đăng
+                    // (xem ListingVerificationServiceImplement#verifyListing).
+                    .isActive(false)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            property = propertyRepository.save(newProperty);
+            propertyRepository.flush();
+            isNewProperty = true;
+        }
+
+        // ── Tạo Listing (KHÔNG còn fill contactPersonName/linkSocialContactPerson
+        //    khi tạo — 2 field này chỉ có thể bổ sung sau qua PUT /listings/{id}) ──
+        Listing listing = Listing.builder()
+                .property(property)
+                .seller(seller)
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .contactPerson(request.getContactPerson())
+                .contactPersonPhone(request.getContactPersonPhone())
+                .contactEmail(request.getContactEmail())
+                .viewingDate(request.getViewingDate())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .isActive(false)
+                .status(SellerListingStatusEnum.ACTIVE)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        Listing saved = listingRepository.save(listing);
+        listingRepository.flush();
+        createPendingVerification(saved);
+
+        // ── Ảnh: re-parent từ draftImagePublicIds (đã upload sẵn qua Media API).
+        // Property tái sử dụng mà Seller không gửi ảnh mới → tự động copy lại
+        // ảnh từ 1 Listing khác cùng Property (giữ đúng trải nghiệm cũ).
+        int reparented;
+        if (request.getDraftImagePublicIds() != null && !request.getDraftImagePublicIds().isEmpty()) {
+            reparented = reparentUploadedImagesToListing(
+                    request.getDraftImagePublicIds(), currentUser, saved, request.getThumbnailImageIndex());
+            if (isNewProperty && reparented == 0) {
+                throw new ListingConflictException(HttpStatus.CONFLICT,
+                        "Không thể gắn ảnh vào bài đăng. Vui lòng kiểm tra lại publicId đã upload.");
+            }
+        } else {
+            reparented = copyImagesFromOtherListingsOfProperty(property, saved);
+        }
+
+        log.info("[ListingService] createListing: listingId={}, propertyId={}, sellerId={}, tàiSảnMới={}, ảnh={}",
+                saved.getListingId(), property.getPropertyId(), seller.getSellerId(), isNewProperty, reparented);
+
+        notificationService.notify(seller.getAccount(),
+                "Bạn vừa đăng tin \"" + saved.getTitle() + "\" thành công, vui lòng thanh toán gói dịch vụ đăng tin để gửi duyệt.",
+                NotificationTypeEnum.LISTING);
+
+        NewListingCreationResult result = new NewListingCreationResult();
+        result.property = property;
+        result.listing = saved;
+        result.reparentedImageCount = reparented;
+        return result;
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -402,6 +458,14 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
     // Helper xử lý exception auth
     private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
+        // SỬA: ListingConflictException đã tự mang đúng HttpStatus (400/403/404/409...)
+        // — phải ưu tiên dùng NÓ trước, nếu không sẽ bị rơi xuống nhánh mặc định
+        // INTERNAL_SERVER_ERROR bên dưới (bug có sẵn, lộ ra khi persistNewListingCore()
+        // giờ dùng exception thay vì return ResponseEntity trực tiếp cho các lỗi
+        // validate — xem javadoc persistNewListingCore).
+        if (e instanceof ListingConflictException lce) {
+            return ResponseEntity.status(lce.status).body(ApiResponse.fail(lce.status.toString(), e.getMessage()));
+        }
         if (e.getMessage().contains("Unauthorized")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
