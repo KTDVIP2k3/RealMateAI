@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.requests;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.GenderEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,14 +15,8 @@ import java.util.Date;
 @AllArgsConstructor
 public class UpdateAccountRequest {
     private String fullName;
-
-    @Schema(
-            type = "string",
-            format = "date",
-            example = "2003-08-27"
-    )
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date birth_date;
-    private MultipartFile avatar;
     private String phone;
+    private MultipartFile avatar;
+    @Schema(implementation = String.class, allowableValues = {"Male", "Female"})
+    private GenderEnum gender;
 }

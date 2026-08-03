@@ -198,7 +198,7 @@ public class AccountServiceImplement implements AccountServiceInterface {
                 account.setAvatar(cloudinaryMediaServiceImplement.uploadImage(updateAccountRequest.getAvatar()));
             }
             account.setFull_name(updateAccountRequest.getFullName());
-            account.setBirth_date(updateAccountRequest.getBirth_date());
+            account.setGender(updateAccountRequest.getGender());
             account.setAvatar(cloudinaryMediaServiceImplement.updateImage(updateAccountRequest.getAvatar(), account.getAvatar()));
             account.setPhone(updateAccountRequest.getPhone());
             account.setUpdateAt(LocalDateTime.now());
