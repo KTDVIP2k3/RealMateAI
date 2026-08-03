@@ -23,26 +23,20 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     @Autowired
     private HeatmapZoneRepository heatmapZoneRepository;
 
-    private static final double MIN_HCM_LAT = 10.35;
-    private static final double MAX_HCM_LAT = 11.16;
-    private static final double MIN_HCM_LON = 106.35;
-    private static final double MAX_HCM_LON = 106.90;
-
     @Override
     @Transactional
     public void generateDailySnapshot() {
         List<CrawPropertyListing> listings = crawPropertyListingRepository.findAll().stream()
                 .filter(l -> l.getLatitude() != null && l.getLongitude() != null)
-                .filter(l -> {
-                    double lat = l.getLatitude().doubleValue();
-                    double lon = l.getLongitude().doubleValue();
-                    return lat >= MIN_HCM_LAT && lat <= MAX_HCM_LAT && lon >= MIN_HCM_LON && lon <= MAX_HCM_LON;
-                })
                 .toList();
 
         if (listings.isEmpty()) {
             return;
         }
+
+        heatmapZoneRepository.clearJoinTable();
+        heatmapZoneRepository.deleteAllInBatch();
+        heatmapZoneRepository.flush();
 
         int[] targetZoomLevels = {10, 11, 12, 13, 14, 15};
         List<HeatmapZone> snapshotBatch = new ArrayList<>();
@@ -72,7 +66,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                         .average()
                         .orElseGet(() -> gridXToLon(gridX + 0.5, zoom));
 
-                BigDecimal medianPricePerM2 = calculateMedianPricePerM2(gridListings);
+                BigDecimal averagePricePerM2 = calculateAveragePricePerM2(gridListings);
 
                 HeatmapZone zone = HeatmapZone.builder()
                         .zoomLevel(zoom)
@@ -81,28 +75,29 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                         .centerLatitude(BigDecimal.valueOf(centerLat).setScale(7, RoundingMode.HALF_UP))
                         .centerLongitude(BigDecimal.valueOf(centerLon).setScale(7, RoundingMode.HALF_UP))
                         .listingCount(gridListings.size())
-                        .medianPricePerM2(medianPricePerM2)
+                        .medianPricePerM2(averagePricePerM2)
                         .listings(gridListings)
                         .build();
-
-                for (CrawPropertyListing listing : gridListings) {
-                    if (listing.getHeatmapZones() == null) {
-                        listing.setHeatmapZones(new ArrayList<>());
-                    }
-                    listing.getHeatmapZones().add(zone);
-                }
 
                 levelZones.add(zone);
             });
 
             calculateHeatLevelsForZoomLevel(levelZones);
-
             snapshotBatch.addAll(levelZones);
         }
 
-        heatmapZoneRepository.clearJoinTable();
-        heatmapZoneRepository.deleteAllInBatch();
-        heatmapZoneRepository.saveAll(snapshotBatch);
+        List<HeatmapZone> savedZones = heatmapZoneRepository.saveAll(snapshotBatch);
+
+        for (HeatmapZone zone : savedZones) {
+            if (zone.getListings() != null) {
+                for (CrawPropertyListing listing : zone.getListings()) {
+                    if (listing.getHeatmapZones() == null) {
+                        listing.setHeatmapZones(new ArrayList<>());
+                    }
+                    listing.getHeatmapZones().add(zone);
+                }
+            }
+        }
     }
 
     @Override
@@ -194,29 +189,27 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     }
 
     private double gridXToLon(double x, int zoom) {
-        return x / (1 << zoom) * 360.0 - 180.0;
+        return x / (double) (1 << zoom) * 360.0 - 180.0;
     }
 
     private double gridYToLat(double y, int zoom) {
-        double n = Math.PI - 2.0 * Math.PI * y / (1 << zoom);
+        double n = Math.PI - 2.0 * Math.PI * y / (double) (1 << zoom);
         return Math.toDegrees(Math.atan(Math.sinh(n)));
     }
 
-    private BigDecimal calculateMedianPricePerM2(List<CrawPropertyListing> listings) {
-        List<BigDecimal> prices = listings.stream()
+    private BigDecimal calculateAveragePricePerM2(List<CrawPropertyListing> listings) {
+        List<BigDecimal> validPrices = listings.stream()
                 .map(CrawPropertyListing::getPricePerM2)
                 .filter(Objects::nonNull)
-                .sorted()
                 .toList();
 
-        if (prices.isEmpty()) return BigDecimal.ZERO;
-
-        int size = prices.size();
-        if (size % 2 == 1) {
-            return prices.get(size / 2);
-        } else {
-            return prices.get(size / 2 - 1).add(prices.get(size / 2))
-                    .divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+        if (validPrices.isEmpty()) {
+            return BigDecimal.ZERO;
         }
+
+        BigDecimal sum = validPrices.stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return sum.divide(BigDecimal.valueOf(validPrices.size()), 2, RoundingMode.HALF_UP);
     }
 }

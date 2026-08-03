@@ -92,6 +92,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/listings/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/media/thumbnail").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/heatmap/**").permitAll()
                         .requestMatchers(
                                 "/locations/**",
                                 "/news/**",
