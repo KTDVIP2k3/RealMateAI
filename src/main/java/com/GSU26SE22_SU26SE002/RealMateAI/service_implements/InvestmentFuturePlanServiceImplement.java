@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.GenerateFuturePlanRequest;
@@ -60,8 +59,8 @@ import java.util.stream.Collectors;
 @Service
 public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePlanServiceInterface {
 
-    /** Sentinel key nhóm các property KHÔNG có portfolioId — không phải giá trị portfolioId thật nào (portfolio_id thật luôn > 0). */
-    private static final Integer UNCLASSIFIED_PORTFOLIO_KEY = -1;
+    /** Sentinel key nhóm các property investor KHÔNG GỬI portfolioId (null) — không phải giá trị portfolioId thật nào (portfolio_id thật luôn > 0). */
+    private static final Integer NULL_PORTFOLIO_GROUP_KEY = -1;
 
     @Autowired
     private Client geminiClient;
@@ -263,52 +262,62 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .updatedAt(now)
                         .build());
             }
-
-            // 8. Lưu portfolio + properties — ghi TRỰC TIẾP vào
-            //    FuturePortfolioAllocationProperty (bỏ bảng trung gian, xem javadoc
-            //    FutureInvestmentPortfolio). Group theo portfolioId investor gửi lên.
+// 8. Lưu portfolio + properties — ghi TRỰC TIẾP vào
+            //    FuturePortfolioAllocationProperty. Group theo portfolioId investor
+            //    gửi lên.
             //
-            //    FIX quan trọng: TRƯỚC ĐÂY property thiếu portfolioId (thường gặp
-            //    với property MANUAL) bị LỌC BỎ HOÀN TOÀN ở bước này — dù vẫn được
-            //    tính vào phân tích lợi nhuận tổng ở calculatePropertyProfits() phía
-            //    trên (chạy trên TOÀN BỘ selectedProperties, không lọc theo
-            //    portfolioId) — gây ra tình trạng "vẫn phân tích nhưng không hiện
-            //    trong danh sách". Giờ dùng sentinel key UNCLASSIFIED_KEY để nhóm
-            //    NHỮNG property này vào 1 FutureInvestmentPortfolio riêng, gắn với
-            //    Portfolio PLACEHOLDER "Chưa phân loại" (xem
-            //    resolveOrCreateUnclassifiedPortfolio()) — KHÔNG BAO GIỜ bị mất nữa,
-            //    và KHÔNG dùng portfolio=null (cột portfolio_id ở DB là NOT NULL, dùng
-            //    null sẽ crash DataIntegrityViolationException — bug thật đã gặp).
+            //    SỬA (fix bug thật đã gặp — "AI tự động lấy thằng SYSTEM gắn cho
+            //    MANUAL, hoặc lấy của 1 cái gắn cho những cái null khác, hoặc nếu
+            //    tất cả null thì tự động thay vào Tăng trưởng"):
+            //    TRƯỚC ĐÂY có 2 vòng lặp TÁCH RỜI xử lý MANUAL/SYSTEM riêng, nhưng
+            //    vòng lặp MANUAL lại lặp qua request.getSelectedProperties() (TOÀN
+            //    BỘ request, không lọc theo nhóm) NẰM BÊN TRONG vòng lặp portfolio
+            //    ngoài — nghĩa là MỖI LẦN vòng ngoài xử lý xong 1 portfolio, TOÀN
+            //    BỘ property MANUAL trong request lại bị lưu THÊM 1 LẦN NỮA, gắn
+            //    vào portfolio CỦA VÒNG LẶP HIỆN TẠI (bất kể property đó có
+            //    portfolioId gì) → MANUAL bị nhân bản, dính nhầm vào portfolio của
+            //    SYSTEM (VD "Tăng trưởng") nếu SYSTEM item được xử lý trước.
+            //
+            //    NAY: GỘP VỀ ĐÚNG 1 LOOP DUY NHẤT, chạy trên "items" (danh sách ĐÃ
+            //    ĐƯỢC GROUP ĐÚNG theo portfolioId của CHÍNH property đó, không phải
+            //    toàn bộ request) — SYSTEM và MANUAL xử lý trong CÙNG 1 vòng, mỗi
+            //    property CHỈ được lưu ĐÚNG 1 LẦN, vào ĐÚNG portfolio của chính nó.
+            //
+            //    Đồng thời BẮT VALIDATE propertySource tường minh (KHÔNG tự động
+            //    suy đoán SYSTEM/MANUAL từ listingId/manualPropertyId nữa) — nếu FE
+            //    gửi thiếu/sai propertySource, property đó bị BỎ QUA + ghi rõ lý do
+            //    trong skippedItems, không tự ý gán bừa.
+            //
+            //    2 PLACEHOLDER PORTFOLIO tách riêng theo đúng yêu cầu nghiệp vụ:
+            //      - portfolioId = null (FE không gửi)      -> "Chưa xác định"
+            //      - portfolioId có gửi nhưng không tồn tại -> "Chưa phân loại"
             Map<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> byPortfolio = request.getSelectedProperties()
                     .stream()
                     .collect(Collectors.groupingBy(item ->
-                            item.getPortfolioId() != null ? item.getPortfolioId() : UNCLASSIFIED_PORTFOLIO_KEY));
+                            item.getPortfolioId() != null ? item.getPortfolioId() : NULL_PORTFOLIO_GROUP_KEY));
 
             for (Map.Entry<Integer, List<GenerateFuturePlanRequest.SelectedPropertyItem>> entry : byPortfolio.entrySet()) {
-                boolean isUnclassified = UNCLASSIFIED_PORTFOLIO_KEY.equals(entry.getKey());
-                Portfolio portfolio = null;
-                if (!isUnclassified) {
-                    portfolio = portfolioRepository.findById(entry.getKey()).orElse(null);
-                    if (portfolio == null) {
-                        skippedItems.add("portfolioId=" + entry.getKey() + ": không tồn tại, " + entry.getValue().size()
-                                + " property được chuyển sang nhóm \"Chưa phân loại\" thay vì bỏ qua");
-                    }
-                } else {
-                    skippedItems.add(entry.getValue().size() + " property không có portfolioId — đã lưu vào nhóm \"Chưa phân loại\" (vẫn hiện trong danh sách, chỉ không thuộc danh mục Tăng trưởng/Thanh khoản cụ thể)");
-                }
-
-                // SỬA (fix bug crash thật đã gặp khi test): cột future_investment_portfolio.
-                // portfolio_id ở DB là NOT NULL — KHÔNG THỂ lưu portfolio=null như comment
-                // cũ ở trên dự định. Trước đây code lưu thẳng portfolio=null cho nhóm
-                // "Chưa phân loại"/portfolioId không tồn tại -> luôn crash
-                // DataIntegrityViolationException ngay khi có property không gắn đúng
-                // portfolioId (đây chính là lỗi vừa gặp). Nay dùng 1 Portfolio PLACEHOLDER
-                // tên "Chưa phân loại" (tìm hoặc tự tạo 1 lần) thay cho null.
-                if (portfolio == null) {
-                    portfolio = resolveOrCreateUnclassifiedPortfolio();
-                }
-
+                boolean isNullPortfolio = NULL_PORTFOLIO_GROUP_KEY.equals(entry.getKey());
                 List<GenerateFuturePlanRequest.SelectedPropertyItem> items = entry.getValue();
+
+                Portfolio portfolio;
+                if (isNullPortfolio) {
+                    // FE KHÔNG gửi portfolioId cho (các) property này -> "Chưa xác định".
+                    // KHÔNG đoán/gán vào bất kỳ portfolio nào khác của request.
+                    portfolio = resolveOrCreatePlaceholderPortfolio(PORTFOLIO_NAME_UNDETERMINED);
+                    skippedItems.add(items.size() + " property không gửi portfolioId — đã lưu vào nhóm \"" + PORTFOLIO_NAME_UNDETERMINED + "\"");
+                } else {
+                    Portfolio found = portfolioRepository.findById(entry.getKey()).orElse(null);
+                    if (found != null) {
+                        portfolio = found;
+                    } else {
+                        // portfolioId CÓ gửi nhưng không tồn tại trong DB -> "Chưa phân loại".
+                        portfolio = resolveOrCreatePlaceholderPortfolio(PORTFOLIO_NAME_UNCLASSIFIED);
+                        skippedItems.add("portfolioId=" + entry.getKey() + " không tồn tại, " + items.size()
+                                + " property được chuyển sang nhóm \"" + PORTFOLIO_NAME_UNCLASSIFIED + "\"");
+                    }
+                }
+
                 long capitalForThisPortfolio = items.stream()
                         .mapToLong(i -> i.getActualPurchasePrice() != null ? i.getActualPurchasePrice() : 0L)
                         .sum();
@@ -316,7 +325,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 FutureInvestmentPortfolio futurePortfolio = futureInvestmentPortfolioRepository.save(
                         FutureInvestmentPortfolio.builder()
                                 .futureInvestmentPlan(savedPlan)
-                                .portfolio(portfolio) // KHÔNG BAO GIỜ null nữa — xem fix ở trên
+                                .portfolio(portfolio) // KHÔNG BAO GIỜ null — luôn có placeholder khi cần
                                 .percentage(0) // future plan không tính lại % phân bổ AI, giữ 0 vì capital đã thực
                                 .capital(capitalForThisPortfolio)
                                 .isActive(true)
@@ -324,56 +333,75 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                 .updatedAt(now)
                                 .build());
 
-            for(GenerateFuturePlanRequest.SelectedPropertyItem selectedPropertyItem : request.getSelectedProperties()){
-                Property property = resolveProperty(selectedPropertyItem);
-                if (property == null) {
-                    skippedItems.add(describeItem(selectedPropertyItem) + ": không tìm thấy property (kiểm tra lại listingId/manualPropertyId), bỏ qua");
-                    continue;
-                }
-                FuturePortfolioAllocationProperty futurePortfolioAllocationProperty = new FuturePortfolioAllocationProperty();
-                futurePortfolioAllocationProperty.setActualPurchasePrice(selectedPropertyItem.getActualPurchasePrice());
-                futurePortfolioAllocationProperty.setEvaluatedMarketPrice(selectedPropertyItem.getEvaluatedMarketPrice());
-                futurePortfolioAllocationProperty.setHoldingMonths(selectedPropertyItem.getHoldingMonths());
-                futurePortfolioAllocationProperty.setMonthlyOperatingCost(selectedPropertyItem.getMonthlyOperatingCost());
-                futurePortfolioAllocationProperty.setMonthlyRevenue(selectedPropertyItem.getMonthlyRevenue());
-                futurePortfolioAllocationProperty.setIsActive(true);
-                futurePortfolioAllocationProperty.setPropertySource(selectedPropertyItem.getPropertySource());
-                futurePortfolioAllocationProperty.setUsagePurpose(selectedPropertyItem.getUsagePurpose());
-                futurePortfolioAllocationProperty.setCreatedAt(LocalDateTime.now());
-                futurePortfolioAllocationProperty.setUpdatedAt(LocalDateTime.now());
-                futurePortfolioAllocationProperty.setFutureInvestmentPortfolio(futurePortfolio);
-                futurePortfolioAllocationProperty.setProperty(property);
-                futurePortfolioAllocationPropertyRepository.save(futurePortfolioAllocationProperty);
-            }
-
-
+                // MỘT LOOP DUY NHẤT cho cả SYSTEM lẫn MANUAL, chạy đúng trên "items"
+                // (đã group đúng theo portfolioId của CHÍNH property đó) — không còn
+                // 2 loop tách rời, không còn lặp lại toàn bộ request bên trong.
                 for (GenerateFuturePlanRequest.SelectedPropertyItem item : items) {
-                    Property property = resolveProperty(item);
-                    if (property == null) {
-                        skippedItems.add(describeItem(item) + ": không tìm thấy property (kiểm tra lại listingId/manualPropertyId), bỏ qua");
+                    String source = item.getPropertySource();
+
+                    // BẮT VALIDATE tường minh — KHÔNG tự động suy đoán SYSTEM/MANUAL
+                    // từ sự hiện diện của listingId/manualPropertyId nữa.
+                    if (source == null || source.isBlank()) {
+                        skippedItems.add(describeItem(item) + ": thiếu propertySource (phải là SYSTEM hoặc MANUAL), bỏ qua");
+                        continue;
+                    }
+                    boolean isSystem = "SYSTEM".equalsIgnoreCase(source);
+                    boolean isManual = "MANUAL".equalsIgnoreCase(source);
+                    if (!isSystem && !isManual) {
+                        skippedItems.add(describeItem(item) + ": propertySource=\"" + source
+                                + "\" không hợp lệ (chỉ nhận SYSTEM hoặc MANUAL), bỏ qua");
                         continue;
                     }
 
-                    futurePortfolioAllocationPropertyRepository.save(
-                            FuturePortfolioAllocationProperty.builder()
-                                    .futureInvestmentPortfolio(futurePortfolio)
-                                    .property(property)
-                                    // SỬA: không còn lấy thẳng item.getPropertySource() (có thể
-                                    // null/sai chuỗi từ FE) — chuẩn hoá lại theo ĐÚNG ID đã dùng
-                                    // để resolve ra property này, tránh lưu sai nhãn nguồn gốc.
-                                    .propertySource(item.getManualPropertyId() != null ? "MANUAL" : "SYSTEM")
-                                    .usagePurpose(item.getUsagePurpose())
-                                    .monthlyRevenue(item.getMonthlyRevenue())
-                                    .monthlyOperatingCost(item.getMonthlyOperatingCost())
-                                    .actualPurchasePrice(item.getActualPurchasePrice())
-                                    .evaluatedMarketPrice(item.getEvaluatedMarketPrice())
-                                    .holdingMonths(resolveHoldingMonths(item.getHoldingMonths()))
-                                    .isActive(true)
-                                    .createdAt(now)
-                                    .updatedAt(now)
-                                    .build());
+                    if (isSystem) {
+                        if (item.getListingId() == null) {
+                            skippedItems.add(describeItem(item) + ": propertySource=SYSTEM nhưng thiếu listingId, bỏ qua");
+                            continue;
+                        }
+                        Property property = resolveProperty(item);
+                        if (property == null) {
+                            skippedItems.add(describeItem(item) + ": không tìm thấy property (kiểm tra lại listingId), bỏ qua");
+                            continue;
+                        }
+
+                        futurePortfolioAllocationPropertyRepository.save(
+                                FuturePortfolioAllocationProperty.builder()
+                                        .futureInvestmentPortfolio(futurePortfolio)
+                                        .property(property)
+                                        .propertySource("SYSTEM")
+                                        .usagePurpose(item.getUsagePurpose())
+                                        .monthlyRevenue(item.getMonthlyRevenue())
+                                        .monthlyOperatingCost(item.getMonthlyOperatingCost())
+                                        .actualPurchasePrice(item.getActualPurchasePrice())
+                                        .evaluatedMarketPrice(item.getEvaluatedMarketPrice())
+                                        .holdingMonths(resolveHoldingMonths(item.getHoldingMonths()))
+                                        .isActive(true)
+                                        .createdAt(now)
+                                        .updatedAt(now)
+                                        .build());
+                    } else {
+                        // MANUAL: theo đúng thiết kế đã chốt — KHÔNG tham chiếu tới
+                        // bảng property (property=null, cột property_id ở DB đã được
+                        // đổi sang cho phép NULL), chỉ lưu số liệu investor tự nhập.
+                        futurePortfolioAllocationPropertyRepository.save(
+                                FuturePortfolioAllocationProperty.builder()
+                                        .futureInvestmentPortfolio(futurePortfolio)
+                                        .property(null)
+                                        .propertySource("MANUAL")
+                                        .usagePurpose(item.getUsagePurpose())
+                                        .monthlyRevenue(item.getMonthlyRevenue())
+                                        .monthlyOperatingCost(item.getMonthlyOperatingCost())
+                                        .actualPurchasePrice(item.getActualPurchasePrice())
+                                        .evaluatedMarketPrice(item.getEvaluatedMarketPrice())
+                                        .holdingMonths(resolveHoldingMonths(item.getHoldingMonths()))
+                                        .isActive(true)
+                                        .createdAt(now)
+                                        .updatedAt(now)
+                                        .build());
+                    }
                 }
             }
+
 
             if (!skippedItems.isEmpty()) {
                 log.warn("[InvestmentFuturePlanService] generateAndSaveFuturePlan: futurePlanId={}, {} item bị bỏ qua: {}",
@@ -462,9 +490,12 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             // FIX bug propertyTypeName: trước đây gán NHẦM bằng tên Portfolio (vd
             // "Tăng trưởng") cho MỌI property trong 1 allocation — giờ GROUP đúng các
             // property theo property.propertyType.name thật của từng property, mỗi
-            // nhóm property-type ra 1 PortfolioAllocationDTO riêng (đúng ý nghĩa gốc
-            // của field "propertyTypeName" — xem PortfolioAllocationDTO).
-            List<InvestmentPortfolioDTO> investmentPortfolios = new ArrayList<>();
+            // nhóm property-type ra 1 FuturePortfolioAllocationDTO riêng (đúng ý nghĩa
+            // gốc của field "propertyTypeName"). Dùng DTO RIÊNG cho Future Plan
+            // (Future*DTO) — KHÔNG dùng chung InvestmentPortfolioDTO/PortfolioAllocationDTO/
+            // PortfolioAllocationPropertyDTO với InvestmentPlanServiceImplement (phương án
+            // đầu tư GỐC) để tránh sửa ở đây ảnh hưởng luôn response của phần đó.
+            List<FutureInvestmentPortfolioDTO> investmentPortfolios = new ArrayList<>();
             List<PropertyProfitResultDTO> propertyProfitResults = new ArrayList<>();
 
             List<FutureInvestmentPortfolio> portfolios = futureInvestmentPortfolioRepository
@@ -483,15 +514,15 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                     ? p.getPropertyType().getName() : "Khác";
                         }, LinkedHashMap::new, Collectors.toList()));
 
-                List<PortfolioAllocationDTO> allocationDTOs = new ArrayList<>();
+                List<FuturePortfolioAllocationDTO> allocationDTOs = new ArrayList<>();
                 for (Map.Entry<String, List<FuturePortfolioAllocationProperty>> group : byPropertyType.entrySet()) {
-                    List<PortfolioAllocationPropertyDTO> propertyDTOs = new ArrayList<>();
+                    List<FuturePortfolioAllocationPropertyDTO> propertyDTOs = new ArrayList<>();
                     for (FuturePortfolioAllocationProperty pap : group.getValue()) {
                         Property property = pap.getProperty();
                         String propertyName = property != null && property.getTitle() != null
                                 ? property.getTitle() : "Bất động sản";
 
-                        propertyDTOs.add(PortfolioAllocationPropertyDTO.builder()
+                        propertyDTOs.add(FuturePortfolioAllocationPropertyDTO.builder()
                                 .portfolioAllocationPropertyId(pap.getFuturePortfolioAllocationPropertyId())
                                 .propertyProjectName(propertyName)
                                 .area(property != null && property.getArea() != null ? property.getArea().intValue() : 0)
@@ -502,6 +533,10 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                 // response GET — FE không có cách nào biết property này là SYSTEM
                                 // hay MANUAL khi xem lại chi tiết kế hoạch. Bổ sung map lại tại đây.
                                 .propertySource(pap.getPropertySource())
+                                // MỚI: denormalize tên Portfolio cha xuống từng property lá —
+                                // CHỈ trả ra ở đây (tầng ngoài FutureInvestmentPortfolioDTO đã
+                                // @JsonIgnore field này để không lặp lại 2 chỗ trong response).
+                                .portfolioName(fip.getPortfolio() != null ? fip.getPortfolio().getName() : PORTFOLIO_NAME_UNCLASSIFIED)
                                 .build());
 
                         if (pap.getActualPurchasePrice() != null && pap.getActualPurchasePrice() > 0) {
@@ -517,16 +552,15 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                                     initialPrice, evaluatedPrice, monthlyRevenue, monthlyOpCost, holdingMonths));
                         }
                     }
-
-                    allocationDTOs.add(PortfolioAllocationDTO.builder()
+                    allocationDTOs.add(FuturePortfolioAllocationDTO.builder()
                             .propertyTypeName(group.getKey())
                             .properties(propertyDTOs)
                             .build());
                 }
 
-                investmentPortfolios.add(InvestmentPortfolioDTO.builder()
+                investmentPortfolios.add(FutureInvestmentPortfolioDTO.builder()
                         .portfolioId(fip.getPortfolio() != null ? fip.getPortfolio().getPortfolioId() : null)
-                        .portfolioName(fip.getPortfolio() != null ? fip.getPortfolio().getName() : "Chưa phân loại")
+                        .portfolioName(fip.getPortfolio() != null ? fip.getPortfolio().getName() : PORTFOLIO_NAME_UNCLASSIFIED)
                         .percentage(fip.getPercentage())
                         .capital(fip.getCapital() != null ? fip.getCapital().doubleValue() : 0.0)
                         .allocations(allocationDTOs)
@@ -561,7 +595,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .newVersionName(plan.getName())
                     .sourceVersionId(sourceVersion != null ? sourceVersion.getProfileVersionId() : null)
                     .sourceVersionName(sourceVersion != null ? sourceVersion.getProfileVersionName() : null)
-                    // MỚI: snapshot "thông tin cơ bản" hướng đi tiếp theo — trước đây
+// MỚI: snapshot "thông tin cơ bản" hướng đi tiếp theo — trước đây
                     // CÓ lưu vào DB nhưng chưa từng map ra response GET.
                     .equity(plan.getEquity())
                     .loanCapital(plan.getLoanCapital())
@@ -656,8 +690,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     // =====================================================================
     // PRIVATE HELPERS
     // =====================================================================
-
-    // ═════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════
     // SỬA (bug đã báo cáo): trước đây bắt buộc propertySource phải khớp
     // CHÍNH XÁC chuỗi "MANUAL" (equalsIgnoreCase) thì mới chịu tra theo
     // manualPropertyId; nếu FE gửi propertySource khác đi (rỗng, null, hoặc
@@ -688,21 +721,24 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
     // ═════════════════════════════════════════════════════════════════════
     // MỚI (fix bug crash thật): cột future_investment_portfolio.portfolio_id
-    // ở DB là NOT NULL, nên KHÔNG THỂ lưu portfolio=null cho nhóm "Chưa phân
-    // loại" (property không có portfolioId hoặc portfolioId không tồn tại)
-    // như thiết kế cũ dự định — gây DataIntegrityViolationException ngay khi
-    // gặp property MANUAL không gắn portfolioId. Nay find-or-create 1 Portfolio
-    // PLACEHOLDER tên cố định "Chưa phân loại" để dùng thay cho null — tìm 1
-    // lần, nếu chưa có thì tạo mới, các lần sau tái sử dụng lại đúng dòng đó.
+    // ở DB là NOT NULL, nên KHÔNG THỂ lưu portfolio=null. Nay find-or-create 1
+    // Portfolio PLACEHOLDER (tìm 1 lần, nếu chưa có thì tạo mới, các lần sau
+    // tái sử dụng lại đúng dòng đó) — TÁCH RÕ 2 TÊN khác nhau theo đúng yêu
+    // cầu nghiệp vụ, KHÔNG còn gộp chung 1 tên "Chưa phân loại" cho cả 2 case:
+    //   - PORTFOLIO_NAME_UNDETERMINED "Chưa xác định": investor/FE KHÔNG GỬI
+    //     portfolioId (null) — chưa có ý định phân loại từ đầu.
+    //   - PORTFOLIO_NAME_UNCLASSIFIED "Chưa phân loại": investor CÓ gửi
+    //     portfolioId nhưng giá trị đó KHÔNG TỒN TẠI trong bảng portfolio.
     // ═════════════════════════════════════════════════════════════════════
-    private static final String UNCLASSIFIED_PORTFOLIO_NAME = "Chưa phân loại";
+    private static final String PORTFOLIO_NAME_UNDETERMINED = "Chưa xác định";
+    private static final String PORTFOLIO_NAME_UNCLASSIFIED = "Chưa phân loại";
 
-    private Portfolio resolveOrCreateUnclassifiedPortfolio() {
-        return portfolioRepository.findFirstByName(UNCLASSIFIED_PORTFOLIO_NAME)
+    private Portfolio resolveOrCreatePlaceholderPortfolio(String name) {
+        return portfolioRepository.findFirstByName(name)
                 .orElseGet(() -> {
                     LocalDateTime now = LocalDateTime.now();
                     return portfolioRepository.save(Portfolio.builder()
-                            .name(UNCLASSIFIED_PORTFOLIO_NAME)
+                            .name(name)
                             .isActive(true)
                             .createdAt(now)
                             .updatedAt(now)
@@ -755,7 +791,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 skippedOut.add(describeItem(item) + ": thiếu actualPurchasePrice (hoặc <= 0), không tính lợi nhuận cho property này");
                 continue;
             }
-
             long initialPrice = item.getActualPurchasePrice();
             long evaluatedPrice = item.getEvaluatedMarketPrice() != null ? item.getEvaluatedMarketPrice() : initialPrice;
             long monthlyRevenue = item.getMonthlyRevenue() != null ? item.getMonthlyRevenue() : 0L;
@@ -801,7 +836,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         }
         return map;
     }
-
     // SỬA: trước đây nhận thẳng `sourceVersion` và đọc equity/loanCapital/
     // expectedRoi/durationYear từ ĐÓ — nghĩa là dù investor nhập tham số MỚI
     // cho hướng đi tiếp theo (effEquity/effLoanCapital/...), AI vẫn luôn phân

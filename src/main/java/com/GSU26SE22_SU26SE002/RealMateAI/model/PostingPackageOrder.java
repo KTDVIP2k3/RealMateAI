@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.PostingPackageOrderStatusEnum;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,4 +32,8 @@ public class PostingPackageOrder {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private PostingPackageOrderStatusEnum status;
 }
