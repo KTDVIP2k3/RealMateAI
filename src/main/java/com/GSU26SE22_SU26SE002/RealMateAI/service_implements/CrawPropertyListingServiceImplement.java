@@ -169,7 +169,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     System.out.println("\n[1] MỞ TRANG DANH SÁCH TỔNG (Trang " + pageNum + "): " + targetUrl);
                     System.out.flush();
 
-                    // Bọc riêng thao tác mở trang để catch TimeoutError
                     try {
                         page.navigate(targetUrl, new Page.NavigateOptions()
                                 .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
@@ -216,9 +215,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         }
 
                         CrawPropertyListing listing = extractBasicInfo(card);
-                        if (listing != null && listing.getPrice() != null && listing.getArea() != null
-                                && listing.getArea().compareTo(BigDecimal.ZERO) > 0) {
-
+                        if (listing != null) {
                             String url = listing.getSourceUrl();
                             if (existingUrlsInDb.contains(url) || processedUrlsInBatch.contains(url)) {
                                 duplicateCountInPage++;
@@ -229,7 +226,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         }
                     }
 
-                    System.out.println(" --> Tìm thấy " + freshCandidates.size() + " tin mới (Trùng/Cũ: " + duplicateCountInPage + " tin)");
+                    System.out.println(" --> Tìm thấy " + freshCandidates.size() + " tin mới hợp lệ (Trùng/Cũ: " + duplicateCountInPage + " tin)");
                     System.out.flush();
 
                     List<CrawPropertyListing> pageResultList = new ArrayList<>();
@@ -269,7 +266,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         } catch (Exception e) {
             System.err.println("Lỗi hệ thống Playwright: " + e.getMessage());
         } finally {
-            // Dọn dẹp tài nguyên safe-check
             if (page != null && !page.isClosed()) {
                 try { page.close(); } catch (Exception ignored) {}
             }
@@ -349,6 +345,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             String dateText = card.select(".re__card-published-date").text();
             listing.setPosted_date(parsePostedDate(dateText));
             listing.setCraw_date(new Timestamp(System.currentTimeMillis()));
+
+            if (!isValidListing(listing)) {
+                return null;
+            }
 
             return listing;
         } catch (Exception e) {
@@ -446,8 +446,15 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             }
 
             if (latStr != null && lngStr != null && !latStr.equals("0") && !latStr.isEmpty()) {
-                listing.setLatitude(new BigDecimal(latStr));
-                listing.setLongitude(new BigDecimal(lngStr));
+                BigDecimal lat = new BigDecimal(latStr);
+                BigDecimal lng = new BigDecimal(lngStr);
+
+                if (isValidCoordinates(lat, lng)) {
+                    listing.setLatitude(lat);
+                    listing.setLongitude(lng);
+                } else {
+                    return null;
+                }
             }
 
         } catch (Exception ignored) {}
@@ -515,27 +522,57 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     }
 
     private BigDecimal parsePriceTextToAmount(String priceText) {
-        if (priceText == null || priceText.isEmpty() || priceText.contains("Thỏa thuận")) return null;
-        try {
-            String clean = priceText.replaceAll("[^0-9.,]", "").trim().replace(",", ".");
-            if (clean.isEmpty()) return null;
+        if (priceText == null || priceText.isEmpty() || priceText.contains("Thỏa thuận")) {
+            return null;
+        }
 
-            double value = Double.parseDouble(clean);
-            if (priceText.contains("tỷ")) {
-                return BigDecimal.valueOf(value * 1_000_000_000);
-            } else if (priceText.contains("triệu")) {
-                return BigDecimal.valueOf(value * 1_000_000);
+        try {
+            String lowerText = priceText.toLowerCase().trim();
+
+            if (lowerText.contains("-")) {
+                lowerText = lowerText.split("-")[0].trim();
             }
-        } catch (Exception e) { return null; }
+
+            Matcher matcher = Pattern.compile("([0-9]+([.,][0-9]+)*)").matcher(lowerText);
+            if (!matcher.find()) return null;
+
+            String rawNum = matcher.group(1);
+
+            if (rawNum.matches(".*[.,]\\d{3}$")) {
+                rawNum = rawNum.replaceAll("[.,]", "");
+            } else {
+                rawNum = rawNum.replace(",", ".");
+            }
+
+            double value = Double.parseDouble(rawNum);
+
+            if (lowerText.contains("tỷ")) {
+                return BigDecimal.valueOf(value).multiply(BigDecimal.valueOf(1_000_000_000)).setScale(2, RoundingMode.HALF_UP);
+            } else if (lowerText.contains("triệu") || lowerText.contains("tr")) {
+                return BigDecimal.valueOf(value).multiply(BigDecimal.valueOf(1_000_000)).setScale(2, RoundingMode.HALF_UP);
+            }
+        } catch (Exception e) {
+            return null;
+        }
         return null;
     }
 
     private BigDecimal parseArea(String areaText) {
         if (areaText == null || areaText.isEmpty()) return null;
         try {
-            String clean = areaText.replaceAll("[^0-9.,]", "").trim().replace(",", ".");
+            String clean = areaText.replaceAll("[^0-9.,]", "").trim();
+            if (clean.isEmpty()) return null;
+
+            if (clean.matches(".*[.,]\\d{3}$")) {
+                clean = clean.replaceAll("[.,]", "");
+            } else {
+                clean = clean.replace(",", ".");
+            }
+
             return new BigDecimal(clean);
-        } catch (Exception e) { return null; }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Date parsePostedDate(String dateText) {
@@ -547,5 +584,64 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         try {
             return new SimpleDateFormat("dd/MM/yyyy").parse(dateText);
         } catch (ParseException e) { return new Date(); }
+    }
+
+    private boolean isValidListing(CrawPropertyListing listing) {
+        if (listing == null) return false;
+
+        if (listing.getPrice() == null || listing.getArea() == null || listing.getPricePerM2() == null) {
+            return false;
+        }
+
+        BigDecimal minPricePerM2 = new BigDecimal("5000000");
+        BigDecimal maxPricePerM2 = new BigDecimal("2000000000");
+
+        BigDecimal minArea = new BigDecimal("5");
+        BigDecimal maxArea = new BigDecimal("10000");
+
+        BigDecimal minPrice = new BigDecimal("100000000");
+        BigDecimal maxPrice = new BigDecimal("1000000000000");
+
+        if (listing.getPricePerM2().compareTo(minPricePerM2) < 0 || listing.getPricePerM2().compareTo(maxPricePerM2) > 0) {
+            System.err.println(" ⚠️ [VALIDATION REJECT] Giá/m2 bất thường: " + listing.getPricePerM2() + " VNĐ/m2 -> URL: " + listing.getSourceUrl());
+            return false;
+        }
+
+        if (listing.getArea().compareTo(minArea) < 0 || listing.getArea().compareTo(maxArea) > 0) {
+            System.err.println(" ⚠️ [VALIDATION REJECT] Diện tích bất thường: " + listing.getArea() + " m2 -> URL: " + listing.getSourceUrl());
+            return false;
+        }
+
+        if (listing.getPrice().compareTo(minPrice) < 0 || listing.getPrice().compareTo(maxPrice) > 0) {
+            System.err.println(" ⚠️ [VALIDATION REJECT] Tổng giá bất thường: " + listing.getPrice() + " VNĐ -> URL: " + listing.getSourceUrl());
+            return false;
+        }
+
+        BigDecimal calculatedTotalPrice = listing.getPricePerM2().multiply(listing.getArea());
+        BigDecimal diff = calculatedTotalPrice.subtract(listing.getPrice()).abs();
+        BigDecimal allowedTolerance = listing.getPrice().multiply(new BigDecimal("0.05"));
+
+        if (diff.compareTo(allowedTolerance) > 0) {
+            System.err.println(" ⚠️ [VALIDATION REJECT] Lệch logic Giá/DiệnTích/ĐơnGiá! (Price: " + listing.getPrice() + ", Area: " + listing.getArea() + ", Price/m2: " + listing.getPricePerM2() + ")");
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isValidCoordinates(BigDecimal lat, BigDecimal lng) {
+        if (lat == null || lng == null) return false;
+
+        double latitude = lat.doubleValue();
+        double longitude = lng.doubleValue();
+
+        boolean validLat = latitude >= 10.30 && latitude <= 11.20;
+        boolean validLng = longitude >= 106.35 && longitude <= 107.00;
+
+        if (!validLat || !validLng) {
+            System.err.println(" ⚠️ [VALIDATION REJECT] Tọa độ ngoài khu vực TP.HCM: (" + lat + ", " + lng + ")");
+        }
+
+        return validLat && validLng;
     }
 }
