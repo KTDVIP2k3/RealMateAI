@@ -152,7 +152,7 @@ public class DataValidationRunner implements CommandLineRunner {
 
                         String title = page.title();
                         if (title.contains("Just a moment") || title.contains("Access Denied") || title.contains("Thực hiện xác minh bảo mật")) {
-                            System.err.println("⚠️ [BLOCKED] Vẫn bị Cloudflare chặn!");
+                            System.out.println("⚠️ [BLOCKED] Vẫn bị Cloudflare chặn!");
                             failedToFetch++;
                             continue;
                         }
@@ -180,12 +180,12 @@ public class DataValidationRunner implements CommandLineRunner {
                             if (!priceMatch) {
                                 mismatchDetails.add("Giá [DB: " + formatVnd(listing.getPrice()) + " VS Web: " + formatVnd(webPrice) + "]");
                             }
-                            System.err.println("❌ [MISMATCH] Sai lệch: " + String.join(" | ", mismatchDetails));
+                            System.out.println("❌ [MISMATCH] Sai lệch: " + String.join(" | ", mismatchDetails));
                         }
 
                     } catch (Exception e) {
                         failedToFetch++;
-                        System.err.println("⚠️ [ERROR] Lỗi truy cập: " + e.getMessage());
+                        System.out.println("⚠️ [ERROR] Lỗi truy cập: " + e.getMessage());
                     }
                 }
 
@@ -194,7 +194,7 @@ public class DataValidationRunner implements CommandLineRunner {
             }
 
         } catch (Exception e) {
-            System.err.println("❌ Lỗi hệ thống Playwright Audit: " + e.getMessage());
+            System.out.println("❌ Lỗi hệ thống Playwright Audit: " + e.getMessage());
         } finally {
             if (page != null && !page.isClosed()) try { page.close(); } catch (Exception ignored) {}
             if (context != null) try { context.close(); } catch (Exception ignored) {}
@@ -223,9 +223,12 @@ public class DataValidationRunner implements CommandLineRunner {
 
     private BigDecimal extractPriceFromWeb(Document doc, BigDecimal area) {
         try {
-            Element priceElem = doc.selectFirst(".re__pr-specs-content-item:contains(Mức giá) .re__pr-specs-content-item-value");
+            Element priceElem = doc.selectFirst(".re__pr-specs-content-item:contains(Mức giá) .re__pr-specs-content-item-value, " +
+                    ".re__pr-specs-content-item:contains(Khoảng giá) .re__pr-specs-content-item-value, " +
+                    ".re__pr-specs-content-item:contains(Giá) .re__pr-specs-content-item-value");
             if (priceElem == null) {
-                priceElem = doc.selectFirst(".re__pr-short-info-item:contains(tỷ), .re__pr-short-info-item:contains(triệu)");
+                priceElem = doc.selectFirst(".re__short-title:contains(tỷ), .re__short-title:contains(triệu), " +
+                        ".re__pr-short-info-item:contains(tỷ), .re__pr-short-info-item:contains(triệu)");
             }
             if (priceElem != null) {
                 String priceText = priceElem.text().toLowerCase();

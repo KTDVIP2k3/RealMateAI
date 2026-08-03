@@ -61,6 +61,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/auth/activate-account")
                 || requestURI.equals("/auth/register")
                 || requestURI.equals("/auth/verify-otp")
+                || (requestURI.startsWith("/investor/listings") && "GET".equalsIgnoreCase(method))
                 || requestURI.equals("/auth/send-otp")
                 || requestURI.equals("/auth/forgot-password")
                 || requestURI.equals("/auth/new-password")

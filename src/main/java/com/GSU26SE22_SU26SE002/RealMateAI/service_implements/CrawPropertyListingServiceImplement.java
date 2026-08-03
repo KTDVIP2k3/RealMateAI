@@ -176,7 +176,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         page.mouse().move(150, 200);
                         page.mouse().move(350, 450);
                     } catch (TimeoutError te) {
-                        System.err.println("⚠️ [TIMEOUT] Trang " + pageNum + " phản hồi quá lâu (>45s). Đánh dấu dừng cào!");
+                        System.out.println("⚠️ [TIMEOUT] Trang " + pageNum + " phản hồi quá lâu (>45s). Đánh dấu dừng cào!");
                         reachedEndOfSource = true;
                         break;
                     }
@@ -192,7 +192,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     String pageTitle = page.title();
                     if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                        System.err.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại: " + targetUrl);
+                        System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại: " + targetUrl);
                         break;
                     }
 
@@ -258,13 +258,13 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     randomSleep(2000, 4000);
 
                 } catch (Exception crawlEx) {
-                    System.err.println("Lỗi kết nối tại trang " + pageNum + " | Lý do: " + crawlEx.getMessage());
+                    System.out.println("Lỗi kết nối tại trang " + pageNum + " | Lý do: " + crawlEx.getMessage());
                     break;
                 }
             }
 
         } catch (Exception e) {
-            System.err.println("Lỗi hệ thống Playwright: " + e.getMessage());
+            System.out.println("Lỗi hệ thống Playwright: " + e.getMessage());
         } finally {
             if (page != null && !page.isClosed()) {
                 try { page.close(); } catch (Exception ignored) {}
@@ -296,7 +296,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 heatmapZoneService.generateDailySnapshot();
                 System.out.println("[HEATMAP] ✅ Đã hoàn tất tạo Snapshot Heatmap cho ngày hôm nay!");
             } catch (Exception heatmapEx) {
-                System.err.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
+                System.out.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
             }
         } else {
             System.out.println("[HEATMAP] ℹ️ Đang cào dở dang (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ đợt cào tiếp theo để chốt Snapshot.");
@@ -509,7 +509,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             System.out.flush();
 
         } catch (Exception e) {
-            System.err.println(" --> [DB ERROR] Lỗi khi lưu DB tại " + pageLabel + ": " + e.getMessage());
+            System.out.println(" --> [DB ERROR] Lỗi khi lưu DB tại " + pageLabel + ": " + e.getMessage());
             System.out.flush();
         }
     }
@@ -538,10 +538,18 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             String rawNum = matcher.group(1);
 
-            if (rawNum.matches(".*[.,]\\d{3}$")) {
-                rawNum = rawNum.replaceAll("[.,]", "");
-            } else {
-                rawNum = rawNum.replace(",", ".");
+            if (rawNum.contains(".") && rawNum.contains(",")) {
+                if (rawNum.lastIndexOf(".") < rawNum.lastIndexOf(",")) {
+                    rawNum = rawNum.replace(".", "").replace(",", ".");
+                } else {
+                    rawNum = rawNum.replace(",", "");
+                }
+            } else if (rawNum.contains(".") || rawNum.contains(",")) {
+                if (rawNum.matches(".*[.,]\\d{3}$")) {
+                    rawNum = rawNum.replaceAll("[.,]", "");
+                } else {
+                    rawNum = rawNum.replace(",", ".");
+                }
             }
 
             double value = Double.parseDouble(rawNum);
@@ -563,10 +571,18 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             String clean = areaText.replaceAll("[^0-9.,]", "").trim();
             if (clean.isEmpty()) return null;
 
-            if (clean.matches(".*[.,]\\d{3}$")) {
-                clean = clean.replaceAll("[.,]", "");
-            } else {
-                clean = clean.replace(",", ".");
+            if (clean.contains(".") && clean.contains(",")) {
+                if (clean.lastIndexOf(".") < clean.lastIndexOf(",")) {
+                    clean = clean.replace(".", "").replace(",", ".");
+                } else {
+                    clean = clean.replace(",", "");
+                }
+            } else if (clean.contains(".") || clean.contains(",")) {
+                if (clean.matches(".*[.,]\\d{3}$")) {
+                    clean = clean.replaceAll("[.,]", "");
+                } else {
+                    clean = clean.replace(",", ".");
+                }
             }
 
             return new BigDecimal(clean);
@@ -603,17 +619,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         BigDecimal maxPrice = new BigDecimal("1000000000000");
 
         if (listing.getPricePerM2().compareTo(minPricePerM2) < 0 || listing.getPricePerM2().compareTo(maxPricePerM2) > 0) {
-            System.err.println(" ⚠️ [VALIDATION REJECT] Giá/m2 bất thường: " + listing.getPricePerM2() + " VNĐ/m2 -> URL: " + listing.getSourceUrl());
+            System.out.println(" ⚠️ [VALIDATION REJECT] Giá/m2 bất thường: " + listing.getPricePerM2() + " VNĐ/m2 -> URL: " + listing.getSourceUrl());
             return false;
         }
 
         if (listing.getArea().compareTo(minArea) < 0 || listing.getArea().compareTo(maxArea) > 0) {
-            System.err.println(" ⚠️ [VALIDATION REJECT] Diện tích bất thường: " + listing.getArea() + " m2 -> URL: " + listing.getSourceUrl());
+            System.out.println(" ⚠️ [VALIDATION REJECT] Diện tích bất thường: " + listing.getArea() + " m2 -> URL: " + listing.getSourceUrl());
             return false;
         }
 
         if (listing.getPrice().compareTo(minPrice) < 0 || listing.getPrice().compareTo(maxPrice) > 0) {
-            System.err.println(" ⚠️ [VALIDATION REJECT] Tổng giá bất thường: " + listing.getPrice() + " VNĐ -> URL: " + listing.getSourceUrl());
+            System.out.println(" ⚠️ [VALIDATION REJECT] Tổng giá bất thường: " + listing.getPrice() + " VNĐ -> URL: " + listing.getSourceUrl());
             return false;
         }
 
@@ -622,7 +638,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         BigDecimal allowedTolerance = listing.getPrice().multiply(new BigDecimal("0.05"));
 
         if (diff.compareTo(allowedTolerance) > 0) {
-            System.err.println(" ⚠️ [VALIDATION REJECT] Lệch logic Giá/DiệnTích/ĐơnGiá! (Price: " + listing.getPrice() + ", Area: " + listing.getArea() + ", Price/m2: " + listing.getPricePerM2() + ")");
+            System.out.println(" ⚠️ [VALIDATION REJECT] Lệch logic Giá/DiệnTích/ĐơnGiá! (Price: " + listing.getPrice() + ", Area: " + listing.getArea() + ", Price/m2: " + listing.getPricePerM2() + ")");
             return false;
         }
 
@@ -639,7 +655,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         boolean validLng = longitude >= 106.35 && longitude <= 107.00;
 
         if (!validLat || !validLng) {
-            System.err.println(" ⚠️ [VALIDATION REJECT] Tọa độ ngoài khu vực TP.HCM: (" + lat + ", " + lng + ")");
+            System.out.println(" ⚠️ [VALIDATION REJECT] Tọa độ ngoài khu vực TP.HCM: (" + lat + ", " + lng + ")");
         }
 
         return validLat && validLng;
