@@ -27,4 +27,12 @@ public interface HeatmapZoneRepository extends JpaRepository<HeatmapZone, UUID> 
     @Modifying
     @Query(value = "DELETE FROM craw_listing_heatmap_zone", nativeQuery = true)
     void clearJoinTable();
+
+    @Modifying
+    @Query(value = "DELETE FROM craw_listing_heatmap_zone", nativeQuery = true)
+    void truncateJoinTable();
+
+    @Modifying
+    @Query(value = "DELETE FROM heatmap_zone", nativeQuery = true)
+    void truncateHeatmapZoneTable();
 }
