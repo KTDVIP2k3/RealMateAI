@@ -194,6 +194,7 @@ public class AccountServiceImplement implements AccountServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
             }
 
+
             if(account.getAvatar() == null){
                 account.setAvatar(cloudinaryMediaServiceImplement.uploadImage(updateAccountRequest.getAvatar()));
             }

@@ -17,6 +17,7 @@ public class UpdateAccountRequest {
     private String fullName;
     private String phone;
     private MultipartFile avatar;
+
     @Schema(implementation = String.class, allowableValues = {"Male", "Female"})
     private GenderEnum gender;
 }
