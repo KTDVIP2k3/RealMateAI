@@ -73,6 +73,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/error")
                 || requestURI.equals("/posting-packages/active")
                 || requestURI.equals("/membership-plans/active")
+                || (requestURI.startsWith("/heatmap/") && "GET".equalsIgnoreCase(method))
                 || requestURI.equals("/wallets/deposit/success")
                 || requestURI.equals("/wallets/deposit/cancel")
                 || requestURI.equals("/wallets/deposit/webhook")
