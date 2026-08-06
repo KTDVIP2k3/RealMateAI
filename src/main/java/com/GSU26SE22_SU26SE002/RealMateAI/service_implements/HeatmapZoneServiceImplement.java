@@ -1,11 +1,18 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.CrawPropertyListing;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.HeatmapZone;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.HeatmapZoneRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.ListingDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +30,10 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
     @Autowired
     private HeatmapZoneRepository heatmapZoneRepository;
 
+    @Autowired
+    private ListingRepository listingRepository;
+
+
     @Override
     @Transactional
     public void generateDailySnapshot() {
@@ -38,7 +49,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         heatmapZoneRepository.deleteAllInBatch();
         heatmapZoneRepository.flush();
 
-        int[] targetZoomLevels = {10, 11, 12, 13, 14, 15};
+        int[] targetZoomLevels = {10, 11, 12, 13, 14, 15, 16, 17};
         List<HeatmapZone> snapshotBatch = new ArrayList<>();
 
         for (int zoom : targetZoomLevels) {
@@ -56,15 +67,26 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 int gridX = Integer.parseInt(parts[0]);
                 int gridY = Integer.parseInt(parts[1]);
 
-                double centerLat = gridListings.stream()
+                double avgLat = gridListings.stream()
                         .mapToDouble(l -> l.getLatitude().doubleValue())
                         .average()
                         .orElseGet(() -> gridYToLat(gridY + 0.5, zoom));
 
-                double centerLon = gridListings.stream()
+                double avgLon = gridListings.stream()
                         .mapToDouble(l -> l.getLongitude().doubleValue())
                         .average()
                         .orElseGet(() -> gridXToLon(gridX + 0.5, zoom));
+
+                CrawPropertyListing nearestListing = gridListings.stream()
+                        .min(Comparator.comparingDouble(l -> {
+                            double dLat = l.getLatitude().doubleValue() - avgLat;
+                            double dLon = l.getLongitude().doubleValue() - avgLon;
+                            return dLat * dLat + dLon * dLon;
+                        }))
+                        .orElse(gridListings.get(0));
+
+                double centerLat = nearestListing.getLatitude().doubleValue();
+                double centerLon = nearestListing.getLongitude().doubleValue();
 
                 BigDecimal averagePricePerM2 = calculateAveragePricePerM2(gridListings);
 
@@ -211,5 +233,131 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return sum.divide(BigDecimal.valueOf(validPrices.size()), 2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public ResponseEntity<ApiResponse> getListingsByViewportPaged(
+            BigDecimal minLat,
+            BigDecimal maxLat,
+            BigDecimal minLong,
+            BigDecimal maxLong,
+            int page,
+            int size) {
+        try {
+            BigDecimal actualMinLat = minLat.min(maxLat);
+            BigDecimal actualMaxLat = minLat.max(maxLat);
+            BigDecimal actualMinLong = minLong.min(maxLong);
+            BigDecimal actualMaxLong = minLong.max(maxLong);
+
+            List<Listing> allListings = listingRepository.findAll().stream()
+                    .filter(listing -> listing != null
+                            && listing.getProperty() != null
+                            && listing.getProperty().getLocation() != null
+                            && listing.getProperty().getLocation().getLatitude() != null
+                            && listing.getProperty().getLocation().getLongitude() != null
+                            && Boolean.TRUE.equals(listing.getIsActive())
+                            && listing.getStatus() == SellerListingStatusEnum.ACTIVE
+                            && listing.getProperty().getLocation().getLatitude().compareTo(actualMinLat) >= 0
+                            && listing.getProperty().getLocation().getLatitude().compareTo(actualMaxLat) <= 0
+                            && listing.getProperty().getLocation().getLongitude().compareTo(actualMinLong) >= 0
+                            && listing.getProperty().getLocation().getLongitude().compareTo(actualMaxLong) <= 0)
+                    .toList();
+
+            List<Listing> sortedList = allListings.stream()
+                    .sorted(java.util.Comparator.comparing(
+                            Listing::getCreatedAt,
+                            java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())
+                    ))
+                    .toList();
+
+            boolean isGetAll = (page == 0 && size == 0);
+
+            List<ListingDTO> pagedContent;
+            int effectivePage = 0;
+            int totalElements = sortedList.size();
+            int effectiveSize = totalElements;
+            int totalPages = 1;
+            boolean isLast = true;
+
+            if (isGetAll) {
+                pagedContent = sortedList.stream()
+                        .map(this::mapToListingDTO)
+                        .collect(Collectors.toList());
+            } else {
+                effectiveSize = size > 0 ? size : 20;
+                effectivePage = Math.max(page, 0);
+
+                totalPages = totalElements == 0 ? 1 : (int) Math.ceil((double) totalElements / effectiveSize);
+                isLast = effectivePage >= totalPages - 1;
+
+                int offset = effectivePage * effectiveSize;
+
+                List<Listing> slicedListings;
+                if (offset >= totalElements) {
+                    slicedListings = java.util.Collections.emptyList();
+                } else {
+                    slicedListings = sortedList.stream()
+                            .skip(offset)
+                            .limit(effectiveSize)
+                            .toList();
+                }
+
+                pagedContent = slicedListings.stream()
+                        .map(this::mapToListingDTO)
+                        .collect(Collectors.toList());
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", pagedContent);
+            result.put("page", effectivePage);
+            result.put("size", effectiveSize);
+            result.put("totalElements", totalElements);
+            result.put("totalPages", totalPages);
+            result.put("last", isLast);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(result, "Get listings by viewport successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    private ListingDTO mapToListingDTO(Listing listing) {
+        if (listing == null) return null;
+
+        ListingDTO dto = ListingDTO.builder()
+                .listingId(listing.getListingId())
+                .title(listing.getTitle())
+                .price(listing.getPrice())
+                .isActive(listing.getIsActive())
+                .viewCount(listing.getViewCount())
+                .createdAt(listing.getCreatedAt())
+                .isVerified(listing.getIsVerified())
+                .verificationStatus(listing.getCertificationStatus() != null ? listing.getCertificationStatus().name() : null)
+                .isFavorited(false)
+                .build();
+
+        if (listing.getProperty() != null) {
+            if (listing.getProperty().getLocation() != null) {
+                dto.setLatitude(listing.getProperty().getLocation().getLatitude());
+                dto.setLongitude(listing.getProperty().getLocation().getLongitude());
+            }
+            dto.setArea(listing.getProperty().getArea());
+            dto.setBedroom(listing.getProperty().getBedroom());
+            dto.setBathroom(listing.getProperty().getBathroom());
+
+            if (listing.getProperty().getPropertyType() != null) {
+                dto.setPropertyTypeName(listing.getProperty().getPropertyType().getName());
+            }
+        }
+
+        if (listing.getListingImages() != null && !listing.getListingImages().isEmpty()) {
+            dto.setThumbnailUrl(listing.getListingImages().get(0).getImageUrl());
+        }
+
+        return dto;
     }
 }
