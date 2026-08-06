@@ -5,7 +5,9 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import org.springframework.http.ResponseEntity;
 
 public interface NewsServiceInterface {
-    ResponseEntity<ApiResponse> getAllNewsPaged(int page, int size );
-    public ResponseEntity<ApiResponse> getNewsByCategoryIdPaged(Integer categoryId, int page, int size);
+     ResponseEntity<ApiResponse> getAllNewsPaged(int page, int size );
+     ResponseEntity<ApiResponse> getNewsDetailById(Integer id);
+     ResponseEntity<ApiResponse> getNewsDetailBySlug(String slug);
+     ResponseEntity<ApiResponse> getNewsByCategoryIdPaged(Integer categoryId, int page, int size);
     void autoCrawlNewsData();
 }
