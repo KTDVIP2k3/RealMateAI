@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
-@Profile("local")
+//@Profile("local")
 public class NewsServiceImplements implements NewsServiceInterface {
 
     @Autowired
