@@ -88,6 +88,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.startsWith("/locations")
                 || requestURI.startsWith("/news-categories")
                 || (requestURI.startsWith("/heatmap") && "GET".equalsIgnoreCase(method))
+                || (requestURI.startsWith("/api/test-data/run"))
                 || requestURI.startsWith("/news")
                 | (requestURI.equals("/listings/search") && "POST".equalsIgnoreCase(method))
                 || requestURI.startsWith("/ward-boundary")) {

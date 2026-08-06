@@ -8,10 +8,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Component;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
 import org.springframework.util.FileSystemUtils;
 
 import java.io.File;
@@ -23,17 +23,17 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Component
+@Service
 @Profile("local")
-public class DataValidationRunner implements CommandLineRunner {
+public class DataValidationService {
 
     @Autowired
     private CrawPropertyListingRepository repository;
 
     private static final int BATCH_SIZE = 50;
 
-    @Override
-    public void run(String... args) throws Exception {
+    @Async
+    public void startAuditProcess() {
         long totalRecords = repository.count();
         System.out.println("\n========================================================");
         System.out.println("🚀 [FULL AUDIT] Bắt đầu đối soát TOÀN BỘ " + totalRecords + " tin trong Database!");

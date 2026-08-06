@@ -267,16 +267,23 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             System.out.println("Lỗi hệ thống Playwright: " + e.getMessage());
         } finally {
             if (page != null && !page.isClosed()) {
-                try { page.close(); } catch (Exception ignored) {}
+                try {
+                    page.close();
+                } catch (Exception ignored) {
+                }
             }
             if (context != null) {
-                try { context.close(); } catch (Exception ignored) {}
+                try {
+                    context.close();
+                } catch (Exception ignored) {
+                }
             }
 
             if (isServer) {
                 try {
                     FileSystemUtils.deleteRecursively(userDataDir);
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -368,7 +375,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             try {
                 page.waitForSelector("iframe[src*='google.com/maps'], iframe[data-src*='google.com/maps'], div#re-map, div[data-lat], .re__section-map",
                         new Page.WaitForSelectorOptions().setTimeout(4000));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             String latStr = null;
             String lngStr = null;
@@ -403,7 +411,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         lngStr = map.get("lng").toString();
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             if (latStr == null || lngStr == null) {
                 try {
@@ -419,7 +428,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             lngStr = matcher.group(2);
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
 
             if (latStr == null || lngStr == null) {
@@ -457,7 +467,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 }
             }
 
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         return listing;
     }
@@ -469,7 +480,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             page.evaluate("() => window.scrollTo({top: (document.body.scrollHeight / 3) * 2, behavior: 'smooth'});");
             randomSleep(800, 1200);
             page.evaluate("() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});");
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     @Transactional
@@ -518,7 +530,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         try {
             long sleepTime = minMs + (long) (Math.random() * (maxMs - minMs));
             Thread.sleep(sleepTime);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+        }
     }
 
     private BigDecimal parsePriceTextToAmount(String priceText) {
@@ -599,7 +612,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         }
         try {
             return new SimpleDateFormat("dd/MM/yyyy").parse(dateText);
-        } catch (ParseException e) { return new Date(); }
+        } catch (ParseException e) {
+            return new Date();
+        }
     }
 
     private boolean isValidListing(CrawPropertyListing listing) {
