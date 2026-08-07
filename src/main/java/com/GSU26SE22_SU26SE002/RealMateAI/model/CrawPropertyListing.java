@@ -7,7 +7,6 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -38,9 +37,11 @@ public class CrawPropertyListing {
     @Column(name = "price_per_m2", precision = 18, scale = 2)
     private BigDecimal pricePerM2;
 
-    private BigDecimal latitude;
+    @Column(name = "latitude")
+    private Double latitude;
 
-    private BigDecimal longitude;
+    @Column(name = "longitude")
+    private Double longitude;
 
     private Date posted_date;
 
@@ -55,6 +56,4 @@ public class CrawPropertyListing {
     @Builder.Default
     @JsonIgnore
     private List<HeatmapZone> heatmapZones = new ArrayList<>();
-
-
 }
