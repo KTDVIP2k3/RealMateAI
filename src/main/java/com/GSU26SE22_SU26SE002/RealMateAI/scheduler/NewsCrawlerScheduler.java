@@ -7,13 +7,13 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("crawler")
+@Profile("local")
 public class NewsCrawlerScheduler {
 
     @Autowired
     private NewsServiceInterface newsService;
 
-    @Scheduled(cron = "0 0 0 * * ?", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     public void runAutoCrawl() {
         newsService.autoCrawlNewsData();
     }
