@@ -6,6 +6,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CrawPropertyListing
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitUntilState;
+import jakarta.persistence.EntityManager;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -665,13 +666,18 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
         return validLat && validLng;
     }
+    @Autowired
+    private EntityManager entityManager;
 
     @Scheduled(initialDelay = 5000, fixedDelay = 600000)
+    @Transactional
     public void fixExistingListingsCoordinates() {
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
                 || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
-        List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll();
+        List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll(
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id")
+        );
 
         if (entities.isEmpty()) {
             System.out.println("[AUTO-MIGRATION] ✨ Tọa độ & Diện tích (area) cũ đã hoàn chỉnh và chính xác!");
@@ -922,33 +928,49 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 }
 
                 if (batchToSave.size() >= 20) {
-                    saveBatchInNewTransaction(batchToSave);
-                    System.out.println("   💾 [DATABASE] --> Đã lưu đợt 20 tin.");
+                    try {
+                        saveBatchInNewTransaction(batchToSave);
+                        System.out.println("   💾 [DATABASE] --> Đã lưu đợt 20 tin.");
+                        batchToSave.clear();
+                        entityManager.clear();
+                    } catch (Exception dbEx) {
+                        System.out.println(" ❌ [DB SAVE ERROR] Lỗi lưu kết nối DB: " + dbEx.getMessage());
+                    }
                     System.out.flush();
-                    batchToSave.clear();
                 }
 
                 if (batchToDelete.size() >= 20) {
-                    deleteBatchInNewTransaction(batchToDelete);
-                    System.out.println("   💾 [DATABASE] --> Đã xóa đợt 20 tin ngoài phạm vi hoặc link chết.");
+                    try {
+                        deleteBatchInNewTransaction(batchToDelete);
+                        System.out.println("   💾 [DATABASE] --> Đã xóa đợt 20 tin ngoài phạm vi hoặc link chết.");
+                        batchToDelete.clear();
+                        entityManager.clear();
+                    } catch (Exception dbEx) {
+                        System.out.println(" ❌ [DB DELETE ERROR] Lỗi xóa kết nối DB: " + dbEx.getMessage());
+                    }
                     System.out.flush();
-                    batchToDelete.clear();
                 }
 
                 randomSleep(2000, 4500);
             }
 
             if (!batchToSave.isEmpty()) {
-                saveBatchInNewTransaction(batchToSave);
-                System.out.println("   💾 [DATABASE] --> Đã lưu các tin cuối cùng.");
-                System.out.flush();
+                try {
+                    saveBatchInNewTransaction(batchToSave);
+                    System.out.println("   💾 [DATABASE] --> Đã lưu các tin cuối cùng.");
+                    batchToSave.clear();
+                } catch (Exception ignored) {}
             }
 
             if (!batchToDelete.isEmpty()) {
-                deleteBatchInNewTransaction(batchToDelete);
-                System.out.println("   💾 [DATABASE] --> Đã xóa các tin chết cuối cùng.");
-                System.out.flush();
+                try {
+                    deleteBatchInNewTransaction(batchToDelete);
+                    System.out.println("   💾 [DATABASE] --> Đã xóa các tin chết cuối cùng.");
+                    batchToDelete.clear();
+                } catch (Exception ignored) {}
             }
+
+            entityManager.clear();
 
             System.out.println("\n==========================================================================================");
             System.out.println(" --> [MIGRATION DONE] Hoàn tất quét lỗi! Số lượng tin đã xử lý: " + updatedCount);
@@ -991,9 +1013,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Transactional
     public void deleteBatchInNewTransaction(List<CrawPropertyListing> batch) {
         for (CrawPropertyListing listing : batch) {
-            if (listing.getHeatmapZones() != null) {
-                listing.getHeatmapZones().clear();
-            }
+            try {
+                if (listing.getHeatmapZones() != null) {
+                    listing.getHeatmapZones().clear();
+                }
+            } catch (Exception ignored) {}
             crawPropertyListingRepository.delete(listing);
         }
         crawPropertyListingRepository.flush();
