@@ -669,7 +669,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Autowired
     private EntityManager entityManager;
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
+//    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     @Transactional
     public void fixExistingListingsCoordinates() {
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
