@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -24,9 +23,6 @@ public class HeatmapZone {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-//    @Column(name = "snapshot_date", nullable = false)
-//    private LocalDate snapshotDate;
-
     @Column(name = "zoom_level", nullable = false)
     private Integer zoomLevel;
 
@@ -36,11 +32,11 @@ public class HeatmapZone {
     @Column(name = "grid_y", nullable = false)
     private Integer gridY;
 
-    @Column(name = "center_latitude", precision = 10, scale = 7, nullable = false)
-    private BigDecimal centerLatitude;
+    @Column(name = "center_latitude", nullable = false)
+    private Double centerLatitude;
 
-    @Column(name = "center_longitude", precision = 10, scale = 7, nullable = false)
-    private BigDecimal centerLongitude;
+    @Column(name = "center_longitude", nullable = false)
+    private Double centerLongitude;
 
     @Column(name = "listing_count")
     private Integer listingCount;
@@ -53,9 +49,6 @@ public class HeatmapZone {
 
     @Column(name = "price_heat_level", precision = 5, scale = 2)
     private BigDecimal priceHeatLevel;
-//
-//    @Column(name = "price_change_percent", precision = 5, scale = 2)
-//    private BigDecimal priceChangePercent;
 
     @ManyToMany(mappedBy = "heatmapZones", fetch = FetchType.LAZY)
     @Builder.Default
