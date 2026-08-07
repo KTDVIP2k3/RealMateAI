@@ -27,6 +27,7 @@ public class WalletWithdrawal {
     private String bankName;
     private String status;
     private String note;
+    private String reason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

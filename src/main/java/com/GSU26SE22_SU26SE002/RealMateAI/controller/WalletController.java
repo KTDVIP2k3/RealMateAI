@@ -84,8 +84,9 @@ public class WalletController {
     public ResponseEntity<ApiResponse> withdraw(
             @RequestParam("amount") BigDecimal amount,
             @RequestParam("bankName") String bankName,
-            @RequestParam("bankAccountNumber") String bankAccountNumber) {
-        return walletService.requestWithdrawal(amount, bankName, bankAccountNumber);
+            @RequestParam("bankAccountNumber") String bankAccountNumber,
+            @RequestParam("note") String note) {
+        return walletService.requestWithdrawal(amount, bankName, bankAccountNumber, note);
     }
 
     @PostMapping("/wallet-withdrawals/{withdrawalId}/review")
@@ -94,8 +95,8 @@ public class WalletController {
     public ResponseEntity<ApiResponse> reviewWithdraw(
             @PathVariable("withdrawalId") Integer withdrawalId,
             @RequestParam("status") String status,
-            @RequestParam(value = "note", required = false) String note) {
-        return walletService.reviewWithdrawRequest(withdrawalId, status, note);
+            @RequestParam(value = "reason", required = false) String reason) {
+        return walletService.reviewWithdrawRequest(withdrawalId, status, reason);
     }
 
     @GetMapping("/me")
