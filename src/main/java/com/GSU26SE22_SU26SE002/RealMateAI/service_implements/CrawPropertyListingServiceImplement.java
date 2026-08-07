@@ -577,18 +577,26 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     }
 
     private BigDecimal parseArea(String areaText) {
-        if (areaText == null || areaText.isEmpty()) return null;
+        if (areaText == null || areaText.isBlank()) return BigDecimal.ZERO;
         try {
-            String clean = areaText.replaceAll("[^0-9.,]", "").trim();
-            if (clean.isEmpty()) return null;
+            String rawText = areaText.trim();
 
-            clean = clean.replace(".", "");
-            clean = clean.replace(",", ".");
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("^\\s*([0-9.,]+)").matcher(rawText);
+            if (matcher.find()) {
+                rawText = matcher.group(1);
+            } else {
+                return BigDecimal.ZERO;
+            }
 
-            return new BigDecimal(clean).setScale(2, RoundingMode.HALF_UP);
+            rawText = rawText.replace(".", "");
+            rawText = rawText.replace(",", ".");
+
+            BigDecimal area = new BigDecimal(rawText).setScale(2, java.math.RoundingMode.HALF_UP);
+            return area.compareTo(BigDecimal.ZERO) > 0 ? area : BigDecimal.ZERO;
         } catch (Exception e) {
-            return null;
+            System.out.println(" ⚠️ [PARSE AREA ERROR] Định dạng chuỗi diện tích không hợp lệ từ: " + areaText);
         }
+        return BigDecimal.ZERO;
     }
 
     private Date parsePostedDate(String dateText) {
@@ -663,11 +671,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
                 || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
-        List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll().stream()
-                .filter(l -> l.getLatitude() == null || l.getLongitude() == null
-                        || String.valueOf(l.getLatitude()).length() <= 5
-                        || l.getArea() == null || l.getArea().compareTo(BigDecimal.ZERO) == 0)
-                .toList();
+        List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll();
 
         if (entities.isEmpty()) {
             System.out.println("[AUTO-MIGRATION] ✨ Tọa độ & Diện tích (area) cũ đã hoàn chỉnh và chính xác!");
@@ -775,49 +779,104 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 BigDecimal dbArea = listing.getArea();
                 CrawPropertyListing updated = fetchCoordinates(listing, page);
 
-                String pageTitle = page.title();
+                String pageTitle = "";
+                try {
+                    page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
+                    pageTitle = page.title();
+                } catch (Exception e) {
+                    System.out.println(" ⚠️ [WARN] Môi trường bị hủy/Đang nhảy trang. Đang đợi 3 giây để ổn định lại...");
+                    try {
+                        page.waitForTimeout(3000);
+                        pageTitle = page.title();
+                    } catch (Exception ignored) {
+                        pageTitle = "Unknown (Navigation Error)";
+                    }
+                }
+
                 if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                    System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại chi tiết tin. Dừng batch!");
-                    break;
+                    System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại chi tiết tin. Bỏ qua!");
+                    continue;
                 }
 
                 BigDecimal webArea = null;
+                boolean isInvalidPage = false;
 
                 try {
-                    Document detailDoc = Jsoup.parse(page.content());
-                    Element areaItem = detailDoc.select("div.re__pr-short-info-item").stream()
-                            .filter(el -> el.select(".re__pr-short-info-item-title").text().contains("Diện tích"))
-                            .findFirst()
-                            .orElse(null);
-
-                    Element areaBlock = null;
-                    if (areaItem != null) {
-                        areaBlock = areaItem.selectFirst("span.value");
+                    String htmlContent = "";
+                    try {
+                        htmlContent = page.content();
+                    } catch (Exception e) {
+                        System.out.println(" ⚠️ [WARN] Không thể đọc content do trang đang nhảy link. Thử lại sau 2s...");
+                        page.waitForTimeout(2000);
+                        try { htmlContent = page.content(); } catch (Exception ignored) {}
                     }
 
-                    if (areaBlock == null) {
-                        Element labelSpecs = detailDoc.selectFirst(".re__pr-specs-content-item-title:contains(Diện tích), .re__pr-specs-title:contains(Diện tích)");
-                        if (labelSpecs != null) {
-                            areaBlock = labelSpecs.nextElementSibling();
+                    if (htmlContent != null && !htmlContent.isBlank()) {
+                        Document detailDoc = Jsoup.parse(htmlContent);
+
+                        boolean hasSearchBar = detailDoc.selectFirst(".re__search-bar, input[placeholder*='Đường Lê Hồng Phong'], button:contains(Tìm kiếm)") != null;
+                        boolean hasProductList = detailDoc.selectFirst(".re__left-container, .re__srp-list, #product-lists-page") != null;
+                        boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
+
+                        if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
+                            System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc (Link cũ đã chết/Đổi hướng). Đánh dấu XÓA TIN!");
+                            isInvalidPage = true;
                         }
-                    }
 
-                    if (areaBlock == null) {
-                        Elements tags = detailDoc.select("span, div");
-                        for (Element el : tags) {
-                            String txt = el.text().trim();
-                            if (txt.contains("m²") && !txt.contains("/m²") && !txt.contains("PN") && txt.matches(".*\\d+.*")) {
-                                areaBlock = el;
-                                break;
+                        if (!isInvalidPage) {
+                            Element areaBlock = null;
+
+                            Element specsContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__section-body");
+                            if (specsContainer != null) {
+                                Element labelSpecs = specsContainer.selectFirst(".re__pr-specs-content-item-title:contains(Diện tích), .re__pr-specs-title:contains(Diện tích)");
+                                if (labelSpecs != null) {
+                                    areaBlock = labelSpecs.nextElementSibling();
+                                }
+                            }
+
+                            if (areaBlock == null) {
+                                Element areaItem = detailDoc.select("div.re__pr-short-info-item").stream()
+                                        .filter(el -> el.select(".re__pr-short-info-item-title").text().contains("Diện tích"))
+                                        .findFirst()
+                                        .orElse(null);
+                                if (areaItem != null) {
+                                    areaBlock = areaItem.selectFirst("span.value");
+                                }
+                            }
+
+                            if (areaBlock == null) {
+                                Element mainContent = detailDoc.selectFirst(".re__main-content, .re__pr-short-info, #product-detail-page");
+                                if (mainContent != null) {
+                                    Elements tags = mainContent.select("span, div");
+                                    for (Element el : tags) {
+                                        String txt = el.text().trim();
+                                        if (txt.contains("m²") && !txt.contains("/m²") && !txt.contains("PN") && txt.matches(".*\\d+.*") && txt.length() < 30) {
+                                            areaBlock = el;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (areaBlock != null) {
+                                String rawAreaText = areaBlock.text().split("\n")[0].trim();
+                                if (rawAreaText.length() > 50) {
+                                    System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích quá dài (Bốc trúng menu bộ lọc). Đánh dấu XÓA TIN!");
+                                    isInvalidPage = true;
+                                } else {
+                                    if (rawAreaText.contains("m²")) {
+                                        rawAreaText = rawAreaText.substring(0, rawAreaText.indexOf("m²") + 2);
+                                    }
+                                    webArea = parseAreaSafety(rawAreaText);
+                                }
                             }
                         }
                     }
-
-                    if (areaBlock != null) {
-                        String rawAreaText = areaBlock.text().split("\n")[0].trim();
-                        webArea = parseAreaSafety(rawAreaText);
-                    }
                 } catch (Exception ignored) {}
+
+                if (isInvalidPage) {
+                    updated = null;
+                }
 
                 if (updated != null) {
                     boolean hasChanges = false;
@@ -871,7 +930,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                 if (batchToDelete.size() >= 20) {
                     deleteBatchInNewTransaction(batchToDelete);
-                    System.out.println("   💾 [DATABASE] --> Đã xóa đợt 20 tin ngoài phạm vi.");
+                    System.out.println("   💾 [DATABASE] --> Đã xóa đợt 20 tin ngoài phạm vi hoặc link chết.");
                     System.out.flush();
                     batchToDelete.clear();
                 }
@@ -887,7 +946,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             if (!batchToDelete.isEmpty()) {
                 deleteBatchInNewTransaction(batchToDelete);
-                System.out.println("   💾 [DATABASE] --> Đã xóa các tin ngoài phạm vi cuối cùng.");
+                System.out.println("   💾 [DATABASE] --> Đã xóa các tin chết cuối cùng.");
                 System.out.flush();
             }
 
@@ -919,7 +978,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             BigDecimal area = new BigDecimal(cleanText).setScale(2, java.math.RoundingMode.HALF_UP);
             return area.compareTo(BigDecimal.ZERO) > 0 ? area : BigDecimal.ZERO;
         } catch (Exception e) {
-            System.out.println(" ⚠️ [PARSE AREA ERROR] Chuỗi lỗi: " + rawText);
+            System.out.println(" ⚠️ [PARSE AREA ERROR] Định dạng chuỗi diện tích không hợp lệ.");
         }
         return BigDecimal.ZERO;
     }
