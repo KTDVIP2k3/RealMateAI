@@ -238,7 +238,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> requestWithdrawal(BigDecimal amount, String bankName, String bankAccountNumber) {
+    public ResponseEntity<ApiResponse> requestWithdrawal(BigDecimal amount, String bankName, String bankAccountNumber, String note) {
         try {
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
@@ -271,6 +271,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
                     .wallet(wallet)
                     .amount(amount)
                     .bankName(bankName)
+                    .note(note)
                     .bankAccountNumber(bankAccountNumber)
                     .status("PENDING")
                     .createdAt(LocalDateTime.now())
@@ -302,7 +303,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> reviewWithdrawRequest(Integer withdrawalId, String status, String note) {
+    public ResponseEntity<ApiResponse> reviewWithdrawRequest(Integer withdrawalId, String status, String reason) {
         try {
             WalletWithdrawal withdrawal = walletWithdrawalRepository.findById(withdrawalId).orElse(null);
             if (withdrawal == null) {
@@ -319,7 +320,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
                 walletRepository.save(wallet);
 
                 withdrawal.setStatus("REJECT");
-                withdrawal.setNote(note);
+                withdrawal.setReason(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
 
@@ -334,7 +335,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
             if ("APPROVE".equals(status)) {
                 withdrawal.setStatus("APPROVE");
-                withdrawal.setNote(note);
+                withdrawal.setNote(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Đã phê duyệt đơn rút, chờ Staff chuyển khoản"));
@@ -345,7 +346,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Đơn hàng phải ở trạng thái PENDING hoặc APPROVE mới có thể hoàn thành"));
                 }
                 withdrawal.setStatus("COMPLETE");
-                withdrawal.setNote(note);
+                withdrawal.setNote(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
 
