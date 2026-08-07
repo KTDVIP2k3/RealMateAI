@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,6 +17,7 @@ public class FutureExecutionPlan {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "future_investment_plan_id", nullable = false)
+    @JsonIgnore
     private FutureInvestmentPlan futureInvestmentPlan;
 
     private String name;

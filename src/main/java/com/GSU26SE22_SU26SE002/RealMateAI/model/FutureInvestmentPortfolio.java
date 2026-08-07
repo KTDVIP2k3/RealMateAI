@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,6 +30,7 @@ public class FutureInvestmentPortfolio {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "future_investment_plan_id", nullable = false)
+    @JsonIgnore
     private FutureInvestmentPlan futureInvestmentPlan;
 
     /**
@@ -42,6 +44,7 @@ public class FutureInvestmentPortfolio {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "portfolio_id", nullable = true)
+    @JsonIgnore
     private Portfolio portfolio;
 
     private Integer percentage;
@@ -53,5 +56,6 @@ public class FutureInvestmentPortfolio {
 
     @OneToMany(mappedBy = "futureInvestmentPortfolio", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<FuturePortfolioAllocationProperty> futurePortfolioAllocationProperties = new ArrayList<>();
 }

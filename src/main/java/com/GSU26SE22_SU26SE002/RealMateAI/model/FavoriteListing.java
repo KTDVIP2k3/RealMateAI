@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,11 +22,13 @@ public class FavoriteListing {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investor_id")
+    @JsonIgnore
     private Investor investor;
 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false)
+    @JsonIgnore
     private Listing listing;
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 @NoArgsConstructor @AllArgsConstructor @Getter
@@ -13,6 +14,7 @@ public class ListingImage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false)
+    @JsonIgnore
     private Listing listing;
 
     @Column(name = "image_url", columnDefinition = "TEXT")

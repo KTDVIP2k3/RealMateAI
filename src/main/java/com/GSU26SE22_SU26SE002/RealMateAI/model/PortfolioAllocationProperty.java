@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Property;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -33,10 +34,12 @@ public class PortfolioAllocationProperty {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "portfolio_allocation_id", nullable = false)
+    @JsonIgnore
     private PortfolioAllocation portfolioAllocation;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_id", nullable = false)
+    @JsonIgnore
     private Property property;
 
     /** Tỉ trọng phân bổ trong danh mục (0.0 -> 1.0) */

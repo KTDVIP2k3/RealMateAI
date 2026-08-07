@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -21,12 +22,14 @@ public class ListingVerification {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false, unique = true)
+    @JsonIgnore
     private Listing listing;
 
     // Người duyệt cuối cùng — NULL khi record được tự tạo ở trạng thái PENDING
     // lúc Seller tạo/tạo lại Listing (chưa có Staff/Admin nào duyệt).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = true)
+    @JsonIgnore
     private Account account;
 
     @Enumerated(EnumType.STRING)

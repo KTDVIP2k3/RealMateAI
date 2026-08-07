@@ -2,6 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PortfolioAllocation;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.StrategyPortfolio;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,11 +25,14 @@ public class Portfolio {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<StrategyPortfolio> strategyPortfolios = new ArrayList<>();
 
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<PortfolioAllocation> portfolioAllocations = new ArrayList<>();
 
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<InvestmentPortfolio> investmentPortfolios = new ArrayList<>();
 }

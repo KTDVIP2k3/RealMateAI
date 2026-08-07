@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.InvestmentProfile;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,6 +23,7 @@ public class ExecutionPlan {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profile_version_id", nullable = false)
+    @JsonIgnore
     private InvestmentProfileVersion investmentProfileVersion;
 
     private String name;

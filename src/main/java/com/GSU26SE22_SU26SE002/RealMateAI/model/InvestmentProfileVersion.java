@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,10 +33,12 @@ public class InvestmentProfileVersion {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investment_profile_id")
+    @JsonIgnore
     private InvestmentProfile investmentProfile;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "strategy_id")
+    @JsonIgnore
     private Strategy strategy;
 
     private Long equity;
@@ -62,6 +65,7 @@ public class InvestmentProfileVersion {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "base_version_id")
+    @JsonIgnore
     private InvestmentProfileVersion baseVersion;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "profit_summary", columnDefinition = "json")
@@ -73,13 +77,16 @@ public class InvestmentProfileVersion {
 
     @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<InvestmentScenario> investmentScenarios = new ArrayList<>();
 
     @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<InvestmentPortfolio> investmentPortfolios = new ArrayList<>();
 
     @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<ExecutionPlan> executionPlans = new ArrayList<>();
 }

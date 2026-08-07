@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Getter;
@@ -24,5 +25,6 @@ public class OTP {
 
     @OneToOne
     @JoinColumn(name = "account_id", referencedColumnName = "accountId", unique = true)
+    @JsonIgnore
     private Account account;
 }

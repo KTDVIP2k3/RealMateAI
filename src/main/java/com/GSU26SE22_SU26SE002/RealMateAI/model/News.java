@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +19,7 @@ public class News {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "news_category_id", nullable = false)
+    @JsonIgnore
     private NewsCategory newsCategory;
 
     @Column(nullable = false, length = 255)
