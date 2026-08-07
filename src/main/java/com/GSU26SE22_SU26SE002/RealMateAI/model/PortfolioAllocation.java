@@ -2,6 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.InvestmentPortfolio;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Portfolio;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,11 +21,13 @@ public class PortfolioAllocation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "portfolio_id", nullable = false)
+    @JsonIgnore
     private Portfolio portfolio;
 
     /** M:N với InvestmentPortfolio (theo ERD có ERmany-ERmany) */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investment_portfolio_id")
+    @JsonIgnore
     private InvestmentPortfolio investmentPortfolio;
 
     private Boolean isActive;
@@ -32,5 +35,6 @@ public class PortfolioAllocation {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "portfolioAllocation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<PortfolioAllocationProperty> portfolioAllocationProperties = new ArrayList<>();
 }

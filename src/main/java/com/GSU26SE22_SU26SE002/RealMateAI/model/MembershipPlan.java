@@ -2,6 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.MembershipSubscription;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,6 +32,7 @@ public class MembershipPlan {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "membershipPlan", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<MembershipSubscription> membershipSubscriptions = new ArrayList<>();
 }

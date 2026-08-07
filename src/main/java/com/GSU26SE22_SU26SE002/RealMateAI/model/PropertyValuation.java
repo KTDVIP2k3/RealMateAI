@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.PropertyValuationStatusEnum;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,11 +42,13 @@ public class PropertyValuation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_id", nullable = false)
+    @JsonIgnore
     private Property property;
 
     /** Staff đã xử lý yêu cầu — null khi còn PENDING. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id")
+    @JsonIgnore
     private Account account;
 
     private Long marketUnitPrice;

@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.TransactionTypeEnum;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,12 +18,14 @@ public class Transaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id")
+    @JsonIgnore
     private Wallet wallet;
 
     private String checkoutUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id")
+    @JsonIgnore
     private Account account;
 
     @Enumerated(EnumType.STRING)

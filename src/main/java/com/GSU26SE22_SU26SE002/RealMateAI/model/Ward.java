@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -33,6 +34,7 @@ public class Ward {
 
     @OneToMany(mappedBy = "ward", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<Location> locations = new ArrayList<>();
 
 
