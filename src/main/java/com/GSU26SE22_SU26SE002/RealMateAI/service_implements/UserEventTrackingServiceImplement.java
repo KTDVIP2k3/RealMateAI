@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
  * event vào cùng 1 AuditLog theo phiên — mỗi lượt xem là 1 audit_log riêng,
  * đơn giản và đủ dùng cho việc đếm/join.
  */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -59,8 +60,18 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
     @Override
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public void recordSilently(Account account, UserEventTypeEnum eventType, Integer listingId) {
-        if (account == null || eventType == null) {
-            return; // Khách ẩn danh / thiếu loại sự kiện -> bỏ qua, không có giá trị thống kê theo user.
+        // SỬA (fix bug đã báo cáo — "get listing detail không đếm count"): TRƯỚC
+        // ĐÂY bỏ qua HOÀN TOÀN nếu account=null ("khách ẩn danh không có giá trị
+        // thống kê") — nhưng thực tế phần LỚN traffic xem tin trên 1 trang BĐS
+        // công khai là KHÁCH VÃNG LAI CHƯA ĐĂNG NHẬP. Bỏ qua nhóm này khiến
+        // "Tin nổi bật" (GET /listings/featured, đếm từ ActiveLog) gần như
+        // luôn rỗng/sai lệch nặng trong thực tế test — nhìn như bug "không đếm
+        // count" dù code có chạy, chỉ là chỉ đếm được rất ít traffic (mỗi lượt
+        // xem của user đã đăng nhập). Nay vẫn ghi nhận cho khách ẩn danh
+        // (account=null -> lưu AuditLog.account=null, userName="ANONYMOUS",
+        // vẫn có ipAddress để tra soát nếu cần) — CHỈ bỏ qua khi thiếu eventType.
+        if (eventType == null) {
+            return;
         }
         try {
             LocalDateTime now = LocalDateTime.now();
@@ -68,7 +79,7 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
 
             AuditLog auditLog = AuditLog.builder()
                     .account(account)
-                    .userName(account.getUsername())
+                    .userName(account != null ? account.getUsername() : "ANONYMOUS")
                     .apiName("USER_EVENT:" + eventType)
                     .ipAddress(ip)
                     .createdAt(now)
@@ -88,7 +99,7 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
         } catch (Exception e) {
             // Cố ý CHỈ log — xem javadoc UserEventTrackingService#recordSilently.
             log.warn("[UserEventTrackingService] Ghi event lỗi (bỏ qua): accountId={}, eventType={}, listingId={}",
-                    account.getAccountId(), eventType, listingId, e);
+                    account != null ? account.getAccountId() : "ANONYMOUS", eventType, listingId, e);
         }
     }
 
@@ -152,6 +163,35 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
             return ResponseEntity.ok(ApiResponse.success(result, "Danh sách tin đăng bạn đã xem"));
         } catch (Exception e) {
             log.error("[UserEventTrackingService] getMyViewedListings lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+
+    private static final java.util.Set<UserEventTypeEnum> CLIENT_REPORTABLE_EVENTS =
+            java.util.Set.of(UserEventTypeEnum.CLICK, UserEventTypeEnum.SHARE, UserEventTypeEnum.CONTACT);
+
+    @Override
+    public ResponseEntity<ApiResponse> trackClientEvent(UserEventTypeEnum eventType, Integer listingId) {
+        try {
+            if (eventType == null || !CLIENT_REPORTABLE_EVENTS.contains(eventType)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(
+                        "Bad_Request", "eventType chỉ nhận CLICK, SHARE hoặc CONTACT"));
+            }
+            if (listingId == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(
+                        "Bad_Request", "listingId không được để trống"));
+            }
+
+            Account currentUser = authenUntil.getCurrentUSer();
+            // Khách ẩn danh gọi API này vẫn trả 200 (không chặn UX phía FE) —
+            // recordSilently tự bỏ qua nếu account=null, không ghi được gì cả.
+            recordSilently(currentUser, eventType, listingId);
+
+            return ResponseEntity.ok(ApiResponse.success(null, "Đã ghi nhận sự kiện"));
+        } catch (Exception e) {
+            log.error("[UserEventTrackingService] trackClientEvent lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }

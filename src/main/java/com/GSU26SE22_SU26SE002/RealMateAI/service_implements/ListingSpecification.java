@@ -22,6 +22,7 @@ import java.util.List;
  * Luôn ép buộc l.isActive = true AND property.isActive = true — API này chỉ
  * dành cho Chợ BĐS công khai (Investor tìm mua), giống hành vi của GET /listings.
  */
+
 public final class ListingSpecification {
 
     private ListingSpecification() {
@@ -57,20 +58,37 @@ public final class ListingSpecification {
                 predicates.add(cb.equal(property.get("propertyType").get("propertyTypeId"), req.getPropertyTypeId()));
             }
 
-            if (StringUtils.hasText(req.getWardCode()) || StringUtils.hasText(req.getProvinceCode())) {
-                // Chỉ JOIN "ward" MỘT LẦN DUY NHẤT rồi tái sử dụng cho cả 2 điều kiện bên dưới.
-                // Trước đây: khi truyền cả wardCode lẫn provinceCode, code JOIN "ward" lần 2
-                // (location.join("ward", ...)) trong lúc lần đầu đã "chạm" tới ward qua
-                // location.get("ward") — sinh ra 2 JOIN dư thừa tới cùng 1 bảng trong SQL,
-                // vừa tốn hiệu năng vừa có nguy cơ nhân bản dòng kết quả.
-                Join<Property, Location> location = property.join("location", JoinType.INNER);
-                Join<Location, Ward> ward = location.join("ward", JoinType.INNER);
+            boolean needsLocationJoin = StringUtils.hasText(req.getWardCode())
+                    || StringUtils.hasText(req.getProvinceCode())
+                    || (req.getMinLat() != null && req.getMaxLat() != null)
+                    || (req.getMinLong() != null && req.getMaxLong() != null);
 
-                if (StringUtils.hasText(req.getWardCode())) {
-                    predicates.add(cb.equal(ward.get("ward_code"), req.getWardCode()));
+            if (needsLocationJoin) {
+                // Chỉ JOIN "ward"/"location" MỘT LẦN DUY NHẤT rồi tái sử dụng cho cả
+                // ward/province LẪN bounding box toạ độ bên dưới — tránh JOIN dư thừa
+                // tới cùng 1 bảng trong SQL (đã có tiền lệ bug tương tự ở đây trước đó).
+                Join<Property, Location> location = property.join("location", JoinType.INNER);
+
+                if (StringUtils.hasText(req.getWardCode()) || StringUtils.hasText(req.getProvinceCode())) {
+                    Join<Location, Ward> ward = location.join("ward", JoinType.INNER);
+                    if (StringUtils.hasText(req.getWardCode())) {
+                        predicates.add(cb.equal(ward.get("ward_code"), req.getWardCode()));
+                    }
+                    if (StringUtils.hasText(req.getProvinceCode())) {
+                        predicates.add(cb.equal(ward.get("province").get("province_code"), req.getProvinceCode()));
+                    }
                 }
-                if (StringUtils.hasText(req.getProvinceCode())) {
-                    predicates.add(cb.equal(ward.get("province").get("province_code"), req.getProvinceCode()));
+
+                // MỚI: tìm theo khung toạ độ (bounding box) — chỉ lọc khi có ĐỦ CẢ
+                // 2 đầu (min VÀ max) cho từng trục, thiếu 1 trong 2 thì bỏ qua trục
+                // đó (không lọc sai ý vì "chỉ có min" không xác định được biên trên).
+                if (req.getMinLat() != null && req.getMaxLat() != null) {
+                    predicates.add(cb.between(location.get("latitude"),
+                            java.math.BigDecimal.valueOf(req.getMinLat()), java.math.BigDecimal.valueOf(req.getMaxLat())));
+                }
+                if (req.getMinLong() != null && req.getMaxLong() != null) {
+                    predicates.add(cb.between(location.get("longitude"),
+                            java.math.BigDecimal.valueOf(req.getMinLong()), java.math.BigDecimal.valueOf(req.getMaxLong())));
                 }
             }
 
@@ -97,6 +115,10 @@ public final class ListingSpecification {
 
             if (StringUtils.hasText(req.getDirection())) {
                 predicates.add(cb.equal(property.get("direction"), req.getDirection()));
+            }
+
+            if (req.getSellerId() != null) {
+                predicates.add(cb.equal(root.get("seller").get("sellerId"), req.getSellerId()));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

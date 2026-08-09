@@ -453,5 +453,17 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             postingPackageOrder.setStartDate(null);
             postingPackageOrder.setEndDate(null);
         }
+
+        // MỚI: nâng priority hiển thị của Listing theo gói VỪA thanh toán thành
+        // công (hàm này chỉ được gọi khi thanh toán ĐÃ trót lọt — xem
+        // executePayment/retryPayPostingPackage). Chỉ NÂNG lên nếu gói mới cao
+        // hơn priority hiện có — Seller mua thêm 1 gói thấp hơn gói đang có sẵn
+        // thì KHÔNG được hạ priority đang tốt hơn xuống.
+        Integer newPriority = postingPackageOrder.getPostingPackage().getPriority() != null
+                ? postingPackageOrder.getPostingPackage().getPriority().intValue() : 0;
+        int currentPriority = listing.getPriority() != null ? listing.getPriority() : 0;
+        if (newPriority > currentPriority) {
+            listing.setPriority(newPriority);
+        }
     }
 }

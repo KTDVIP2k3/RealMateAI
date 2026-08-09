@@ -51,6 +51,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final WardRepository wardRepository;
     private final MediaAssetRepository mediaAssetRepository;
     private final ProvinceRepository provinceRepository;
+    // MỚI: dùng cho GET /listings/featured (top view thật từ ActiveLog).
+    private final ActiveLogRepository activeLogRepository;
     private final ListingMapper listingMapper;
     private final NotificationService notificationService;
     private final UserEventTrackingService userEventTrackingService;
@@ -478,14 +480,28 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 .body(ApiResponse.fail("Server_Error", e.getMessage()));
     }
 
+
+    // ════════════════════════════════════════════════════════════════════════
+    private Pageable resolvePageable(Integer page, Integer size, Sort sort) {
+        boolean wantAll = page != null && page == 0 && size != null && size == 0;
+        if (wantAll) {
+            return Pageable.unpaged(sort);
+        }
+        int effectivePage = (page == null || page < 0) ? 0 : page;
+        int effectiveSize = (size == null || size <= 0) ? PAGE_SIZE : size;
+        effectiveSize = Math.min(effectiveSize, MAX_SEARCH_PAGE_SIZE);
+        return PageRequest.of(effectivePage, effectiveSize, sort);
+    }
+
     // Các method khác giữ nguyên (public + seller)
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getMarketListings(int page, int size) {
         try {
-            int effectiveSize = size > 0 ? Math.min(size, MAX_SEARCH_PAGE_SIZE) : PAGE_SIZE;
-            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize,
-                    Sort.by(Sort.Direction.DESC, "createdAt"));
+            // SỬA: dùng resolvePageable() dùng chung — page=0 & size=0 tường
+            // minh => lấy hết, không phân trang.
+            Pageable pageable = resolvePageable(page, size,
+                    Sort.by(Sort.Direction.DESC, "priority").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
             // Pattern 2-query (xem TwoStepPaginationUtil): query 1 lấy ID đã phân trang
             // CHUẨN ở tầng DB (findByIsActiveTrue không JOIN FETCH collection nào), query 2
@@ -540,6 +556,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail("Not_Found", "Bài đăng không tồn tại: id=" + listingId));
             }
+
+            Account viewer = authenUntil.getCurrentUSer();
+            userEventTrackingService.recordSilently(viewer, UserEventTypeEnum.VIEW, listingId);
 
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(listing, listing.getProperty()), "Chi tiết tin đăng"));
@@ -1240,11 +1259,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> searchListings(ListingSearchRequest request) {
         try {
-            int page = (request.getPage() == null || request.getPage() < 0) ? 0 : request.getPage();
-            int size = (request.getSize() == null || request.getSize() <= 0) ? PAGE_SIZE : request.getSize();
-            size = Math.min(size, MAX_SEARCH_PAGE_SIZE);
-
-            Sort sort = switch (request.getSortBy() == null ? ListingSortEnum.NEWEST : request.getSortBy()) {
+            Sort userSort = switch (request.getSortBy() == null ? ListingSortEnum.NEWEST : request.getSortBy()) {
                 case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
                 case PRICE_DESC -> Sort.by(Sort.Direction.DESC, "price");
                 case AREA_ASC -> Sort.by(Sort.Direction.ASC, "property.area");
@@ -1253,8 +1268,15 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 case MOST_VIEWED -> Sort.by(Sort.Direction.DESC, "viewCount");
                 case NEWEST -> Sort.by(Sort.Direction.DESC, "createdAt");
             };
+            // MỚI: "priority" (mức ưu tiên gói dịch vụ, 1-4) LUÔN xếp TRƯỚC tiêu
+            // chí sort investor chọn — tin đã mua gói ưu tiên cao hơn nổi lên đầu
+            // trước, trong CÙNG mức priority mới xếp tiếp theo sortBy như cũ.
+            Sort sort = Sort.by(Sort.Direction.DESC, "priority").and(userSort);
 
-            Pageable pageable = PageRequest.of(page, size, sort);
+            // SỬA: dùng resolvePageable() dùng chung — page=0 & size=0 tường
+            // minh (request.getPage()/getSize() cùng == 0, KHÔNG phải null)
+            // => lấy hết, không phân trang, bỏ qua MAX_SEARCH_PAGE_SIZE.
+            Pageable pageable = resolvePageable(request.getPage(), request.getSize(), sort);
 
             // Pattern 2-query giống getMarketListings (xem TwoStepPaginationUtil): query 1
             // dùng findAll(Specification, Pageable) MẶC ĐỊNH của JpaSpecificationExecutor
@@ -1308,6 +1330,139 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+
+    @Override
+    public ResponseEntity<ApiResponse> getFeaturedListings(int page, int size) {
+        try {
+            // SỬA: page=0 & size=0 tường minh => lấy hết, không phân trang.
+            // Sort ĐÃ nằm sẵn trong ORDER BY của @Query findFeaturedListingIds
+            // (không cần truyền Sort riêng ở đây, khác searchListings/getMarketListings).
+            Pageable pageable = (page == 0 && size == 0)
+                    ? Pageable.unpaged()
+                    : PageRequest.of(Math.max(page, 0), size > 0 ? Math.min(size, MAX_SEARCH_PAGE_SIZE) : PAGE_SIZE);
+
+            Page<FeaturedListingProjection> topViewed = activeLogRepository
+                    .findFeaturedListingIds(UserEventTypeEnum.VIEW, pageable);
+
+            List<Integer> orderedIds = topViewed.getContent().stream()
+                    .map(FeaturedListingProjection::getListingId)
+                    .toList();
+
+            Map<Integer, Long> viewCountByListingId = topViewed.getContent().stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
+            Map<Integer, Listing> listingById = listingRepository.findAllByListingIdInWithDetails(orderedIds)
+                    .stream().collect(Collectors.toMap(Listing::getListingId, l -> l, (a, b) -> a));
+
+            Account currentUser = authenUntil.getCurrentUSer();
+            Set<Integer> favoritedIds = Collections.emptySet();
+            if (currentUser != null) {
+                Investor investor = investorRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+                if (investor != null) {
+                    favoritedIds = new HashSet<>(
+                            favoriteListingRepository.findFavoritedListingIdsByInvestorId(investor.getInvestorId()));
+                }
+            }
+            final Set<Integer> favIds = favoritedIds;
+
+            // Giữ ĐÚNG thứ tự xếp hạng theo view count đã sort ở query (Map không
+            // đảm bảo thứ tự, phải duyệt lại theo orderedIds).
+            List<Map<String, Object>> content = orderedIds.stream()
+                    .map(listingById::get)
+                    .filter(java.util.Objects::nonNull)
+                    .map(l -> {
+                        Map<String, Object> item = new LinkedHashMap<>();
+                        item.put("listing", listingMapper.toListingSummary(l, favIds.contains(l.getListingId())));
+                        item.put("viewCount", viewCountByListingId.get(l.getListingId()));
+                        return item;
+                    })
+                    .collect(Collectors.toList());
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("content", content);
+            result.put("page", topViewed.getNumber());
+            result.put("size", topViewed.getSize());
+            result.put("totalElements", topViewed.getTotalElements());
+            result.put("totalPages", topViewed.getTotalPages());
+            result.put("last", topViewed.isLast());
+
+            return ResponseEntity.ok(ApiResponse.success(result, "Tin đăng nổi bật (nhiều lượt xem nhất)"));
+        } catch (Exception e) {
+            log.error("[ListingService] getFeaturedListings lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MỚI: GET /listings/compare — So sánh 2-4 tin đăng. Trả ĐẦY ĐỦ chi tiết
+    // từng tin (dùng lại đúng listingMapper.toListingDetail như GET
+    // /listings/{id}) để FE tự dựng bảng so sánh, KHÔNG rút gọn field ở BE.
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    public ResponseEntity<ApiResponse> compareListings(List<Integer> listingIds) {
+        try {
+            if (listingIds == null || listingIds.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Vui lòng gửi danh sách listingId cần so sánh"));
+            }
+
+            // Loại trùng nhưng GIỮ NGUYÊN thứ tự đầu tiên xuất hiện — Investor gửi
+            // trùng 1 id 2 lần thì chỉ so sánh 1 lần, không lỗi cứng vì lý do nhỏ này.
+            List<Integer> distinctIds = listingIds.stream().distinct().toList();
+
+            if (distinctIds.size() < 2) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Cần tối thiểu 2 tin đăng khác nhau để so sánh"));
+            }
+            // Giới hạn tối đa 4 — bảng so sánh quá nhiều cột sẽ khó đọc trên FE;
+            // tăng lên nếu sau này có nhu cầu thật (không phải giới hạn kỹ thuật).
+            if (distinctIds.size() > 4) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Chỉ so sánh được tối đa 4 tin đăng cùng lúc"));
+            }
+
+            Map<Integer, Listing> listingById = listingRepository.findAllByListingIdInWithDetails(distinctIds)
+                    .stream().collect(Collectors.toMap(Listing::getListingId, l -> l, (a, b) -> a));
+
+            List<String> notFoundIds = distinctIds.stream()
+                    .filter(id -> !listingById.containsKey(id))
+                    .map(String::valueOf)
+                    .toList();
+
+            // Giữ ĐÚNG thứ tự Investor gửi lên (Map không đảm bảo thứ tự) — quan
+            // trọng để FE dựng cột bảng so sánh đúng vị trí đã chọn.
+            List<Object> content = distinctIds.stream()
+                    .map(listingById::get)
+                    .filter(java.util.Objects::nonNull)
+                    .map(l -> listingMapper.toListingDetail(l, l.getProperty()))
+                    .collect(Collectors.toList());
+
+            if (content.size() < 2) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request",
+                        "Không đủ tin đăng hợp lệ để so sánh (không tìm thấy: " + String.join(", ", notFoundIds) + ")"));
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("listings", content);
+            if (!notFoundIds.isEmpty()) {
+                // Vẫn trả kết quả so sánh được với các tin TÌM THẤY, chỉ cảnh báo
+                // riêng tin nào không tồn tại — không chặn cứng cả request vì 1 id sai.
+                result.put("notFoundListingIds", notFoundIds);
+            }
+
+            String msg = notFoundIds.isEmpty()
+                    ? "So sánh " + content.size() + " tin đăng"
+                    : "So sánh " + content.size() + " tin đăng (bỏ qua " + notFoundIds.size() + " id không tồn tại)";
+
+            return ResponseEntity.ok(ApiResponse.success(result, msg));
+        } catch (Exception e) {
+            log.error("[ListingService] compareListings lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // SỬA (lỗi biên dịch thiếu hàm): searchListings() ở trên gọi
     // recordSearchHistory(currentUser, keyword) nhưng hàm này CHƯA từng được
@@ -1322,6 +1477,12 @@ public class ListingServiceImplement implements ListingServiceInterface {
         try {
             String trimmed = keyword.trim();
             LocalDateTime now = LocalDateTime.now();
+
+            // MỚI: ghi nhận SEARCH event cho Recommendation System — song song với
+            // việc lưu lịch sử tìm kiếm (2 mục đích khác nhau: SearchHistory phục
+            // vụ autocomplete "Recent Search", còn ActiveLog SEARCH phục vụ dựng
+            // interaction matrix cho LightFM).
+            userEventTrackingService.recordSilently(account, UserEventTypeEnum.SEARCH, null);
 
             SearchHistory existing = searchHistoryRepository
                     .findByAccount_AccountIdAndKeywordIgnoreCase(account.getAccountId(), trimmed)

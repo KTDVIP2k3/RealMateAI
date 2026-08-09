@@ -52,10 +52,23 @@ public class Listing {
     private LocalTime endTime;
     private Boolean isActive;
 
-    /** Số lượt xem chi tiết — tăng dần mỗi khi GET /listings/{id} (xem getListingDetail()), dùng để sort MOST_VIEWED */
+
     @Column(name = "view_count")
     @Builder.Default
     private Integer viewCount = 0;
+
+    /**
+     * MỚI: mức độ ưu tiên hiển thị — lấy từ PostingPackage.priority của gói
+     * dịch vụ đang ACTIVE cho tin này (1-4, số càng lớn càng ưu tiên hiển thị
+     * lên đầu danh sách). Cập nhật tại thời điểm thanh toán/thanh toán lại
+     * THÀNH CÔNG (xem PostingPackageOrderServiceImplement#transitionListingForNewPackageOrder),
+     * KHÔNG tính realtime bằng subquery (đơn giản hoá, đánh đổi: nếu gói hết
+     * hạn mà không có job reset lại — GIỚI HẠN hiện tại, cần bổ sung cron
+     * riêng để reset priority=0 khi PostingPackageOrder hết hạn).
+     */
+    @Column(name = "priority")
+    @Builder.Default
+    private Integer priority = 0;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

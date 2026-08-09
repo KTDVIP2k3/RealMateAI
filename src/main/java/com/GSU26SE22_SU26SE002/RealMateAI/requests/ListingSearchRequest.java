@@ -10,6 +10,7 @@ import lombok.Data;
  * có thể mở rộng thêm (mảng, object) trong tương lai mà không phá vỡ contract.
  * Tất cả field đều optional — không truyền field nào tương đương GET /listings.
  */
+
 @Data
 public class ListingSearchRequest {
 
@@ -45,6 +46,21 @@ public class ListingSearchRequest {
 
     @Schema(example = "Đông Nam")
     private String direction;
+
+    @Schema(example = "1", description = "Lọc theo Seller cụ thể (sellerId)")
+    private Integer sellerId;
+
+    @Schema(example = "10.75", description = "Vĩ độ nhỏ nhất của khung bản đồ")
+    private Double minLat;
+
+    @Schema(example = "10.85", description = "Vĩ độ lớn nhất của khung bản đồ")
+    private Double maxLat;
+
+    @Schema(example = "106.60", description = "Kinh độ nhỏ nhất của khung bản đồ")
+    private Double minLong;
+
+    @Schema(example = "106.75", description = "Kinh độ lớn nhất của khung bản đồ")
+    private Double maxLong;
 
     @Schema(defaultValue = "NEWEST")
     private ListingSortEnum sortBy;
