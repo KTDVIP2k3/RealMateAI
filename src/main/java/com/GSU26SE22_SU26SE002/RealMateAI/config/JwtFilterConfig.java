@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -61,6 +62,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/auth/activate-account")
                 || requestURI.equals("/auth/register")
                 || requestURI.equals("/auth/verify-otp")
+                || (requestURI.startsWith("/investor/listings") && "GET".equalsIgnoreCase(method))
                 || requestURI.equals("/auth/send-otp")
                 || requestURI.equals("/auth/forgot-password")
                 || requestURI.equals("/auth/new-password")
@@ -73,6 +75,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/error")
                 || requestURI.equals("/posting-packages/active")
                 || requestURI.equals("/membership-plans/active")
+                || (requestURI.startsWith("/heatmap/") && "GET".equalsIgnoreCase(method))
                 || requestURI.equals("/wallets/deposit/success")
                 || requestURI.equals("/wallets/deposit/cancel")
                 || requestURI.equals("/wallets/deposit/webhook")
@@ -84,6 +87,8 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || (requestURI.startsWith("/media/thumbnail") && "GET".equalsIgnoreCase(method))
                 || requestURI.startsWith("/locations")
                 || requestURI.startsWith("/news-categories")
+                || (requestURI.startsWith("/heatmap") && "GET".equalsIgnoreCase(method))
+                || (requestURI.startsWith("/api/test-data/run"))
                 || requestURI.startsWith("/news")
                 | (requestURI.equals("/listings/search") && "POST".equalsIgnoreCase(method))
                 || requestURI.startsWith("/ward-boundary")) {

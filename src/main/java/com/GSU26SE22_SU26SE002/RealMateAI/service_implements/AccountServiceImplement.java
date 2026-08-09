@@ -194,11 +194,12 @@ public class AccountServiceImplement implements AccountServiceInterface {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
             }
 
+
             if(account.getAvatar() == null){
                 account.setAvatar(cloudinaryMediaServiceImplement.uploadImage(updateAccountRequest.getAvatar()));
             }
             account.setFull_name(updateAccountRequest.getFullName());
-            account.setBirth_date(updateAccountRequest.getBirth_date());
+            account.setGender(updateAccountRequest.getGender());
             account.setAvatar(cloudinaryMediaServiceImplement.updateImage(updateAccountRequest.getAvatar(), account.getAvatar()));
             account.setPhone(updateAccountRequest.getPhone());
             account.setUpdateAt(LocalDateTime.now());

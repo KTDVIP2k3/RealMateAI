@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,10 +20,12 @@ public class MembershipSubscription {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investor_id")
+    @JsonIgnore
     private Investor investor;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "membership_plan_id", nullable = false)
+    @JsonIgnore
     private MembershipPlan membershipPlan;
 
 //    private LocalDateTime startDate;

@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,14 +18,17 @@ public class InvestmentCriteria {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "profile_version_id", nullable = false)
+    @JsonIgnore
     private InvestmentProfileVersion investmentProfileVersion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_type_id")
+    @JsonIgnore
     private PropertyType propertyType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_condition_id")
+    @JsonIgnore
     private PropertyCondition propertyCondition;
 
 ////    private Long minPrice;

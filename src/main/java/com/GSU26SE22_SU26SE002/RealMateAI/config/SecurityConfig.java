@@ -85,6 +85,7 @@ public class SecurityConfig {
                                 "/wallets/deposit/webhook"
                         ).permitAll()
                         .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/investor/listings/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/listings/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/investor/listings/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/posting-packages/*").permitAll()
@@ -92,6 +93,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/membership-plans/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/listings/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/media/thumbnail").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/heatmap/**").permitAll()
+                        .requestMatchers("/api/test-data/run").permitAll()
                         .requestMatchers(
                                 "/locations/**",
                                 "/news/**",

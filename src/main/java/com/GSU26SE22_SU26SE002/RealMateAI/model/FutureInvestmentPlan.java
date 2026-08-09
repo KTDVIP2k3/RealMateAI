@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -44,6 +45,7 @@ public class FutureInvestmentPlan {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investment_profile_id", nullable = false)
+    @JsonIgnore
     private InvestmentProfile investmentProfile;
 
     /**
@@ -52,10 +54,12 @@ public class FutureInvestmentPlan {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_version_id", nullable = false)
+    @JsonIgnore
     private InvestmentProfileVersion sourceVersion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "strategy_id")
+    @JsonIgnore
     private Strategy strategy;
 
     // ── Snapshot các tham số tài chính — clone từ sourceVersion lúc tạo (KHỚP

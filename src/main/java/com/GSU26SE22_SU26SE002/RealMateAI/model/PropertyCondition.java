@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Property;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,6 +25,7 @@ public class PropertyCondition {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_type_id")
+    @JsonIgnore
     private PropertyType propertyType;
 
     @OneToMany(mappedBy = "propertyCondition", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

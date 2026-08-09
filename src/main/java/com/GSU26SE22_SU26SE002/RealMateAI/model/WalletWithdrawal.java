@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,6 +19,7 @@ public class WalletWithdrawal {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
+    @JsonIgnore
     private Wallet wallet;
 
     private BigDecimal amount;
@@ -25,6 +27,7 @@ public class WalletWithdrawal {
     private String bankName;
     private String status;
     private String note;
+    private String reason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

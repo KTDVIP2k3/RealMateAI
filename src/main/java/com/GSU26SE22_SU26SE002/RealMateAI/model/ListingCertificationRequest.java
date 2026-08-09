@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.CertificationStatusEnum;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;
@@ -24,10 +25,12 @@ public class ListingCertificationRequest {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false)
+    @JsonIgnore
     private Listing listing;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id", nullable = false)
+    @JsonIgnore
     private Seller seller;
 
     @Enumerated(EnumType.STRING)
@@ -40,6 +43,7 @@ public class ListingCertificationRequest {
     /** Staff/Admin đã duyệt — null khi còn PENDING. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
+    @JsonIgnore
     private Account reviewedBy;
 
     private LocalDateTime createdAt;
@@ -55,5 +59,6 @@ public class ListingCertificationRequest {
      */
     @BatchSize(size = 20)
     @OneToMany(mappedBy = "certificationRequest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<PropertyImage> documents = new ArrayList<>();
 }

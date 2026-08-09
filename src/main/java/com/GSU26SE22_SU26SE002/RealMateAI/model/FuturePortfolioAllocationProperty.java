@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,10 +26,12 @@ public class FuturePortfolioAllocationProperty {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "future_investment_portfolio_id", nullable = false)
+    @JsonIgnore
     private FutureInvestmentPortfolio futureInvestmentPortfolio;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_id", nullable = true)
+    @JsonIgnore
     private Property property;
 
     /** SYSTEM (chọn từ listing đề xuất) | MANUAL (investor tự thêm) */

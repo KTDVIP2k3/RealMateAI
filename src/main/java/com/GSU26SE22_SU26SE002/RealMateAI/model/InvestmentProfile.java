@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -22,6 +23,7 @@ public class InvestmentProfile {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investor_id")
+    @JsonIgnore
     private Investor investor;
 
     private String name;
@@ -32,5 +34,6 @@ public class InvestmentProfile {
 
     @OneToMany(mappedBy = "investmentProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<InvestmentProfileVersion> profileVersions = new ArrayList<>();
 }

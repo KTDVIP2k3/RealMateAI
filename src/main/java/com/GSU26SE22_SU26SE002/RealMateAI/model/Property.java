@@ -4,6 +4,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.Location;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyCondition;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyImage;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyValuation;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -23,18 +24,22 @@ public class Property {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id")
+    @JsonIgnore
     private Seller seller;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_type_id")
+    @JsonIgnore
     private PropertyType propertyType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_condition_id")
+    @JsonIgnore
     private PropertyCondition propertyCondition;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id")
+    @JsonIgnore
     private Location location;
 
     private String title;
@@ -63,8 +68,10 @@ public class Property {
 
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<PropertyValuation> propertyValuations = new ArrayList<>();
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Listing> listings = new ArrayList<>();
 }
