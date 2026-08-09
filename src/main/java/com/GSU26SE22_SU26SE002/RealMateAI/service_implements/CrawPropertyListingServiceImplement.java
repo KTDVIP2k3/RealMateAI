@@ -49,6 +49,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         System.out.println("\n[SYSTEM] 🟢 SANG NGÀY MỚI (00:00)! Reset bộ đếm cào tin về 0.");
         this.currentDailyCrawledCount = 0;
     }
+
     @Override
     public void autoCrawlPropertyData() {
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
@@ -666,17 +667,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
         return validLat && validLng;
     }
+
     @Autowired
     private EntityManager entityManager;
 
 //    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
-    @Transactional
     public void fixExistingListingsCoordinates() {
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
                 || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
         List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll(
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id")
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
         );
 
         if (entities.isEmpty()) {
@@ -814,7 +815,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     } catch (Exception e) {
                         System.out.println(" ⚠️ [WARN] Không thể đọc content do trang đang nhảy link. Thử lại sau 2s...");
                         page.waitForTimeout(2000);
-                        try { htmlContent = page.content(); } catch (Exception ignored) {}
+                        try {
+                            htmlContent = page.content();
+                        } catch (Exception ignored) {
+                        }
                     }
 
                     if (htmlContent != null && !htmlContent.isBlank()) {
@@ -878,7 +882,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             }
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
 
                 if (isInvalidPage) {
                     updated = null;
@@ -932,7 +937,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         saveBatchInNewTransaction(batchToSave);
                         System.out.println("   💾 [DATABASE] --> Đã lưu đợt 20 tin.");
                         batchToSave.clear();
-                        entityManager.clear();
                     } catch (Exception dbEx) {
                         System.out.println(" ❌ [DB SAVE ERROR] Lỗi lưu kết nối DB: " + dbEx.getMessage());
                     }
@@ -944,7 +948,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         deleteBatchInNewTransaction(batchToDelete);
                         System.out.println("   💾 [DATABASE] --> Đã xóa đợt 20 tin ngoài phạm vi hoặc link chết.");
                         batchToDelete.clear();
-                        entityManager.clear();
                     } catch (Exception dbEx) {
                         System.out.println(" ❌ [DB DELETE ERROR] Lỗi xóa kết nối DB: " + dbEx.getMessage());
                     }
@@ -959,7 +962,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     saveBatchInNewTransaction(batchToSave);
                     System.out.println("   💾 [DATABASE] --> Đã lưu các tin cuối cùng.");
                     batchToSave.clear();
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
 
             if (!batchToDelete.isEmpty()) {
@@ -967,10 +971,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     deleteBatchInNewTransaction(batchToDelete);
                     System.out.println("   💾 [DATABASE] --> Đã xóa các tin chết cuối cùng.");
                     batchToDelete.clear();
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
-
-            entityManager.clear();
 
             System.out.println("\n==========================================================================================");
             System.out.println(" --> [MIGRATION DONE] Hoàn tất quét lỗi! Số lượng tin đã xử lý: " + updatedCount);
@@ -980,11 +983,22 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         } catch (Exception e) {
             System.out.println(" --> [AUTO-MIGRATION ERROR]: " + e.getMessage());
         } finally {
-            if (page != null && !page.isClosed()) { try { page.close(); } catch (Exception ignored) {} }
-            if (context != null) { try { context.close(); } catch (Exception ignored) {} }
+            if (page != null && !page.isClosed()) {
+                try {
+                    page.close();
+                } catch (Exception ignored) {
+                }
+            }
+            if (context != null) {
+                try {
+                    context.close();
+                } catch (Exception ignored) {
+                }
+            }
             try {
                 org.springframework.util.FileSystemUtils.deleteRecursively(userDataDir);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -1005,21 +1019,24 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         return BigDecimal.ZERO;
     }
 
-    @Transactional
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void saveBatchInNewTransaction(List<CrawPropertyListing> batch) {
         crawPropertyListingRepository.saveAllAndFlush(batch);
+        entityManager.clear();
     }
 
-    @Transactional
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void deleteBatchInNewTransaction(List<CrawPropertyListing> batch) {
         for (CrawPropertyListing listing : batch) {
             try {
                 if (listing.getHeatmapZones() != null) {
                     listing.getHeatmapZones().clear();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
             crawPropertyListingRepository.delete(listing);
         }
         crawPropertyListingRepository.flush();
+        entityManager.clear();
     }
 }

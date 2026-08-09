@@ -14,7 +14,7 @@ public class CrawPropertyScheduler {
     @Autowired
     private CrawPropertyListingServiceImplement crawPropertyListingServiceImplement;
 
-    @Scheduled(cron = "0 0 0 * * ?", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     public void runAutoCrawl() {
         crawPropertyListingServiceImplement.fixExistingListingsCoordinates();
     }
