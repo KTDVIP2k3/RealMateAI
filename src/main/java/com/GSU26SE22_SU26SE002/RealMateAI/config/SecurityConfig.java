@@ -69,7 +69,7 @@ public class SecurityConfig {
                                 "/auth/new-password"
                         ).permitAll()
                         .requestMatchers(
-                                "/provinces",
+                                "/province",
                                 "/wards",
                                 "/property-types",
                                 "/property-conditions",
