@@ -667,28 +667,21 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
         return validLat && validLng;
     }
+
     @Autowired
     private EntityManager entityManager;
 
-    @Autowired
-    private org.springframework.transaction.PlatformTransactionManager transactionManager;
-
-    // @Scheduled(initialDelay = 5000, fixedDelay = 600000)
+    //    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
+//    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     public void fixExistingListingsCoordinates() {
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
                 || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
-        List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll(
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
-        );
-
-        if (entities.isEmpty()) {
-            System.out.println("[AUTO-MIGRATION] ✨ Tọa độ & Diện tích (area) cũ đã hoàn chỉnh và chính xác!");
-            return;
-        }
+        long totalElements = crawPropertyListingRepository.count();
+        if (totalElements == 0) return;
 
         System.out.println("\n==========================================================================================");
-        System.out.println("[AUTO-MIGRATION] 🚀 KHỞI ĐỘNG CHIẾN DỊCH: CÀO HẾT " + entities.size() + " TIN (CÓ CHẾ ĐỘ THỬ LẠI KHI LỖI TRANG).");
+        System.out.println("[AUTO-MIGRATION] 🔍 Bắt đầu rà soát từng tin một. Tổng số tin: " + totalElements);
         System.out.println("==========================================================================================\n");
         System.out.flush();
 
@@ -696,283 +689,307 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         File crashFileDir = crashDir.toFile();
         if (!crashFileDir.exists()) crashFileDir.mkdirs();
 
-        int processedCount = 0;
-        int updatedCount = 0;
+        Path userDataDir = isServer
+                ? Paths.get(System.getProperty("java.io.tmpdir"), "chrome-profile-migration-" + System.currentTimeMillis()).toAbsolutePath()
+                : Paths.get(System.getProperty("user.home"), ".chrome-migration-profile-" + System.currentTimeMillis()).toAbsolutePath();
+        File profileDir = userDataDir.toFile();
+        if (!profileDir.exists()) profileDir.mkdirs();
 
-        Playwright playwright = null;
         BrowserContext context = null;
         Page page = null;
-        Path currentProfileDir = null;
 
-        try {
-            playwright = Playwright.create();
+        try (Playwright playwright = Playwright.create()) {
+            List<String> browserArgs = Arrays.asList(
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--disable-session-crashed-bubble",
+                    "--hide-crash-restore-bubble",
+                    "--window-size=1920,1080",
+                    "--start-maximized",
+                    "--lang=vi-VN,vi",
+                    "--disable-extensions",
+                    "--disable-component-extensions-with-background-pages",
+                    "--disable-background-networking",
+                    "--allow-running-insecure-content",
+                    "--crash-dumps-dir=" + crashDir.toString()
+            );
 
-            Object[] browserSetup = initNewBrowserSession(playwright, isServer, crashDir);
-            currentProfileDir = (Path) browserSetup[0];
-            context = (BrowserContext) browserSetup[1];
-            page = (Page) browserSetup[2];
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+            headers.put("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7");
+            headers.put("Cache-Control", "max-age=0");
+            headers.put("Sec-Ch-Ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
+            headers.put("Sec-Ch-Ua-Mobile", "?0");
+            headers.put("Sec-Ch-Ua-Platform", "\"Windows\"");
+            headers.put("Sec-Fetch-Dest", "document");
+            headers.put("Sec-Fetch-Mode", "navigate");
+            headers.put("Sec-Fetch-Site", "none");
+            headers.put("Sec-Fetch-User", "?1");
+            headers.put("Upgrade-Insecure-Requests", "1");
 
-            for (CrawPropertyListing listing : entities) {
-                if (listing.getSourceUrl() == null) continue;
+            BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
+                    .setHeadless(isServer)
+                    .setIgnoreDefaultArgs(Arrays.asList("--enable-automation", "--disable-extensions"))
+                    .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+                    .setExtraHTTPHeaders(headers)
+                    .setArgs(browserArgs)
+                    .setViewportSize(1920, 1080);
 
-                processedCount++;
-                System.out.println(String.format("[MIGRATION] 🌐 (%d / %d) ➔ Check URL: %s",
-                        processedCount, entities.size(), listing.getSourceUrl()));
-                System.out.flush();
+            if (!isServer) {
+                Path localChromePath = Paths.get("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe");
+                if (localChromePath.toFile().exists()) options.setExecutablePath(localChromePath);
+            }
 
-                if (processedCount % 400 == 0) {
-                    System.out.println("\n♻️ [RAM SECURITY] Tiến hành làm mới trình duyệt để tránh tràn bộ nhớ...");
-                    try {
-                        if (page != null) page.close();
-                        if (context != null) context.close();
-                        if (currentProfileDir != null) org.springframework.util.FileSystemUtils.deleteRecursively(currentProfileDir);
-                    } catch (Exception ignored) {}
+            context = playwright.chromium().launchPersistentContext(userDataDir, options);
 
-                    browserSetup = initNewBrowserSession(playwright, isServer, crashDir);
-                    currentProfileDir = (Path) browserSetup[0];
-                    context = (BrowserContext) browserSetup[1];
-                    page = (Page) browserSetup[2];
-                    System.out.println("♻️ [RAM SECURITY] Trình duyệt đã được làm mới! Tiếp tục cào dữ liệu.\n");
+            context.addInitScript(
+                    "(() => {\n" +
+                            "  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });\n" +
+                            "  window.chrome = { runtime: {}, app: { isInstalled: false } };\n" +
+                            "  Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
+                            "  Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
+                            "  Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });\n" +
+                            "  Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });\n" +
+                            "  const originalQuery = window.navigator.permissions.query;\n" +
+                            "  window.navigator.permissions.query = (parameters) => (\n" +
+                            "    parameters.name === 'notifications' ?\n" +
+                            "    Promise.resolve({ state: Notification.permission }) :\n" +
+                            "    originalQuery(parameters)\n" +
+                            "  );\n" +
+                            "})();"
+            );
+
+            page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
+            page.setDefaultTimeout(45000);
+            page.setDefaultNavigationTimeout(45000);
+
+            int currentPosition = 0;
+            int updatedCount = 0;
+
+            while (currentPosition < totalElements) {
+                org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                        currentPosition, 1, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
+                );
+
+                org.springframework.data.domain.Page<CrawPropertyListing> listingPage = crawPropertyListingRepository.findAll(pageable);
+                if (listingPage.isEmpty()) break;
+
+                CrawPropertyListing listing = listingPage.getContent().get(0);
+                if (listing.getSourceUrl() == null) {
+                    currentPosition++;
+                    continue;
                 }
+
+                System.out.println(String.format("[MIGRATION] 🌐 (%d / %d) [ID: %d] ➔ Check URL: %s",
+                        currentPosition + 1, totalElements, listing.getCrawPropertyListingId(), listing.getSourceUrl()));
+                System.out.flush();
 
                 Double currentLat = listing.getLatitude();
                 Double currentLng = listing.getLongitude();
                 BigDecimal dbArea = listing.getArea();
 
-                // 🔄 CƠ CHẾ THỬ LẠI (RETRY LOGIC) CHO TỪNG TIN
-                int maxRetries = 3;
-                int retryCount = 0;
-                boolean success = false;
+                try {
+                    entityManager.clear();
+                } catch (Exception ignored) {
+                }
 
-                while (retryCount < maxRetries && !success) {
+                CrawPropertyListing updated = fetchCoordinates(listing, page);
+
+                String pageTitle = "";
+                try {
+                    page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
+                    pageTitle = page.title();
+                } catch (Exception e) {
                     try {
-                        CrawPropertyListing updated = fetchCoordinates(listing, page);
-
-                        String pageTitle = "";
-                        try {
-                            page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
-                            pageTitle = page.title();
-                        } catch (Exception e) {
-                            try {
-                                page.waitForTimeout(3000);
-                                pageTitle = page.title();
-                            } catch (Exception ignored) {
-                                pageTitle = "Unknown";
-                            }
-                        }
-
-                        if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") ||
-                                pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                            System.out.println(" ⚠️ [CLOUDFLARE BLOCK] Gặp lá chắn bảo mật Cloudflare.");
-                            // Gặp Cloudflare thì thường phải chờ lâu hơn chút hoặc đổi session mới cứu được
-                            retryCount++;
-                            if (retryCount < maxRetries) {
-                                System.out.println(String.format(" ⏳ Chờ 15s rồi thử lại lần %d/%d...", retryCount, maxRetries));
-                                try { Thread.sleep(15000); } catch (InterruptedException ignored) {}
-                                continue;
-                            }
-                            break;
-                        }
-
-                        BigDecimal webArea = null;
-                        boolean isInvalidPage = false;
-
-                        String htmlContent = "";
-                        try {
-                            htmlContent = page.content();
-                        } catch (Exception e) {
-                            page.waitForTimeout(2000);
-                            htmlContent = page.content();
-                        }
-
-                        if (htmlContent != null && !htmlContent.isBlank()) {
-                            Document detailDoc = Jsoup.parse(htmlContent);
-                            boolean hasSearchBar = detailDoc.selectFirst(".re__search-bar, input[placeholder*='Đường Lê Hồng Phong'], button:contains(Tìm kiếm)") != null;
-                            boolean hasProductList = detailDoc.selectFirst(".re__left-container, .re__srp-list, #product-lists-page") != null;
-                            boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
-
-                            if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
-                                System.out.println(" ❌ [INVALID PAGE] Đường link hỏng hoặc trang danh sách trống. Đánh dấu XÓA!");
-                                isInvalidPage = true;
-                            }
-
-                            if (!isInvalidPage) {
-                                Element areaBlock = null;
-                                Element specsContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__section-body");
-                                if (specsContainer != null) {
-                                    Element labelSpecs = specsContainer.selectFirst(".re__pr-specs-content-item-title:contains(Diện tích), .re__pr-specs-title:contains(Diện tích)");
-                                    if (labelSpecs != null) areaBlock = labelSpecs.nextElementSibling();
-                                }
-                                if (areaBlock == null) {
-                                    Element areaItem = detailDoc.select("div.re__pr-short-info-item").stream()
-                                            .filter(el -> el.select(".re__pr-short-info-item-title").text().contains("Diện tích")).findFirst().orElse(null);
-                                    if (areaItem != null) areaBlock = areaItem.selectFirst("span.value");
-                                }
-                                if (areaBlock == null) {
-                                    Element mainContent = detailDoc.selectFirst(".re__main-content, .re__pr-short-info, #product-detail-page");
-                                    if (mainContent != null) {
-                                        for (Element el : mainContent.select("span, div")) {
-                                            String txt = el.text().trim();
-                                            if (txt.contains("m²") && !txt.contains("/m²") && !txt.contains("PN") && txt.matches(".*\\d+.*") && txt.length() < 30) {
-                                                areaBlock = el;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                if (areaBlock != null) {
-                                    String rawAreaText = areaBlock.text().split("\n")[0].trim();
-                                    if (rawAreaText.length() > 50) {
-                                        isInvalidPage = true;
-                                    } else {
-                                        if (rawAreaText.contains("m²"))
-                                            rawAreaText = rawAreaText.substring(0, rawAreaText.indexOf("m²") + 2);
-                                        webArea = parseAreaSafety(rawAreaText);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (isInvalidPage) {
-                            try {
-                                deleteOneListingInNewTransaction(listing.getCrawPropertyListingId());
-                                System.out.println("   💾 [DATABASE] --> ❌ ĐÃ XÓA thành công tin chết khỏi DB.");
-                            } catch (Exception dbEx) {
-                                System.out.println(" ❌ [DB DELETE ERROR] Lỗi xóa: " + dbEx.getMessage());
-                            }
-                        } else if (updated != null) {
-                            boolean hasChanges = false;
-                            Double newLat = updated.getLatitude();
-                            Double newLng = updated.getLongitude();
-
-                            boolean isLatValid = currentLat != null && currentLat != 0.0;
-                            boolean isLngValid = currentLng != null && currentLng != 0.0;
-
-                            if (isLatValid && isLngValid && newLat != null && newLng != null) {
-                                double diffLat = Math.abs(currentLat - newLat);
-                                double diffLng = Math.abs(currentLng - newLng);
-
-                                if (diffLat < 0.0001 && diffLng < 0.0001) {
-                                    System.out.println(String.format("   👉  TỌA ĐỘ ĐÚNG! [%s, %s]", currentLat, currentLng));
-                                } else {
-                                    System.out.println(String.format("   👉 ❌ TỌA ĐỘ SAI! [%s, %s] ➔ [Sửa thành: %s, %s]", currentLat, currentLng, newLat, newLng));
-                                    listing.setLatitude(newLat);
-                                    listing.setLongitude(newLng);
-                                    hasChanges = true;
-                                }
-                            } else if (newLat != null && newLng != null) {
-                                System.out.println(String.format("   👉 📍 Cập nhật tọa độ mới: [%s, %s]", newLat, newLng));
-                                listing.setLatitude(newLat);
-                                listing.setLongitude(newLng);
-                                hasChanges = true;
-                            }
-
-                            if (webArea != null && webArea.compareTo(BigDecimal.ZERO) > 0) {
-                                BigDecimal scaledDbArea = (dbArea != null) ? dbArea.setScale(2, java.math.RoundingMode.HALF_UP) : null;
-                                BigDecimal scaledWebArea = webArea.setScale(2, java.math.RoundingMode.HALF_UP);
-
-                                if (scaledDbArea == null || scaledDbArea.compareTo(scaledWebArea) != 0) {
-                                    System.out.println(String.format("   👉 ❌ DIỆN TÍCH SAI! [%s m²] ➔ [Sửa thành: %s m²]", (dbArea != null ? dbArea : "Trống"), webArea));
-                                    listing.setArea(webArea);
-                                    hasChanges = true;
-                                } else {
-                                    System.out.println(String.format("   👉  DIỆN TÍCH ĐÚNG! %s m²", dbArea));
-                                }
-                            }
-
-                            if (hasChanges) {
-                                try {
-                                    saveOneListingInNewTransaction(listing);
-                                    System.out.println("   💾 [DATABASE] --> 📝 ĐÃ CẬP NHẬT sửa đổi vào DB.");
-                                    updatedCount++;
-                                } catch (Exception dbEx) {
-                                    System.out.println(" ❌ [DB UPDATE ERROR] Lỗi lưu cập nhật: " + dbEx.getMessage());
-                                }
-                            }
-                        }
-
-                        // Đánh dấu xử lý tin này thành công, thoát khỏi vòng lặp while để sang tin kế tiếp
-                        success = true;
-
-                    } catch (Exception singleListingEx) {
-                        retryCount++;
-                        System.out.println(String.format(" ❌ [TIMEOUT/NET LỖI] Gặp sự cố mạng tại tin này: %s.", singleListingEx.getMessage()));
-
-                        if (retryCount < maxRetries) {
-                            System.out.println(String.format(" ⏳ Hệ thống tạm dừng 10s để ổn định kết nối, sau đó sẽ CÀO LẠI ngay (Lần thử lại: %d/%d)...", retryCount, maxRetries));
-                            try { Thread.sleep(10000); } catch (InterruptedException ignored) {}
-                        } else {
-                            System.out.println(" ❌ [RETRY FAILED] Đã thử lại 3 lần liên tục nhưng vẫn thất bại hoàn toàn. Bỏ qua tin này để chạy tiếp.");
-                        }
+                        page.waitForTimeout(3000);
+                        pageTitle = page.title();
+                    } catch (Exception ignored) {
+                        pageTitle = "Unknown Error";
                     }
                 }
 
-                System.out.flush();
+                if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
+                    System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP bị chặn. Đang khởi động lại Context trình duyệt...");
+                    try {
+                        if (page != null && !page.isClosed()) page.close();
+                        if (context != null) context.close();
+                        randomSleep(15000, 25000);
+                        context = playwright.chromium().launchPersistentContext(userDataDir, options);
+                        page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
+                        page.setDefaultTimeout(45000);
+                        page.setDefaultNavigationTimeout(45000);
+                    } catch (Exception ignored) {
+                    }
+                    continue;
+                }
+
+                BigDecimal webArea = null;
+                boolean isInvalidPage = false;
+
+                try {
+                    String htmlContent = "";
+                    try {
+                        htmlContent = page.content();
+                    } catch (Exception e) {
+                        page.waitForTimeout(2000);
+                        try {
+                            htmlContent = page.content();
+                        } catch (Exception ignored) {
+                        }
+                    }
+
+                    if (htmlContent != null && !htmlContent.isBlank()) {
+                        Document detailDoc = Jsoup.parse(htmlContent);
+
+                        boolean hasSearchBar = detailDoc.selectFirst(".re__search-bar, input[placeholder*='Đường Lê Hồng Phong'], button:contains(Tìm kiếm)") != null;
+                        boolean hasProductList = detailDoc.selectFirst(".re__left-container, .re__srp-list, #product-lists-page") != null;
+                        boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
+
+                        if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
+                            System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc. Tiến hành XÓA TIN!");
+                            isInvalidPage = true;
+                        }
+
+                        if (!isInvalidPage) {
+                            Element areaBlock = null;
+
+                            Element specsContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__section-body");
+                            if (specsContainer != null) {
+                                Element labelSpecs = specsContainer.selectFirst(".re__pr-specs-content-item-title:contains(Diện tích), .re__pr-specs-title:contains(Diện tích)");
+                                if (labelSpecs != null) {
+                                    areaBlock = labelSpecs.nextElementSibling();
+                                }
+                            }
+
+                            if (areaBlock == null) {
+                                Element areaItem = detailDoc.select("div.re__pr-short-info-item").stream()
+                                        .filter(el -> el.select(".re__pr-short-info-item-title").text().contains("Diện tích"))
+                                        .findFirst()
+                                        .orElse(null);
+                                if (areaItem != null) {
+                                    areaBlock = areaItem.selectFirst("span.value");
+                                }
+                            }
+
+                            if (areaBlock == null) {
+                                Element mainContent = detailDoc.selectFirst(".re__main-content, .re__pr-short-info, #product-detail-page");
+                                if (mainContent != null) {
+                                    Elements tags = mainContent.select("span, div");
+                                    for (Element el : tags) {
+                                        String txt = el.text().trim();
+                                        if (txt.contains("m²") && !txt.contains("/m²") && !txt.contains("PN") && txt.matches(".*\\d+.*") && txt.length() < 30) {
+                                            areaBlock = el;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (areaBlock != null) {
+                                String rawAreaText = areaBlock.text().split("\n")[0].trim();
+                                if (rawAreaText.length() > 50) {
+                                    System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích lỗi. Tiến hành XÓA TIN!");
+                                    isInvalidPage = true;
+                                } else {
+                                    if (rawAreaText.contains("m²")) {
+                                        rawAreaText = rawAreaText.substring(0, rawAreaText.indexOf("m²") + 2);
+                                    }
+                                    webArea = parseAreaSafety(rawAreaText);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+
+                if (isInvalidPage) {
+                    try {
+                        deleteOneInNewTransaction(listing);
+                        System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
+                        totalElements--;
+                    } catch (Exception dbEx) {
+                        System.out.println(" ❌ [DB DELETE ERROR] " + dbEx.getMessage());
+                        currentPosition++;
+                    }
+                } else if (updated != null) {
+                    boolean hasChanges = false;
+
+                    Double newLat = updated.getLatitude();
+                    Double newLng = updated.getLongitude();
+
+                    boolean isLatValid = currentLat != null && currentLat != 0.0 && currentLat != 0 && String.valueOf(currentLat).length() > 5;
+                    boolean isLngValid = currentLng != null && currentLng != 0.0 && currentLng != 0 && String.valueOf(currentLng).length() > 5;
+
+                    if (isLatValid && isLngValid && newLat != null && newLng != null && Double.compare(currentLat, newLat) == 0 && Double.compare(currentLng, newLng) == 0) {
+                        System.out.println(String.format("   👉  TỌA ĐỘ ĐÚNG! Giữ nguyên: [%s, %s]", currentLat, currentLng));
+                    } else if (newLat != null && newLng != null && newLat != 0.0) {
+                        System.out.println(String.format("   👉 📍 Tọa độ SAI hoặc THIẾU! Cập nhật từ [%s, %s] ➔ [%s, %s]", currentLat, currentLng, newLat, newLng));
+                        listing.setLatitude(newLat);
+                        listing.setLongitude(newLng);
+                        hasChanges = true;
+                    } else {
+                        System.out.println(String.format("   👉 ⚠️ Không lấy được tọa độ mới trên Web, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
+                    }
+
+                    if (webArea != null && webArea.compareTo(BigDecimal.ZERO) > 0) {
+                        if (dbArea == null || dbArea.compareTo(webArea) != 0) {
+                            System.out.println(String.format("   👉 ❌ DIỆN TÍCH SAI! [Diện tích cũ: %s m²] ➔ [Sửa thành: %s m²]",
+                                    (dbArea != null ? dbArea : "Trống"), webArea));
+                            listing.setArea(webArea);
+                            hasChanges = true;
+                        } else {
+                            System.out.println(String.format("   👉  DIỆN TÍCH ĐÚNG! Giữ nguyên: %s m²", dbArea));
+                        }
+                    } else {
+                        System.out.println(String.format("   👉 ⚠️ Không tìm thấy diện tích trên Web, giữ nguyên DB: %s m²", (dbArea != null ? dbArea : "Trống")));
+                    }
+
+                    System.out.flush();
+
+                    if (hasChanges) {
+                        try {
+                            saveOneInNewTransaction(listing);
+                            System.out.println("   💾 [DATABASE] --> Đã cập nhật thành công.");
+                            updatedCount++;
+                        } catch (Exception dbEx) {
+                            System.out.println(" ❌ [DB SAVE ERROR] " + dbEx.getMessage());
+                        }
+                    }
+                    currentPosition++;
+                } else {
+                    currentPosition++;
+                }
+
                 randomSleep(2000, 4500);
             }
 
             System.out.println("\n==========================================================================================");
-            System.out.println(" --> [MIGRATION DONE] Hoàn tất chiến dịch! Tổng số tin đã sửa đổi thành công: " + updatedCount);
+            System.out.println(" --> [MIGRATION DONE] Hoàn tất quét lỗi! Số lượng tin đã xử lý cập nhật: " + updatedCount);
             System.out.println("==========================================================================================\n");
             System.out.flush();
 
         } catch (Exception e) {
-            System.out.println(" --> [CRITICAL AUTO-MIGRATION ERROR]: " + e.getMessage());
+            System.out.println(" --> [AUTO-MIGRATION ERROR]: " + e.getMessage());
         } finally {
-            if (page != null && !page.isClosed()) { try { page.close(); } catch (Exception ignored) {} }
-            if (context != null) { try { context.close(); } catch (Exception ignored) {} }
-            if (playwright != null) { try { playwright.close(); } catch (Exception ignored) {} }
-            try { if (currentProfileDir != null) org.springframework.util.FileSystemUtils.deleteRecursively(currentProfileDir); } catch (Exception ignored) {}
+            if (page != null && !page.isClosed()) {
+                try {
+                    page.close();
+                } catch (Exception ignored) {
+                }
+            }
+            if (context != null) {
+                try {
+                    context.close();
+                } catch (Exception ignored) {
+                }
+            }
+            try {
+                org.springframework.util.FileSystemUtils.deleteRecursively(userDataDir);
+            } catch (Exception ignored) {
+            }
         }
-    }
-
-    private Object[] initNewBrowserSession(com.microsoft.playwright.Playwright playwright, boolean isServer, java.nio.file.Path crashDir) {
-        java.nio.file.Path userDataDir = isServer
-                ? java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "chrome-profile-migration-" + System.currentTimeMillis()).toAbsolutePath()
-                : java.nio.file.Paths.get(System.getProperty("user.home"), ".chrome-migration-profile-" + System.currentTimeMillis()).toAbsolutePath();
-        java.io.File profileDir = userDataDir.toFile();
-        if (!profileDir.exists()) profileDir.mkdirs();
-
-        java.util.List<String> browserArgs = java.util.Arrays.asList(
-                "--no-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled",
-                "--disable-infobars", "--disable-session-crashed-bubble", "--hide-crash-restore-bubble",
-                "--window-size=1920,1080", "--start-maximized", "--lang=vi-VN,vi", "--disable-extensions",
-                "--disable-component-extensions-with-background-pages", "--disable-background-networking",
-                "--allow-running-insecure-content", "--crash-dumps-dir=" + crashDir.toString()
-        );
-
-        java.util.Map<String, String> headers = new java.util.HashMap<>();
-        headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        headers.put("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7");
-        headers.put("Cache-Control", "max-age=0");
-        headers.put("Sec-Ch-Ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
-        headers.put("Sec-Ch-Ua-Mobile", "?0");
-        headers.put("Sec-Ch-Ua-Platform", "\"Windows\"");
-        headers.put("Sec-Fetch-Dest", "document");
-        headers.put("Sec-Fetch-Mode", "navigate");
-        headers.put("Sec-Fetch-Site", "none");
-        headers.put("Sec-Fetch-User", "?1");
-        headers.put("Upgrade-Insecure-Requests", "1");
-
-        com.microsoft.playwright.BrowserType.LaunchPersistentContextOptions options = new com.microsoft.playwright.BrowserType.LaunchPersistentContextOptions()
-                .setHeadless(isServer)
-                .setIgnoreDefaultArgs(java.util.Arrays.asList("--enable-automation", "--disable-extensions"))
-                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
-                .setExtraHTTPHeaders(headers)
-                .setArgs(browserArgs)
-                .setViewportSize(1920, 1080);
-
-        if (!isServer) {
-            java.nio.file.Path localChromePath = java.nio.file.Paths.get("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe");
-            if (localChromePath.toFile().exists()) options.setExecutablePath(localChromePath);
-        }
-
-        com.microsoft.playwright.BrowserContext context = playwright.chromium().launchPersistentContext(userDataDir, options);
-        com.microsoft.playwright.Page page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
-        page.setDefaultTimeout(45000);
-        page.setDefaultNavigationTimeout(45000);
-
-        return new Object[] { userDataDir, context, page };
     }
 
     private BigDecimal parseAreaSafety(String rawText) {
@@ -980,45 +997,39 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         try {
             String cleanText = rawText.replaceAll("[^0-9.,]", "").trim();
             if (cleanText.isEmpty()) return BigDecimal.ZERO;
-            cleanText = cleanText.replace(".", "").replace(",", ".");
+
+            cleanText = cleanText.replace(".", "");
+            cleanText = cleanText.replace(",", ".");
+
             BigDecimal area = new BigDecimal(cleanText).setScale(2, java.math.RoundingMode.HALF_UP);
             return area.compareTo(BigDecimal.ZERO) > 0 ? area : BigDecimal.ZERO;
         } catch (Exception e) {
-            System.out.println(" ⚠️ [PARSE AREA ERROR] Lỗi định dạng chuỗi diện tích.");
+            System.out.println(" ⚠️ [PARSE AREA ERROR] Định dạng chuỗi diện tích không hợp lệ.");
         }
         return BigDecimal.ZERO;
     }
 
-    public void saveOneListingInNewTransaction(CrawPropertyListing listing) {
-        org.springframework.transaction.support.TransactionTemplate txTemplate =
-                new org.springframework.transaction.support.TransactionTemplate(transactionManager);
-        txTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-
-        txTemplate.executeWithoutResult(status -> {
-            CrawPropertyListing managedListing = entityManager.merge(listing);
-            crawPropertyListingRepository.saveAndFlush(managedListing);
-            entityManager.clear();
-        });
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void saveOneInNewTransaction(CrawPropertyListing listing) {
+        crawPropertyListingRepository.saveAndFlush(listing);
+        entityManager.clear();
     }
 
-    public void deleteOneListingInNewTransaction(Integer id) {
-        org.springframework.transaction.support.TransactionTemplate txTemplate =
-                new org.springframework.transaction.support.TransactionTemplate(transactionManager);
-        txTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-
-        txTemplate.executeWithoutResult(status -> {
-            Optional<CrawPropertyListing> opt = crawPropertyListingRepository.findById(id);
-            if (opt.isPresent()) {
-                CrawPropertyListing managedListing = opt.get();
-                try {
-                    if (managedListing.getHeatmapZones() != null) {
-                        managedListing.getHeatmapZones().clear();
-                    }
-                } catch (Exception ignored) {}
-                crawPropertyListingRepository.delete(managedListing);
-                crawPropertyListingRepository.flush();
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void deleteOneInNewTransaction(CrawPropertyListing listing) {
+        try {
+            if (listing.getHeatmapZones() != null) {
+                listing.getHeatmapZones().clear();
             }
-            entityManager.clear();
-        });
+        } catch (Exception ignored) {
+        }
+
+        entityManager.createNativeQuery("DELETE FROM heatmap_zone WHERE craw_property_listing_id = :id")
+                .setParameter("id", listing.getCrawPropertyListingId())
+                .executeUpdate();
+
+        crawPropertyListingRepository.delete(listing);
+        crawPropertyListingRepository.flush();
+        entityManager.clear();
     }
 }
