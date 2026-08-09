@@ -253,6 +253,61 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
         }
     }
 
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> cancelMembershipSubscriptions(Integer membershipSubscriptionId) {
+        try {
+            Account account = authenUntil.getCurrentUSer();
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
+            }
+
+            Investor investor = account.getInvestor();
+            if (investor == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Investor account does not exist"));
+            }
+
+            MembershipSubscription subscription = membershipSubscriptionRepository.findById(membershipSubscriptionId).orElse(null);
+            if (subscription == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership subscription ID does not exist"));
+            }
+
+            if (subscription.getInvestor() == null ||
+                    !subscription.getInvestor().getInvestorId().equals(investor.getInvestorId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.fail(HttpStatus.FORBIDDEN.toString(), "You do not have permission to cancel this subscription"));
+            }
+
+            MembershipSubscriptionEnum currentStatus = subscription.getMembershipSubscriptionEnum_status();
+
+            if (MembershipSubscriptionEnum.Pending.equals(currentStatus)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership subscription is already in PENDING status and cannot be canceled."));
+            }
+
+            if (MembershipSubscriptionEnum.OutDated.equals(currentStatus)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership subscription is already OUTDATED and cannot be canceled."));
+            }
+
+            subscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.Pending);
+            subscription.setIsActive(false);
+            subscription.setUpdatedAt(LocalDateTime.now());
+
+            membershipSubscriptionRepository.save(subscription);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(null, "Cancel membership subscription successfully. Status changed to PENDING."));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
+        }
+    }
+
 
     @Override
     @Transactional

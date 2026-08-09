@@ -8,4 +8,5 @@ public interface MembershipSubscriptionServiceInterface {
     ResponseEntity<ApiResponse> payMemberShipSubscriptions(Integer membershipPlanId);
     ResponseEntity<ApiResponse> renewMemberShipSubscriptions(Integer membershipSubscriptionId);
     ResponseEntity<ApiResponse> activeMembershipSubscriptions(Integer membershipPlanId);
+    public ResponseEntity<ApiResponse> cancelMembershipSubscriptions(Integer membershipSubscriptionId);
 }
