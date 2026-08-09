@@ -66,7 +66,7 @@ public class JwtFilterConfig extends OncePerRequestFilter {
                 || requestURI.equals("/auth/send-otp")
                 || requestURI.equals("/auth/forgot-password")
                 || requestURI.equals("/auth/new-password")
-                || requestURI.equals("/provinces")
+                || requestURI.equals("/province")
                 || requestURI.equals("/wards")
                 || requestURI.equals("/property-types")
                 || requestURI.equals("/property-conditions")
