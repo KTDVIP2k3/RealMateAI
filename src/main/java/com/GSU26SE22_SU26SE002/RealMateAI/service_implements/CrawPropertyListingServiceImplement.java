@@ -671,22 +671,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     @Autowired
     private EntityManager entityManager;
 
+    //    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
 //    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     public void fixExistingListingsCoordinates() {
         boolean isServer = System.getenv("CI") != null || System.getenv("RENDER") != null
                 || System.getenv("DOCKER") != null || System.getProperty("os.name").toLowerCase().contains("linux");
 
-        List<CrawPropertyListing> entities = crawPropertyListingRepository.findAll(
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
-        );
-
-        if (entities.isEmpty()) {
-            System.out.println("[AUTO-MIGRATION] ✨ Tọa độ & Diện tích (area) cũ đã hoàn chỉnh và chính xác!");
-            return;
-        }
+        long totalElements = crawPropertyListingRepository.count();
+        if (totalElements == 0) return;
 
         System.out.println("\n==========================================================================================");
-        System.out.println("[AUTO-MIGRATION] 🔍 Bắt đầu rà soát " + entities.size() + " tin (Kiểm tra Tọa độ & Đối chiếu Diện tích).");
+        System.out.println("[AUTO-MIGRATION] 🔍 Bắt đầu rà soát từng tin một. Tổng số tin: " + totalElements);
         System.out.println("==========================================================================================\n");
         System.out.flush();
 
@@ -770,20 +765,36 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             page.setDefaultTimeout(45000);
             page.setDefaultNavigationTimeout(45000);
 
-            int processedCount = 0;
+            int currentPosition = 0;
             int updatedCount = 0;
-            List<CrawPropertyListing> batchToSave = new ArrayList<>();
-            List<CrawPropertyListing> batchToDelete = new ArrayList<>();
 
-            for (CrawPropertyListing listing : entities) {
-                if (listing.getSourceUrl() == null) continue;
+            while (currentPosition < totalElements) {
+                org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                        currentPosition, 1, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
+                );
 
-                processedCount++;
-                System.out.println(String.format("[MIGRATION] 🌐 (%d / %d) ➔ Check URL: %s",
-                        processedCount, entities.size(), listing.getSourceUrl()));
+                org.springframework.data.domain.Page<CrawPropertyListing> listingPage = crawPropertyListingRepository.findAll(pageable);
+                if (listingPage.isEmpty()) break;
+
+                CrawPropertyListing listing = listingPage.getContent().get(0);
+                if (listing.getSourceUrl() == null) {
+                    currentPosition++;
+                    continue;
+                }
+
+                System.out.println(String.format("[MIGRATION] 🌐 (%d / %d) [ID: %d] ➔ Check URL: %s",
+                        currentPosition + 1, totalElements, listing.getCrawPropertyListingId(), listing.getSourceUrl()));
                 System.out.flush();
 
+                Double currentLat = listing.getLatitude();
+                Double currentLng = listing.getLongitude();
                 BigDecimal dbArea = listing.getArea();
+
+                try {
+                    entityManager.clear();
+                } catch (Exception ignored) {
+                }
+
                 CrawPropertyListing updated = fetchCoordinates(listing, page);
 
                 String pageTitle = "";
@@ -791,17 +802,26 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
                     pageTitle = page.title();
                 } catch (Exception e) {
-                    System.out.println(" ⚠️ [WARN] Môi trường bị hủy/Đang nhảy trang. Đang đợi 3 giây để ổn định lại...");
                     try {
                         page.waitForTimeout(3000);
                         pageTitle = page.title();
                     } catch (Exception ignored) {
-                        pageTitle = "Unknown (Navigation Error)";
+                        pageTitle = "Unknown Error";
                     }
                 }
 
                 if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                    System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại chi tiết tin. Bỏ qua!");
+                    System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP bị chặn. Đang khởi động lại Context trình duyệt...");
+                    try {
+                        if (page != null && !page.isClosed()) page.close();
+                        if (context != null) context.close();
+                        randomSleep(15000, 25000);
+                        context = playwright.chromium().launchPersistentContext(userDataDir, options);
+                        page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
+                        page.setDefaultTimeout(45000);
+                        page.setDefaultNavigationTimeout(45000);
+                    } catch (Exception ignored) {
+                    }
                     continue;
                 }
 
@@ -813,7 +833,6 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     try {
                         htmlContent = page.content();
                     } catch (Exception e) {
-                        System.out.println(" ⚠️ [WARN] Không thể đọc content do trang đang nhảy link. Thử lại sau 2s...");
                         page.waitForTimeout(2000);
                         try {
                             htmlContent = page.content();
@@ -829,7 +848,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
 
                         if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
-                            System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc (Link cũ đã chết/Đổi hướng). Đánh dấu XÓA TIN!");
+                            System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc. Tiến hành XÓA TIN!");
                             isInvalidPage = true;
                         }
 
@@ -871,7 +890,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             if (areaBlock != null) {
                                 String rawAreaText = areaBlock.text().split("\n")[0].trim();
                                 if (rawAreaText.length() > 50) {
-                                    System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích quá dài (Bốc trúng menu bộ lọc). Đánh dấu XÓA TIN!");
+                                    System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích lỗi. Tiến hành XÓA TIN!");
                                     isInvalidPage = true;
                                 } else {
                                     if (rawAreaText.contains("m²")) {
@@ -886,34 +905,39 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 }
 
                 if (isInvalidPage) {
-                    updated = null;
-                }
-
-                if (updated != null) {
+                    try {
+                        deleteOneInNewTransaction(listing);
+                        System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
+                        totalElements--;
+                    } catch (Exception dbEx) {
+                        System.out.println(" ❌ [DB DELETE ERROR] " + dbEx.getMessage());
+                        currentPosition++;
+                    }
+                } else if (updated != null) {
                     boolean hasChanges = false;
 
-                    Double currentLat = listing.getLatitude();
-                    Double currentLng = listing.getLongitude();
                     Double newLat = updated.getLatitude();
                     Double newLng = updated.getLongitude();
 
-                    boolean isLatValid = currentLat != null && currentLat != 0.0 && String.valueOf(currentLat).length() > 5;
-                    boolean isLngValid = currentLng != null && currentLng != 0.0 && String.valueOf(currentLng).length() > 5;
+                    boolean isLatValid = currentLat != null && currentLat != 0.0 && currentLat != 0 && String.valueOf(currentLat).length() > 5;
+                    boolean isLngValid = currentLng != null && currentLng != 0.0 && currentLng != 0 && String.valueOf(currentLng).length() > 5;
 
                     if (isLatValid && isLngValid && newLat != null && newLng != null && Double.compare(currentLat, newLat) == 0 && Double.compare(currentLng, newLng) == 0) {
                         System.out.println(String.format("   👉  TỌA ĐỘ ĐÚNG! Giữ nguyên: [%s, %s]", currentLat, currentLng));
-                    } else if (newLat != null && newLng != null) {
-                        System.out.println(String.format("   👉 📍 Tọa độ cập nhật: [%s, %s]", newLat, newLng));
+                    } else if (newLat != null && newLng != null && newLat != 0.0) {
+                        System.out.println(String.format("   👉 📍 Tọa độ SAI hoặc THIẾU! Cập nhật từ [%s, %s] ➔ [%s, %s]", currentLat, currentLng, newLat, newLng));
+                        listing.setLatitude(newLat);
+                        listing.setLongitude(newLng);
                         hasChanges = true;
                     } else {
-                        System.out.println(String.format("   👉 ⚠️ Không lấy được tọa độ mới, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
+                        System.out.println(String.format("   👉 ⚠️ Không lấy được tọa độ mới trên Web, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
                     }
 
                     if (webArea != null && webArea.compareTo(BigDecimal.ZERO) > 0) {
                         if (dbArea == null || dbArea.compareTo(webArea) != 0) {
                             System.out.println(String.format("   👉 ❌ DIỆN TÍCH SAI! [Diện tích cũ: %s m²] ➔ [Sửa thành: %s m²]",
                                     (dbArea != null ? dbArea : "Trống"), webArea));
-                            updated.setArea(webArea);
+                            listing.setArea(webArea);
                             hasChanges = true;
                         } else {
                             System.out.println(String.format("   👉  DIỆN TÍCH ĐÚNG! Giữ nguyên: %s m²", dbArea));
@@ -925,58 +949,24 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     System.out.flush();
 
                     if (hasChanges) {
-                        batchToSave.add(updated);
-                        updatedCount++;
+                        try {
+                            saveOneInNewTransaction(listing);
+                            System.out.println("   💾 [DATABASE] --> Đã cập nhật thành công.");
+                            updatedCount++;
+                        } catch (Exception dbEx) {
+                            System.out.println(" ❌ [DB SAVE ERROR] " + dbEx.getMessage());
+                        }
                     }
+                    currentPosition++;
                 } else {
-                    batchToDelete.add(listing);
-                }
-
-                if (batchToSave.size() >= 20) {
-                    try {
-                        saveBatchInNewTransaction(batchToSave);
-                        System.out.println("   💾 [DATABASE] --> Đã lưu đợt 20 tin.");
-                        batchToSave.clear();
-                    } catch (Exception dbEx) {
-                        System.out.println(" ❌ [DB SAVE ERROR] Lỗi lưu kết nối DB: " + dbEx.getMessage());
-                    }
-                    System.out.flush();
-                }
-
-                if (batchToDelete.size() >= 20) {
-                    try {
-                        deleteBatchInNewTransaction(batchToDelete);
-                        System.out.println("   💾 [DATABASE] --> Đã xóa đợt 20 tin ngoài phạm vi hoặc link chết.");
-                        batchToDelete.clear();
-                    } catch (Exception dbEx) {
-                        System.out.println(" ❌ [DB DELETE ERROR] Lỗi xóa kết nối DB: " + dbEx.getMessage());
-                    }
-                    System.out.flush();
+                    currentPosition++;
                 }
 
                 randomSleep(2000, 4500);
             }
 
-            if (!batchToSave.isEmpty()) {
-                try {
-                    saveBatchInNewTransaction(batchToSave);
-                    System.out.println("   💾 [DATABASE] --> Đã lưu các tin cuối cùng.");
-                    batchToSave.clear();
-                } catch (Exception ignored) {
-                }
-            }
-
-            if (!batchToDelete.isEmpty()) {
-                try {
-                    deleteBatchInNewTransaction(batchToDelete);
-                    System.out.println("   💾 [DATABASE] --> Đã xóa các tin chết cuối cùng.");
-                    batchToDelete.clear();
-                } catch (Exception ignored) {
-                }
-            }
-
             System.out.println("\n==========================================================================================");
-            System.out.println(" --> [MIGRATION DONE] Hoàn tất quét lỗi! Số lượng tin đã xử lý: " + updatedCount);
+            System.out.println(" --> [MIGRATION DONE] Hoàn tất quét lỗi! Số lượng tin đã xử lý cập nhật: " + updatedCount);
             System.out.println("==========================================================================================\n");
             System.out.flush();
 
@@ -1020,22 +1010,25 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     }
 
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    public void saveBatchInNewTransaction(List<CrawPropertyListing> batch) {
-        crawPropertyListingRepository.saveAllAndFlush(batch);
+    public void saveOneInNewTransaction(CrawPropertyListing listing) {
+        crawPropertyListingRepository.saveAndFlush(listing);
         entityManager.clear();
     }
 
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    public void deleteBatchInNewTransaction(List<CrawPropertyListing> batch) {
-        for (CrawPropertyListing listing : batch) {
-            try {
-                if (listing.getHeatmapZones() != null) {
-                    listing.getHeatmapZones().clear();
-                }
-            } catch (Exception ignored) {
+    public void deleteOneInNewTransaction(CrawPropertyListing listing) {
+        try {
+            if (listing.getHeatmapZones() != null) {
+                listing.getHeatmapZones().clear();
             }
-            crawPropertyListingRepository.delete(listing);
+        } catch (Exception ignored) {
         }
+
+        entityManager.createNativeQuery("DELETE FROM heatmap_zone WHERE craw_property_listing_id = :id")
+                .setParameter("id", listing.getCrawPropertyListingId())
+                .executeUpdate();
+
+        crawPropertyListingRepository.delete(listing);
         crawPropertyListingRepository.flush();
         entityManager.clear();
     }
