@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,25 +29,8 @@ public class ListingController {
 
     private final ListingServiceInterface listingService;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // POST /listings  — API TẠO TIN ĐĂNG DUY NHẤT (gộp 2 luồng cũ)
-    //
-    // Body: application/json thuần — KHÔNG multipart. Ảnh KHÔNG upload trực
-    // tiếp ở API này. Seller phải upload TRƯỚC qua
-    //   POST /media/upload/multiple?entityType=ACCOUNT&entityId={accountId}
-    // lấy về publicId của từng ảnh, rồi truyền vào field "draftImagePublicIds"
-    // của request này — BE chỉ "nhận nuôi" (re-parent) ảnh đã có sẵn trên
-    // Cloudinary sang Listing vừa tạo, lưu URL vào bảng listing_image.
-    //
-    // "reuseExistingProperty":
-    //   - true  → đăng lại tài sản ĐÃ CÓ SẴN (cần "existingPropertyId"). Nếu
-    //             không gửi ảnh mới, hệ thống tự copy lại ảnh từ 1 Listing
-    //             khác cùng Property (nếu có).
-    //   - false → tạo tài sản MỚI từ các field "prop*" (bắt buộc), đồng thời
-    //             bắt buộc phải có ít nhất 1 ảnh trong "draftImagePublicIds".
-    // ─────────────────────────────────────────────────────────────────────────
     @PostMapping(
-            value = "/listings",
+            value = "/seller/listings",
             consumes = MediaType.APPLICATION_JSON_VALUE
     )
     @PreAuthorize("hasRole('Seller')")
@@ -75,6 +59,44 @@ public class ListingController {
     public ResponseEntity<ApiResponse> getListingDetail(
             @PathVariable("listingId") Integer listingId) {
         return listingService.getListingDetail(listingId);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MỚI: GET /listings/featured — "Tin nổi bật", xếp theo số lượt xem THẬT
+    // (đếm từ ActiveLog). Đặt tên path cụ thể "featured" nên KHÔNG bị nhầm với
+    // /listings/{listingId} (Spring ưu tiên khớp path literal trước path
+    // variable, đã có tiền lệ với /listings/search cùng tồn tại).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/listings/featured")
+    @Operation(summary = "Tin đăng nổi bật — xếp theo số lượt xem thật (ActiveLog), chỉ tin đã duyệt")
+    public ResponseEntity<ApiResponse> getFeaturedListings(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return listingService.getFeaturedListings(page, size);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MỚI: GET /listings/compare?ids=1,2 — So sánh 2-4 tin đăng, trả đầy đủ
+    // chi tiết từng tin để FE tự dựng bảng so sánh. Dùng query param dạng
+    // "ids=1,2,3" (1 chuỗi phân tách bởi dấu phẩy) thay vì "ids=1&ids=2" —
+    // dễ chia sẻ URL hơn (VD copy link so sánh gửi cho người khác).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/listings/compare")
+    @Operation(summary = "So sánh 2-4 tin đăng — trả đầy đủ chi tiết từng tin để FE tự dựng bảng so sánh")
+    public ResponseEntity<ApiResponse> compareListings(
+            @RequestParam("ids") String ids) {
+        List<Integer> listingIds;
+        try {
+            listingIds = java.util.Arrays.stream(ids.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Integer::parseInt)
+                    .toList();
+        } catch (NumberFormatException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.fail("Bad_Request", "Tham số ids phải là danh sách số nguyên phân tách bởi dấu phẩy, VD: ids=1,2"));
+        }
+        return listingService.compareListings(listingIds);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -159,7 +181,7 @@ public class ListingController {
     // POST /listings/generate-content — Seller: AI sinh tiêu đề + mô tả
     // ─────────────────────────────────────────────────────────────────────────
     @PostMapping(
-            value = "/listings/generate-content",
+            value = "/seller/listings/generate-content",
             consumes = MediaType.APPLICATION_JSON_VALUE
     )
     @PreAuthorize("hasRole('Seller')")
@@ -173,7 +195,7 @@ public class ListingController {
     // POST /listings/price-suggestion — Seller: AI đề xuất khoảng giá bán
     // ─────────────────────────────────────────────────────────────────────────
     @PostMapping(
-            value = "/listings/price-suggestion",
+            value = "/seller/listings/price-suggestion",
             consumes = MediaType.APPLICATION_JSON_VALUE
     )
     @PreAuthorize("hasRole('Seller')")
@@ -205,8 +227,8 @@ public class ListingController {
     // bedrooms/bathrooms là số lượng TỐI THIỂU (tương đương minBedroom/minBathroom
     // của bản POST), propertyType là propertyTypeId (số).
     // ─────────────────────────────────────────────────────────────────────────
-    @GetMapping("/investor/listings/search")
-    @Operation(summary = "Tìm kiếm nâng cao tin đăng công khai bằng query string (q, propertyType, minPrice, maxPrice, minArea, maxArea, bedrooms, bathrooms, province, ward)")
+    @GetMapping("/listings/search")
+    @Operation(summary = "Tìm kiếm nâng cao tin đăng công khai bằng query string (q, propertyType, minPrice, maxPrice, minArea, maxArea, bedrooms, bathrooms, province, ward, sellerId, minLat, maxLat, minLong, maxLong)")
     public ResponseEntity<ApiResponse> searchListingsByQuery(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") Integer page,
@@ -219,7 +241,12 @@ public class ListingController {
             @RequestParam(required = false) Integer bedrooms,
             @RequestParam(required = false) Integer bathrooms,
             @RequestParam(required = false) String province,
-            @RequestParam(required = false) String ward) {
+            @RequestParam(required = false) String ward,
+            @RequestParam(required = false) Integer sellerId,
+            @RequestParam(required = false) Double minLat,
+            @RequestParam(required = false) Double maxLat,
+            @RequestParam(required = false) Double minLong,
+            @RequestParam(required = false) Double maxLong) {
 
         ListingSearchRequest request = new ListingSearchRequest();
         request.setKeyword(q);
@@ -234,6 +261,11 @@ public class ListingController {
         request.setMinBathroom(bathrooms);
         request.setProvinceCode(province);
         request.setWardCode(ward);
+        request.setSellerId(sellerId);
+        request.setMinLat(minLat);
+        request.setMaxLat(maxLat);
+        request.setMinLong(minLong);
+        request.setMaxLong(maxLong);
 
         return listingService.searchListings(request);
     }

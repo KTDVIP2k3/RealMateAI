@@ -69,6 +69,22 @@ public interface ListingServiceInterface {
     ResponseEntity<ApiResponse> searchListings(ListingSearchRequest request);
 
     /**
+     * MỚI: GET /listings/featured — "Tin nổi bật" xếp theo SỐ LƯỢT XEM THẬT
+     * (đếm từ ActiveLog qua event VIEW), KHÔNG dùng cột Listing.viewCount cũ
+     * (chưa từng được cập nhật). Chỉ tính tin đang APPROVED + active.
+     */
+    ResponseEntity<ApiResponse> getFeaturedListings(int page, int size);
+
+    /**
+     * MỚI: GET /listings/compare — So sánh nhiều tin đăng (tối thiểu 2, tối đa
+     * 4) — trả về ĐẦY ĐỦ chi tiết từng tin (dùng lại đúng cấu trúc
+     * listingDetail như GET /listings/{id}) để FE tự dựng bảng so sánh field-
+     * theo-field, KHÔNG tự rút gọn/chọn field ở BE (linh hoạt cho FE quyết
+     * định hiển thị cột nào).
+     */
+    ResponseEntity<ApiResponse> compareListings(List<Integer> listingIds);
+
+    /**
      * MỚI: GET /listings/search/suggestions — Autocomplete Suggestion khi Investor
      * gõ vào ô tìm kiếm (q). Gộp 4 nhóm: Location (Phường/Tỉnh khớp tên), Listing
      * (tin đăng/dự án khớp tên), Property Type (loại BĐS khớp tên), Recent Search

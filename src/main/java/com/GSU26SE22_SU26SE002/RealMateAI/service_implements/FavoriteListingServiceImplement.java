@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.UserEventTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.FavoriteListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.InvestorRepository;
@@ -9,6 +10,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.FavoriteListingResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ListingSummaryResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.FavoriteListingServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.UserEventTrackingService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,9 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
     private final ListingRepository listingRepository;
     private final InvestorRepository investorRepository;
     private final AuthenUntil authenUntil;
+    // MỚI: ghi nhận SAVE event — trọng số cao (5đ theo thiết kế Recommendation
+    // System) vì "yêu thích" là tín hiệu quan tâm mạnh hơn nhiều so với VIEW.
+    private final UserEventTrackingService userEventTrackingService;
 
     // ════════════════════════════════════════════════════
     //  POST /favorites
@@ -72,6 +77,9 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
             FavoriteListing saved = favoriteListingRepository.save(favorite);
             log.info("[FavoriteService] investorId={} đã thêm listingId={} vào yêu thích (favoriteId={})",
                     investor.getInvestorId(), listingId, saved.getFavoriteListingId());
+
+            // MỚI: ghi nhận SAVE event cho Recommendation System (xem javadoc field).
+            userEventTrackingService.recordSilently(investor.getAccount(), UserEventTypeEnum.SAVE, listingId);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(
