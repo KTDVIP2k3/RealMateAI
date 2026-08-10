@@ -765,7 +765,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             page.setDefaultTimeout(45000);
             page.setDefaultNavigationTimeout(45000);
 
-            int currentPosition = 0;
+            int currentPosition = 2386;
             int updatedCount = 0;
 
             while (currentPosition < totalElements) {
