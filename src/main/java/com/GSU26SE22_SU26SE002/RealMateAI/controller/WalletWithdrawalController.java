@@ -39,7 +39,7 @@ public class WalletWithdrawalController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam String status) {
-        return walletWithDrawlServiceInterface.getWalletWithdrawalByAdmin(page, size, status);
+        return walletWithDrawlServiceInterface.getWalletWithdrawalByAdminStatus(page, size, status);
     }
 
     @GetMapping("/wallet-withdrawals/me/status")
@@ -49,7 +49,7 @@ public class WalletWithdrawalController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam String status) {
-        return walletWithDrawlServiceInterface.getWalletWithdrawalByInvestorOrSeller(page, size, status);
+        return walletWithDrawlServiceInterface.getWalletWithdrawalByInvestorOrSellerByStatus(page, size, status);
     }
 
     @GetMapping("/wallet-withdrawals/{walletWithdrawalId}")
