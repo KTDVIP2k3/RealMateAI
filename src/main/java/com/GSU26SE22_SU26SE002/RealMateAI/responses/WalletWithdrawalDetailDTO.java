@@ -11,10 +11,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor @AllArgsConstructor
 public class WalletWithdrawalDetailDTO {
     private Integer walletWithDrawlId;
+    private String bankName;
+    private String bankAccountNumber;
     private BigDecimal amount;
     private String status;
     private LocalDateTime createAt;
     private String note;
     private String rejectReason;
     private String fullName;
+    private String phone;
 }
