@@ -54,7 +54,7 @@ public class WalletWithdrawalController {
 
     @GetMapping("/wallet-withdrawals/{walletWithdrawalId}")
     @Operation(summary = "Xem chi tiết thông tin một lệnh rút tiền theo ID")
-    @PreAuthorize("hasAnyRole('Admin', 'Investor', 'Staff')")
+    @PreAuthorize("hasAnyRole('Admin', 'Investor', 'Seller')")
     public ResponseEntity<ApiResponse> getWalletWithdrawalDetailById(
             @PathVariable Integer walletWithdrawalId) {
         return walletWithDrawlServiceInterface.getWalletWithdrawalDetailById(walletWithdrawalId);
