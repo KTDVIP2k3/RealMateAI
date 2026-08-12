@@ -72,6 +72,13 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             return;
         }
 
+        for (CrawPropertyListing l : listings) {
+            if (l.getHeatmapZones() != null) {
+                l.getHeatmapZones().clear();
+            }
+        }
+        crawPropertyListingRepository.saveAllAndFlush(listings);
+
         heatmapZoneRepository.clearJoinTable();
         heatmapZoneRepository.deleteAllInBatch();
         heatmapZoneRepository.flush();
@@ -104,22 +111,16 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                         .average()
                         .orElseGet(() -> gridXToLon(gridX + 0.5, zoom));
 
-                CrawPropertyListing bestCenter = gridListings.stream()
+                CrawPropertyListing closestListing = gridListings.stream()
                         .min((l1, l2) -> {
-                            boolean l1IsSpam = isRawRoundedCoordinate(l1.getLongitude(), l1.getLatitude());
-                            boolean l2IsSpam = isRawRoundedCoordinate(l2.getLongitude(), l2.getLatitude());
-
-                            if (l1IsSpam && !l2IsSpam) return 1;
-                            if (!l1IsSpam && l2IsSpam) return -1;
-
                             double dist1 = Math.pow(l1.getLatitude() - avgLat, 2) + Math.pow(l1.getLongitude() - avgLon, 2);
                             double dist2 = Math.pow(l2.getLatitude() - avgLat, 2) + Math.pow(l2.getLongitude() - avgLon, 2);
                             return Double.compare(dist1, dist2);
                         })
                         .orElse(gridListings.get(0));
 
-                double finalLat = bestCenter.getLatitude();
-                double finalLon = bestCenter.getLongitude();
+                double finalLat = closestListing.getLatitude();
+                double finalLon = closestListing.getLongitude();
 
                 if (isRawRoundedCoordinate(finalLon, finalLat)) {
                     finalLon += 0.0003;
@@ -166,41 +167,6 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         boolean lonIsFlat = Math.abs(lonNormalized - Math.round(lonNormalized)) < 0.001;
         boolean latIsFlat = Math.abs(latNormalized - Math.round(latNormalized)) < 0.001;
         return lonIsFlat || latIsFlat;
-    }
-
-    private double[] shiftCoordinatesToLand(double lon, double lat) {
-        if (isLocationOnSafeLand(lon, lat)) {
-            return new double[]{lon, lat};
-        }
-
-        double[][] directions = {
-                {0, 1}, {1, 0}, {0, -1}, {-1, 0},
-                {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
-        };
-
-        double baseStep = 0.002;
-
-        for (int ring = 1; ring <= 30; ring++) {
-            double currentStep = baseStep * ring;
-            for (double[] dir : directions) {
-                double testLon = lon + dir[0] * currentStep;
-                double testLat = lat + dir[1] * currentStep;
-
-                if (isLocationOnSafeLand(testLon, testLat)) {
-                    return new double[]{testLon, testLat};
-                }
-            }
-        }
-
-        return new double[]{106.6980, 10.7750};
-    }
-
-    private boolean isLocationOnSafeLand(double lon, double lat) {
-        if (safeLandGeometry == null) {
-            return true;
-        }
-        Point point = geometryFactory.createPoint(new Coordinate(lon, lat));
-        return safeLandGeometry.contains(point);
     }
 
     private int lonToGridX(double lon, int zoom) {
