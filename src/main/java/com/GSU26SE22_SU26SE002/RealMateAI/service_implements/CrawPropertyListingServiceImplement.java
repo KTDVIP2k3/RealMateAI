@@ -1084,7 +1084,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
 
     private static final List<String> WATER_KEYWORDS = Arrays.asList(
-            "sông", "kênh", "rạch", "biển", "vịnh", "river", "canal", "ditch"
+            "sông", "kênh", "rạch", "biển", "vịnh", "hồ", "đầm", "suối", "cảng", "bến",
+            "ao", "mương", "ngòi", "lạch", "kháng", "vũng", "bãi biển", "đại dương",
+            "thác", "luồng", "ạch", "bán đảo", "cù lao", "hòn", "đảo", "cửa sông",
+            "đầm lầy", "ruộng muối", "trạm bơm", "nhà máy nước", "khu neo đậu",
+
+
+            "river", "canal", "ditch", "lake", "sea", "ocean", "stream", "bay", "harbor", "port",
+            "water", "waterway", "reservoir", "pond", "swamp", "marsh", "wetland", "lagoon",
+            "creek", "brook", "waterfall", "dock", "pier", "marina", "coast", "beach", "strait",
+            "gulf", "channel", "aquatic", "basin", "estuary", "spring", "drain", "floodway",
+            "salt_pond", "mangrove", "glacier", "water_tower", "water_works"
     );
 
     private boolean isWaterCoordinate(Double lat, Double lng) {
