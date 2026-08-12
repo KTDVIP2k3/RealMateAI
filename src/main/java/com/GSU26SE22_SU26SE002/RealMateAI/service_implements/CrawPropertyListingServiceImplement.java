@@ -1084,12 +1084,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         entityManager.clear();
     }
 
-
     private static final List<String> WATER_TYPES = Arrays.asList(
             "river", "canal", "ditch", "lake", "sea", "ocean", "stream", "bay",
             "water", "waterway", "reservoir", "pond", "swamp", "marsh", "wetland",
             "lagoon", "creek", "brook", "dock", "pier", "marina", "strait", "gulf",
-            "channel", "aquatic", "basin", "estuary", "drain", "floodway", "salt_pond"
+            "channel", "aquatic", "basin", "estuary", "drain", "floodway", "salt_pond",
+            "spring", "glacier", "mangrove", "moat"
     );
 
     private boolean isWaterCoordinate(Double lat, Double lng) {
