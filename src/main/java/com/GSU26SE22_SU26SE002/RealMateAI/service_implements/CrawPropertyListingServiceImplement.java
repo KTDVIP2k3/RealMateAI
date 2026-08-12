@@ -4,6 +4,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.CrawPropertyListing;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CrawPropertyListingServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitUntilState;
 import jakarta.persistence.EntityManager;
@@ -1083,18 +1085,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
     }
 
 
-    private static final List<String> WATER_KEYWORDS = Arrays.asList(
-            "sông", "kênh", "rạch", "biển", "vịnh", "hồ", "đầm", "suối", "cảng", "bến",
-            "ao", "mương", "ngòi", "lạch", "kháng", "vũng", "bãi biển", "đại dương",
-            "thác", "luồng", "ạch", "bán đảo", "cù lao", "hòn", "đảo", "cửa sông",
-            "đầm lầy", "ruộng muối", "trạm bơm", "nhà máy nước", "khu neo đậu",
-
-
-            "river", "canal", "ditch", "lake", "sea", "ocean", "stream", "bay", "harbor", "port",
-            "water", "waterway", "reservoir", "pond", "swamp", "marsh", "wetland", "lagoon",
-            "creek", "brook", "waterfall", "dock", "pier", "marina", "coast", "beach", "strait",
-            "gulf", "channel", "aquatic", "basin", "estuary", "spring", "drain", "floodway",
-            "salt_pond", "mangrove", "glacier", "water_tower", "water_works"
+    private static final List<String> WATER_TYPES = Arrays.asList(
+            "river", "canal", "ditch", "lake", "sea", "ocean", "stream", "bay",
+            "water", "waterway", "reservoir", "pond", "swamp", "marsh", "wetland",
+            "lagoon", "creek", "brook", "dock", "pier", "marina", "strait", "gulf",
+            "channel", "aquatic", "basin", "estuary", "drain", "floodway", "salt_pond"
     );
 
     private boolean isWaterCoordinate(Double lat, Double lng) {
@@ -1109,10 +1104,15 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            String jsonResponse = response.body().toLowerCase();
 
-            for (String keyword : WATER_KEYWORDS) {
-                if (jsonResponse.contains(keyword)) {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(response.body());
+
+            String clazz = root.has("class") ? root.get("class").asText().toLowerCase() : "";
+            String type = root.has("type") ? root.get("type").asText().toLowerCase() : "";
+
+            if ("natural".equals(clazz) || "waterway".equals(clazz) || WATER_TYPES.contains(type)) {
+                if (!"highway".equals(clazz) && !"place".equals(clazz)) {
                     return true;
                 }
             }
@@ -1120,6 +1120,24 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         return false;
     }
 
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void deleteOneInNewTransactionV2(CrawPropertyListing listing) {
+        CrawPropertyListing managedListing = entityManager.merge(listing);
+
+        try {
+            if (managedListing.getHeatmapZones() != null) {
+                managedListing.getHeatmapZones().clear();
+            }
+        } catch (Exception ignored) {}
+
+        entityManager.createNativeQuery("DELETE FROM heatmap_zone WHERE craw_property_listing_id = :id")
+                .setParameter("id", managedListing.getCrawPropertyListingId())
+                .executeUpdate();
+
+        crawPropertyListingRepository.delete(managedListing);
+        crawPropertyListingRepository.flush();
+        entityManager.clear();
+    }
 
     public void cleanAllWaterListingsFromDatabase() {
         long totalElements = crawPropertyListingRepository.count();
@@ -1153,16 +1171,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 entityManager.clear();
             } catch (Exception ignored) {}
 
+            boolean isDeleted = false;
+
             if (lat != null && lng != null && lat != 0.0 && lng != 0.0 && String.valueOf(lat).length() > 5) {
                 if (isWaterCoordinate(lat, lng)) {
-                    System.out.println(String.format("   ❌ [PHÁT HIỆN SÔNG/BIỂN] Tọa độ nằm dưới vùng nước! Đang tiến hành xóa khỏi hệ thống..."));
+                    System.out.println("   ❌ [PHÁT HIỆN SÔNG/BIỂN] Tọa độ nằm dưới vùng nước! Đang tiến hành xóa khỏi hệ thống...");
                     try {
-                        deleteOneInNewTransaction(listing);
+                        deleteOneInNewTransactionV2(listing);
                         System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
                         totalElements--;
                         deletedCount++;
-                        randomSleep(1000, 1500);
-                        continue;
+                        isDeleted = true;
                     } catch (Exception dbEx) {
                         System.out.println("   ❌ [LỖI XÓA DB] " + dbEx.getMessage());
                     }
@@ -1173,7 +1192,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                 System.out.println("   ⚠️ [BỎ QUA] Tin không có tọa độ hoặc định dạng tọa độ không hợp lệ.");
             }
 
-            currentPosition++;
+            if (!isDeleted) {
+                currentPosition++;
+            }
+
             randomSleep(1000, 1500);
         }
 
