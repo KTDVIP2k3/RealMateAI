@@ -127,6 +127,7 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
                     finalLat += 0.0002;
                 }
 
+
                 BigDecimal averagePricePerM2 = calculateAveragePricePerM2(gridListings);
 
                 HeatmapZone zone = HeatmapZone.builder()
