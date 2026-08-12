@@ -1173,11 +1173,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             boolean isDeleted = false;
 
-            if (lat != null && lng != null && lat != 0.0 && lng != 0.0 && String.valueOf(lat).length() > 5) {
+            if (lat != null && lng != null && lat >= 8.4 && lat <= 23.4 && lng >= 102.1 && lng <= 110.0) {
                 if (isWaterCoordinate(lat, lng)) {
                     System.out.println("   ❌ [PHÁT HIỆN SÔNG/BIỂN] Tọa độ nằm dưới vùng nước! Đang tiến hành xóa khỏi hệ thống...");
                     try {
-                        deleteOneInNewTransactionV2(listing);
+                        deleteOneInNewTransaction(listing);
                         System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
                         totalElements--;
                         deletedCount++;
