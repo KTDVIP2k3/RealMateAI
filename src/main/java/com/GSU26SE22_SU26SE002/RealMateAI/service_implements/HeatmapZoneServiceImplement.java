@@ -147,7 +147,12 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
             snapshotBatch.addAll(levelZones);
         }
 
-        List<HeatmapZone> savedZones = heatmapZoneRepository.saveAll(snapshotBatch);
+        List<HeatmapZone> limitedSnapshotBatch = snapshotBatch.stream()
+                .sorted((z1, z2) -> Integer.compare(z2.getListingCount(), z1.getListingCount()))
+                .limit(3000)
+                .collect(Collectors.toList());
+
+        List<HeatmapZone> savedZones = heatmapZoneRepository.saveAll(limitedSnapshotBatch);
 
         for (HeatmapZone zone : savedZones) {
             if (zone.getListings() != null) {

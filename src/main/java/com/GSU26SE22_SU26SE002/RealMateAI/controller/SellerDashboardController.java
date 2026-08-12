@@ -18,7 +18,7 @@ public class SellerDashboardController {
     @Autowired
     private SellerDashboardServiceInterface sellerDashboardServiceInterface;
 
-    @GetMapping("/api/v1/dashboard/seller/package-orders")
+    @GetMapping("/api/dashboard/seller/package-orders")
     @Operation(description = "Danh sách Đơn hàng Gói tin đăng theo Bài đăng của Seller")
     @PreAuthorize("hasRole('Seller')")
     public ResponseEntity<ApiResponse> getPostingPackageOrders(
@@ -27,7 +27,7 @@ public class SellerDashboardController {
         return sellerDashboardServiceInterface.getPostingPackageOrders(activeOnly, limit);
     }
 
-    @GetMapping("/api/v1/dashboard/seller/wallet-summary")
+    @GetMapping("/api/dashboard/seller/wallet-summary")
     @Operation(description = "Tóm tắt Số dư Ví & Biến động Giao dịch gần đây của Seller")
     @PreAuthorize("hasRole('Seller')")
     public ResponseEntity<ApiResponse> getWalletSummary() {

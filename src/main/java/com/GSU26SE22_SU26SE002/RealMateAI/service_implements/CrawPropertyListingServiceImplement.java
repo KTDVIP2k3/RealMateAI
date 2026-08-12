@@ -1083,6 +1083,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         crawPropertyListingRepository.flush();
         entityManager.clear();
     }
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private CrawPropertyListingServiceImplement self;
 
     private static final List<String> WATER_TYPES = Arrays.asList(
             "river", "canal", "ditch", "lake", "sea", "ocean", "stream", "bay",
@@ -1096,25 +1099,26 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         if (lat == null || lng == null || lat == 0.0 || lng == 0.0) return false;
         try {
             String url = String.format("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f", lat, lng);
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
                     .header("User-Agent", "JavaWaterCleanerApp/1.0 (cleaner@realmate.ai)")
                     .GET()
                     .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
 
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(response.body());
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.body());
 
             String clazz = root.has("class") ? root.get("class").asText().toLowerCase() : "";
             String type = root.has("type") ? root.get("type").asText().toLowerCase() : "";
 
-            if ("natural".equals(clazz) || "waterway".equals(clazz) || WATER_TYPES.contains(type)) {
-                if (!"highway".equals(clazz) && !"place".equals(clazz)) {
-                    return true;
+            if (WATER_TYPES.contains(type) || WATER_TYPES.contains(clazz) || "natural".equals(clazz) || "waterway".equals(clazz)) {
+                if ("highway".equals(clazz) || "railway".equals(clazz)) {
+                    return false;
                 }
+                return true;
             }
         } catch (Exception ignored) {}
         return false;
@@ -1130,8 +1134,9 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             }
         } catch (Exception ignored) {}
 
-        entityManager.createNativeQuery("DELETE FROM heatmap_zone WHERE craw_property_listing_id = :id")
-                .setParameter("id", managedListing.getCrawPropertyListingId())
+        entityManager.createNativeQuery("DELETE FROM heatmap_zone WHERE center_latitude = :lat AND center_longitude = :lng")
+                .setParameter("lat", managedListing.getLatitude())
+                .setParameter("lng", managedListing.getLongitude())
                 .executeUpdate();
 
         crawPropertyListingRepository.delete(managedListing);
@@ -1148,60 +1153,79 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         System.out.println("==========================================================================================\n");
         System.out.flush();
 
-        int currentPosition = 0;
         int deletedCount = 0;
+        int checkedCount = 0;
+        int pageIndex = 0;
+        int pageSize = 50;
 
-        while (currentPosition < totalElements) {
+        while (true) {
             org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
-                    currentPosition, 1, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
+                    pageIndex, pageSize, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
             );
 
             org.springframework.data.domain.Page<CrawPropertyListing> listingPage = crawPropertyListingRepository.findAll(pageable);
-            if (listingPage.isEmpty()) break;
 
-            CrawPropertyListing listing = listingPage.getContent().get(0);
-            Double lat = listing.getLatitude();
-            Double lng = listing.getLongitude();
+            if (listingPage.isEmpty() || listingPage.getContent().isEmpty()) {
+                break;
+            }
 
-            System.out.println(String.format("[CLEANER] 📍 (%d / %d) [ID: %d] ➔ Kiểm tra tọa độ: [%s, %s]",
-                    currentPosition + 1, totalElements, listing.getCrawPropertyListingId(), lat, lng));
-            System.out.flush();
+            List<CrawPropertyListing> currentBatch = listingPage.getContent();
+            int deletedInThisBatch = 0;
 
-            try {
-                entityManager.clear();
-            } catch (Exception ignored) {}
+            for (CrawPropertyListing listing : currentBatch) {
+                checkedCount++;
+                Integer id = listing.getCrawPropertyListingId();
+                Double lat = listing.getLatitude();
+                Double lng = listing.getLongitude();
 
-            boolean isDeleted = false;
+                System.out.println(String.format("[CLEANER] 📍 (%d / %d) [ID: %d] ➔ Kiểm tra tọa độ: [%s, %s]",
+                        checkedCount, totalElements, id, lat, lng));
+                System.out.flush();
 
-            if (lat != null && lng != null && lat >= 8.4 && lat <= 23.4 && lng >= 102.1 && lng <= 110.0) {
-                if (isWaterCoordinate(lat, lng)) {
-                    System.out.println("   ❌ [PHÁT HIỆN SÔNG/BIỂN] Tọa độ nằm dưới vùng nước! Đang tiến hành xóa khỏi hệ thống...");
-                    try {
-                        deleteOneInNewTransaction(listing);
-                        System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
-                        totalElements--;
-                        deletedCount++;
-                        isDeleted = true;
-                    } catch (Exception dbEx) {
-                        System.out.println("   ❌ [LỖI XÓA DB] " + dbEx.getMessage());
+                try {
+                    entityManager.clear();
+                } catch (Exception ignored) {}
+
+                if (lat != null && lng != null && lat >= 8.4 && lat <= 23.4 && lng >= 102.1 && lng <= 110.0) {
+                    if (isWaterCoordinate(lat, lng)) {
+                        System.out.println("   ❌ [PHÁT HIỆN SÔNG/BIỂN] Tọa độ nằm dưới vùng nước! Đang tiến hành xóa khỏi hệ thống...");
+                        try {
+                            self.deleteOneInNewTransactionV2(listing);
+                            System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
+                            deletedCount++;
+                            deletedInThisBatch++;
+                            totalElements--;
+                        } catch (Exception dbEx) {
+                            System.out.println("   ❌ [LỖI XÓA DB] " + dbEx.getMessage());
+                        }
+                    } else {
+                        System.out.println("   ✅ [HỢP LỆ] Tọa độ nằm trên đất liền.");
                     }
                 } else {
-                    System.out.println("   ✅ [HỢP LỆ] Tọa độ nằm trên đất liền.");
+                    System.out.println("   ⚠️ [BỎ QUA] Tin không có tọa độ hoặc định dạng tọa độ không hợp lệ.");
                 }
+
+                randomSleep(1000, 1500);
+            }
+
+            if (deletedInThisBatch == 0) {
+                pageIndex++;
             } else {
-                System.out.println("   ⚠️ [BỎ QUA] Tin không có tọa độ hoặc định dạng tọa độ không hợp lệ.");
+                pageIndex = 0;
             }
-
-            if (!isDeleted) {
-                currentPosition++;
-            }
-
-            randomSleep(1000, 1500);
         }
 
         System.out.println("\n==========================================================================================");
         System.out.println(" --> [QUÉT HOÀN TẤT] Hệ thống sạch sẽ! Tổng số tin rác sông biển đã xóa: " + deletedCount);
         System.out.println("==========================================================================================\n");
         System.out.flush();
+    }
+
+
+    private void randomSleep(int min, int max) {
+        try {
+            long duration = min + (long)(Math.random() * (max - min));
+            Thread.sleep(duration);
+        } catch (InterruptedException ignored) {}
     }
 }

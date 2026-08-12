@@ -17,14 +17,14 @@ public class StaffDashboardController {
     @Autowired
     private StaffDashboardServiceInterface staffDashboardServiceInterface;
 
-    @GetMapping("/api/v1/dashboard/staff/kpis")
+    @GetMapping("/api/dashboard/staff/kpis")
     @Operation(description = "Đếm tổng số đơn đang ở trạng thái PENDING trong toàn hệ thống")
     @PreAuthorize("hasRole('Staff')")
     public ResponseEntity<ApiResponse> getStaffDashBoardKPI(){
         return staffDashboardServiceInterface.getDashBoardKpi();
     }
 
-    @GetMapping("/api/v1/dashboard/staff/pending-listings")
+    @GetMapping("/api/dashboard/staff/pending-listings")
     @Operation(description = "Hàng chờ Duyệt BĐS (Listing Verification Queue)")
     @PreAuthorize("hasRole('Staff')")
     public ResponseEntity<ApiResponse> getPendingListings(
@@ -33,7 +33,7 @@ public class StaffDashboardController {
         return staffDashboardServiceInterface.getPendingListing(page, size);
     }
 
-    @GetMapping("/api/v1/dashboard/staff/pending-verifications")
+    @GetMapping("/api/dashboard/staff/pending-verifications")
     @Operation(description = "Hàng chờ Duyệt Xác thực Tài khoản (Account Verification / KYC Queue)")
     @PreAuthorize("hasRole('Staff')")
     public ResponseEntity<ApiResponse> getPendingAccountVerifications(
@@ -42,7 +42,7 @@ public class StaffDashboardController {
         return staffDashboardServiceInterface.getPendingAccountVerifications(page, size);
     }
 
-    @GetMapping("/api/v1/dashboard/staff/pending-valuations")
+    @GetMapping("/api/dashboard/staff/pending-valuations")
     @Operation(description = "Hàng chờ Yêu cầu Định giá & Chứng nhận BĐS")
     @PreAuthorize("hasRole('Staff')")
     public ResponseEntity<ApiResponse> getPendingPropertyValuations(

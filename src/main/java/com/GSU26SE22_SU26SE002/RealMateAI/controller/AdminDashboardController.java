@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/dashboard/admin")
+@RequestMapping("/api/dashboard/admin")
 @Tag(name = "Admin_Dashboard", description = "Các API Dashboard giám sát toàn hệ thống dành cho Admin")
 public class AdminDashboardController {
 
