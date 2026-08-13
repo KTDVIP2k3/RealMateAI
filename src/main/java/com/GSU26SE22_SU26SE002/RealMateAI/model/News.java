@@ -22,10 +22,10 @@ public class News {
     @JsonIgnore
     private NewsCategory newsCategory;
 
-    @Column(nullable = false, length = 255)
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String title;
 
-    @Column(nullable = false, unique = true, length = 255)
+    @Column(columnDefinition = "TEXT", nullable = false, unique = true)
     private String slug;
 
     @Column(columnDefinition = "TEXT")
@@ -34,6 +34,7 @@ public class News {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @Column(columnDefinition = "TEXT")
     private String thumbnailUrl;
 
     @Column(columnDefinition = "TEXT")
@@ -46,7 +47,6 @@ public class News {
 
     @Builder.Default
     private Boolean isFeatured = false;
-
 
     private Boolean isActive;
     private LocalDateTime createdAt;
