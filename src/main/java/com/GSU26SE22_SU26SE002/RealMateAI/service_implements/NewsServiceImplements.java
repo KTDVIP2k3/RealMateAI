@@ -269,7 +269,6 @@ public class NewsServiceImplements implements NewsServiceInterface {
 
         int totalCrawledInBatch = 0;
         int currentPageNum = 1;
-        int maxPagesToScan = 15;
 
         BrowserContext context = null;
         Page listPage = null;
@@ -313,13 +312,9 @@ public class NewsServiceImplements implements NewsServiceInterface {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toCollection(HashSet::new));
 
-            Set<String> existingTitles = allExistingNews.stream()
-                    .map(n -> n.getTitle() != null ? n.getTitle().toLowerCase().trim() : "")
-                    .collect(Collectors.toCollection(HashSet::new));
-
             Set<String> processedUrlsInBatch = new HashSet<>();
 
-            while (this.currentDailyCrawledCount < DAILY_TARGET_NEWS && currentPageNum <= maxPagesToScan) {
+            while (this.currentDailyCrawledCount < DAILY_TARGET_NEWS) {
                 String targetUrl = "https://vnexpress.net/kinh-doanh/bat-dong-san-p" + currentPageNum;
                 System.out.println("\n[NEWS] MỞ TRANG DANH SÁCH VNEXPRESS (TRANG " + currentPageNum + "): " + targetUrl);
 
@@ -348,9 +343,8 @@ public class NewsServiceImplements implements NewsServiceInterface {
                     News news = extractVnExpressBasicInfo(item);
                     if (news != null && news.getSourceUrl() != null) {
                         String url = news.getSourceUrl();
-                        String titleLower = news.getTitle() != null ? news.getTitle().toLowerCase().trim() : "";
 
-                        if (!existingUrls.contains(url) && !existingTitles.contains(titleLower) && !processedUrlsInBatch.contains(url)) {
+                        if (!existingUrls.contains(url) && !processedUrlsInBatch.contains(url)) {
                             processedUrlsInBatch.add(url);
                             freshCandidates.add(news);
                         }
@@ -373,7 +367,6 @@ public class NewsServiceImplements implements NewsServiceInterface {
                         System.out.println(" ✅ [CÀO THÀNH CÔNG " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + "] " + fullNews.getTitle());
 
                         existingUrls.add(fullNews.getSourceUrl());
-                        existingTitles.add(fullNews.getTitle().toLowerCase().trim());
                     }
                 }
 
