@@ -218,6 +218,8 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
     private WalletWithDrawlListDTO convertToListDTO(WalletWithdrawal entity) {
         WalletWithDrawlListDTO dto = new WalletWithDrawlListDTO();
         dto.setWalletWithDrawlId(entity.getWalletWithdrawalId());
+        dto.setBankName(entity.getBankName());
+        dto.setBankAccountNumber(entity.getBankAccountNumber());
         dto.setAmount(entity.getAmount());
         dto.setStatus(entity.getStatus());
         dto.setCreateAt(entity.getCreatedAt());

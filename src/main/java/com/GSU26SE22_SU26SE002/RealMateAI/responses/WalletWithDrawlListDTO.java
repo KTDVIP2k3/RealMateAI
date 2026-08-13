@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class WalletWithDrawlListDTO {
     private Integer walletWithDrawlId;
+    private String bankName;
+    private String bankAccountNumber;
     private BigDecimal amount;
     private String status;
     private LocalDateTime createAt;
