@@ -237,18 +237,18 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             Integer finalMatchScore = 0;
             ExecutionPlanDTO executionPlanDTO = null;
-            if (profileVersion.getExecutionPlans() != null && !profileVersion.getExecutionPlans().isEmpty()) {
-                ExecutionPlan activePlan = profileVersion.getExecutionPlans().get(0);
-                finalMatchScore = activePlan.getMatch_score();
-
-                if (activePlan.getDescription() != null && !activePlan.getDescription().isEmpty()) {
-                    try {
-                        executionPlanDTO = objectMapper.readValue(activePlan.getDescription(), ExecutionPlanDTO.class);
-                    } catch (Exception jsonEx) {
-                        log.error("Error parsing ExecutionPlan JSON for version ID: {}", profileVersionId, jsonEx);
-                    }
-                }
-            }
+//            if (profileVersion.getExecutionPlans() != null && !profileVersion.getExecutionPlans().isEmpty()) {
+//                ExecutionPlan activePlan = profileVersion.getExecutionPlans().get(0);
+//                finalMatchScore = activePlan.getMatch_score();
+//
+//                if (activePlan.getDescription() != null && !activePlan.getDescription().isEmpty()) {
+//                    try {
+//                        executionPlanDTO = objectMapper.readValue(activePlan.getDescription(), ExecutionPlanDTO.class);
+//                    } catch (Exception jsonEx) {
+//                        log.error("Error parsing ExecutionPlan JSON for version ID: {}", profileVersionId, jsonEx);
+//                    }
+//                }
+//            }
 
             InvestmentProfile profile = profileVersion.getInvestmentProfile();
             if (profile == null) {
@@ -328,47 +328,46 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.fail("Version_Not_Found", "Không tìm thấy phiên bản kế hoạch với ID: " + profileVersionId));
             }
 
-
-
             List<InvestmentScenarioDTO> scenarioDTOList = new ArrayList<>();
             if (profileVersion.getInvestmentScenarios() != null) {
                 scenarioDTOList = profileVersion.getInvestmentScenarios().stream()
-                        .map(scenario -> {
-                            int totalMonths = 0;
-                            if (profileVersion.getDurationYear() != null) {
-                                totalMonths = (int) (profileVersion.getDurationYear() * 12);
-                            }
-                            return InvestmentScenarioDTO.builder()
-                                    .pkInvestmentScenarioId(scenario.getInvestmentScenarioId())
-                                    .enumScenarioType(scenario.getScenarioType())
-                                    .decimprofitYield(scenario.getExpectedReturnRate())
-                                    .textMarketNote(scenario.getDescription())
-                                    .decimmonthlyCashflow(0.0)
-                                    .decimprobability(0.0)
-                                    .durationMonths(totalMonths)
-                                    .decimpriceGrowthMin(0.0)
-                                    .decimpriceGrowthMax(0.0)
-                                    .build();
-                        })
+                        .map(scenario -> InvestmentScenarioDTO.builder()
+                                .pkInvestmentScenarioId(scenario.getInvestmentScenarioId())
+                                .enumScenarioType(scenario.getEnumScenarioType())
+                                .decimprofitYield(scenario.getDecimprofitYield())
+                                .textMarketNote(scenario.getTextMarketNote())
+                                .decimmonthlyCashflow(scenario.getDecimmonthlyCashflow())
+                                .decimprobability(scenario.getDecimprobability())
+                                .durationMonths(scenario.getDurationMonths())
+                                .decimpriceGrowthMin(scenario.getDecimpriceGrowthMin())
+                                .decimpriceGrowthMax(scenario.getDecimpriceGrowthMax())
+                                .build())
                         .collect(Collectors.toList());
             }
-
 
             Integer finalMatchScore = 0;
             ExecutionPlanDTO executionPlanDTO = null;
 
             if (profileVersion.getExecutionPlans() != null && !profileVersion.getExecutionPlans().isEmpty()) {
                 ExecutionPlan activePlan = profileVersion.getExecutionPlans().get(0);
+                finalMatchScore = activePlan.getMatch_score();
 
-                    finalMatchScore = activePlan.getMatch_score();
-
-                if (activePlan.getDescription() != null && !activePlan.getDescription().isEmpty()) {
-                    try {
-                        executionPlanDTO = objectMapper.readValue(activePlan.getDescription(), ExecutionPlanDTO.class);
-                    } catch (Exception jsonEx) {
-                        log.error("Error parsing ExecutionPlan JSON for version ID: {}", profileVersionId, jsonEx);
-                    }
-                }
+                executionPlanDTO = ExecutionPlanDTO.builder()
+                        .pkExecutionPlanId(activePlan.getExecutionPlanId())
+                        .totalInvestmentCapital(activePlan.getTotalInvestmentCapital())
+                        .decimloanPercentage(activePlan.getDecimloanPercentage())
+                        .decimmonthlyPayment(activePlan.getDecimmonthlyPayment())
+                        .decimprobability(activePlan.getDecimprobability())
+                        .decimnetCashflow(activePlan.getDecimnetCashflow())
+                        .maxHoldingMonths(activePlan.getMaxHoldingMonths())
+                        .booleanIsLegalClear(activePlan.getBooleanIsLegalClear())
+                        .booleanIsLeverageSafe(activePlan.getBooleanIsLeverageSafe())
+                        .stringLiquidityDurationRange(activePlan.getStringLiquidityDurationRange())
+                        .booleanIsReserveFundEnough(activePlan.getBooleanIsReserveFundEnough())
+                        .textTakeProfitStrategy(activePlan.getTextTakeProfitStrategy())
+                        .textHoldingTimeLimit(activePlan.getTextHoldingTimeLimit())
+                        .textQuickSellAction(activePlan.getTextQuickSellAction())
+                        .build();
             }
 
             List<InvestmentPortfolioDTO> portfolioDTOList = new ArrayList<>();
@@ -898,7 +897,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     }
 
 
-
     private void saveInvestmentPlanToDatabase(InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
@@ -923,7 +921,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             legalStatusJson = objectMapper.writeValueAsString(request.getLegalStatus());
         }
 
-
         InvestmentProfile profile = InvestmentProfile.builder()
                 .investor(dbInvestor)
                 .name("Kế hoạch"  +  " " + strategy.getName() + " " + request.getWardName())
@@ -938,7 +935,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         int nextVersionNumber = currentVersionsCount + 1;
         String autoVersionName = "Kế hoạch"  +  " " + strategy.getName() + " " + request.getWardName() + " - Version " + nextVersionNumber;
         String autoVersionCode = "V" + nextVersionNumber;
-
 
         InvestmentProfileVersion versionEntity = InvestmentProfileVersion.builder()
                 .investmentProfile(savedProfile)
@@ -966,7 +962,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .executionPlans(new ArrayList<>())
                 .build();
 
-
         InvestmentProfileVersion savedVersion = investmentProfileVersionRepository.save(versionEntity);
 
         if (request.getCriteriaList() != null && !request.getCriteriaList().isEmpty()) {
@@ -991,17 +986,26 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 }
             }
         }
+
         if (output != null && output.getScenarios() != null) {
             for (var scenarioDTO : output.getScenarios()) {
                 InvestmentScenario scenarioEntity = InvestmentScenario.builder()
                         .investmentProfileVersion(savedVersion)
-                        .name(scenarioDTO.getEnumScenarioType())
+//                        .name(scenarioDTO.getEnumScenarioType())
                         .scenarioType(scenarioDTO.getEnumScenarioType())
                         .expectedReturnRate(scenarioDTO.getDecimprofitYield())
-                        .description(scenarioDTO.getTextMarketNote())
+//                        .description(scenarioDTO.getTextMarketNote())
                         .isActive(true)
                         .createdAt(now)
                         .updatedAt(now)
+                        .enumScenarioType(scenarioDTO.getEnumScenarioType())
+                        .decimprofitYield(scenarioDTO.getDecimprofitYield())
+                        .decimmonthlyCashflow(scenarioDTO.getDecimmonthlyCashflow())
+                        .decimprobability(scenarioDTO.getDecimprobability())
+                        .textMarketNote(scenarioDTO.getTextMarketNote())
+                        .durationMonths(scenarioDTO.getDurationMonths())
+                        .decimpriceGrowthMin(scenarioDTO.getDecimpriceGrowthMin())
+                        .decimpriceGrowthMax(scenarioDTO.getDecimpriceGrowthMax())
                         .build();
 
                 investmentScenarioRepository.save(scenarioEntity);
@@ -1011,17 +1015,29 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         if (output != null && output.getExecutionPlan() != null) {
             var planDTO = output.getExecutionPlan();
             String descJson = objectMapper.writeValueAsString(planDTO);
-
             int scoreEvaluated = (output.getScore() != null) ? output.getScore() : 0;
 
             ExecutionPlan planEntity = ExecutionPlan.builder()
                     .investmentProfileVersion(savedVersion)
-                    .name("AI Execution Plan Details")
-                    .description(descJson)
+//                    .name("AI Execution Plan Details")
+//                    .description(descJson)
                     .match_score(scoreEvaluated)
-                    .status("ACTIVE")
+//                    .status("ACTIVE")
                     .createdAt(now)
                     .updatedAt(now)
+                    .totalInvestmentCapital(planDTO.getTotalInvestmentCapital())
+                    .decimloanPercentage(planDTO.getDecimloanPercentage())
+                    .decimmonthlyPayment(planDTO.getDecimmonthlyPayment())
+                    .decimprobability(planDTO.getDecimprobability())
+                    .decimnetCashflow(planDTO.getDecimnetCashflow())
+                    .maxHoldingMonths(planDTO.getMaxHoldingMonths())
+                    .booleanIsLegalClear(planDTO.getBooleanIsLegalClear())
+                    .booleanIsLeverageSafe(planDTO.getBooleanIsLeverageSafe())
+                    .stringLiquidityDurationRange(planDTO.getStringLiquidityDurationRange())
+                    .booleanIsReserveFundEnough(planDTO.getBooleanIsReserveFundEnough())
+                    .textTakeProfitStrategy(planDTO.getTextTakeProfitStrategy())
+                    .textHoldingTimeLimit(planDTO.getTextHoldingTimeLimit())
+                    .textQuickSellAction(planDTO.getTextQuickSellAction())
                     .build();
 
             executionPlanRepository.save(planEntity);
@@ -1285,10 +1301,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             for (var scenarioDTO : output.getScenarios()) {
                 InvestmentScenario scenarioEntity = InvestmentScenario.builder()
                         .investmentProfileVersion(savedVersion)
-                        .name(scenarioDTO.getEnumScenarioType())
+//                        .name(scenarioDTO.getEnumScenarioType())
                         .scenarioType(scenarioDTO.getEnumScenarioType())
                         .expectedReturnRate(scenarioDTO.getDecimprofitYield())
-                        .description(scenarioDTO.getTextMarketNote())
+//                        .description(scenarioDTO.getTextMarketNote())
                         .isActive(true)
                         .createdAt(now)
                         .updatedAt(now)
@@ -1306,10 +1322,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             ExecutionPlan planEntity = ExecutionPlan.builder()
                     .investmentProfileVersion(savedVersion)
-                    .name("AI Execution Plan Details")
-                    .description(descJson)
+//                    .name("AI Execution Plan Details")
+//                    .description(descJson)
                     .match_score(scoreEvaluated)
-                    .status("ACTIVE")
+//                    .status("ACTIVE")
                     .createdAt(now)
                     .updatedAt(now)
                     .build();
