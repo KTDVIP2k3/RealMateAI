@@ -153,11 +153,24 @@ public class ListingController {
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/seller/properties")
     @PreAuthorize("hasRole('Seller')")
-    @Operation(summary = "Seller: Xem danh sách tài sản đang sở hữu (mặc định 10/trang)")
+    @Operation(summary = "Seller: Xem danh sách tài sản đang sở hữu (mặc định 10/trang, page=0&size=0 -> lấy hết)")
     public ResponseEntity<ApiResponse> getMyProperties(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return listingService.getMyProperties(page, size);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MỚI: GET /seller/properties/{propertyId} — chi tiết 1 tài sản của chính
+    // Seller đang đăng nhập (dùng khi cần xem đầy đủ thông tin trước khi chọn
+    // "Dùng lại tài sản có sẵn" lúc tạo tin, hoặc để sửa thông tin tài sản).
+    // ─────────────────────────────────────────────────────────────────────────
+    @GetMapping("/seller/properties/{propertyId}")
+    @PreAuthorize("hasRole('Seller')")
+    @Operation(summary = "Seller: Chi tiết 1 tài sản đang sở hữu")
+    public ResponseEntity<ApiResponse> getMyPropertyDetail(
+            @PathVariable("propertyId") Integer propertyId) {
+        return listingService.getMyPropertyDetail(propertyId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

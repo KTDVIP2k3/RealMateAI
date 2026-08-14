@@ -17,6 +17,23 @@ public interface ActiveLogRepository extends JpaRepository<ActiveLog, UUID> {
     /** Số lượt xem (VIEW) của 1 listing — dùng cho GET /listings/{listingId}/views. */
     long countByListingIdAndEventType(Integer listingId, UserEventTypeEnum eventType);
 
+    // MỚI: dùng cho Seller Dashboard — tổng số event (VIEW/CONTACT...) TRÊN
+    // TOÀN BỘ danh sách listing của 1 Seller, tính bằng 1 query duy nhất
+    // (tránh N+1 query nếu lặp qua từng listing riêng lẻ).
+    long countByListingIdInAndEventType(java.util.List<Integer> listingIds, UserEventTypeEnum eventType);
+
+    // MỚI: đếm RIÊNG theo từng listing (group by) — dùng cho "Top BĐS được
+    // xem nhiều nhất" (API 1.4), trả về listingId + count để map ngược lại.
+    @Query("""
+            SELECT al.listingId AS listingId, COUNT(al) AS viewCount
+            FROM ActiveLog al
+            WHERE al.eventType = :eventType AND al.listingId IN :listingIds
+            GROUP BY al.listingId
+            """)
+    java.util.List<FeaturedListingProjection> countGroupedByListingId(
+            @Param("listingIds") java.util.List<Integer> listingIds,
+            @Param("eventType") UserEventTypeEnum eventType);
+
     // MỚI: Top listing theo SỐ LƯỢT XEM THẬT (đếm từ ActiveLog, KHÔNG dùng cột
     // Listing.viewCount cũ — cột đó có method incrementViewCount() sẵn nhưng
     // CHƯA TỪNG được gọi ở đâu trong hệ thống, luôn = 0, không phản ánh đúng

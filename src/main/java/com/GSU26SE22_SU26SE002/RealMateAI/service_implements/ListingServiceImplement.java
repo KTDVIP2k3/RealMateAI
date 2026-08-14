@@ -576,8 +576,10 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            int effectiveSize = size > 0 ? size : PAGE_SIZE;
-            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize);
+            // SỬA: dùng resolvePageable() dùng chung — page=0 & size=0 tường
+            // minh => lấy hết, đồng bộ với các API listing khác (getMarketListings,
+            // searchListings, getFeaturedListings, getMyProperties).
+            Pageable pageable = resolvePageable(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
             Page<Listing> listingPage = listingRepository.findBySellerId(seller.getSellerId(), pageable);
 
@@ -610,8 +612,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            int effectiveSize = size > 0 ? size : PAGE_SIZE;
-            Pageable pageable = PageRequest.of(Math.max(page, 0), effectiveSize);
+            // SỬA: dùng resolvePageable() dùng chung — page=0 & size=0 tường
+            // minh => lấy hết, không phân trang (đồng bộ với các API listing khác).
+            Pageable pageable = resolvePageable(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
             Page<Property> propertyPage = propertyRepository.findBySellerIdWithDetails(seller.getSellerId(), pageable);
 
@@ -635,6 +638,41 @@ public class ListingServiceImplement implements ListingServiceInterface {
             return handleAuthException(e);
         } catch (Exception e) {
             log.error("[ListingService] getMyProperties lỗi", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // MỚI: GET /seller/properties/{propertyId} — chi tiết 1 tài sản, bắt buộc
+    // đúng chủ sở hữu (Seller khác không xem được tài sản của người khác qua
+    // API này — khác với xem tin đăng công khai).
+    // ════════════════════════════════════════════════════════════════════════
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse> getMyPropertyDetail(Integer propertyId) {
+        try {
+            Account currentUser = authenUntil.getCurrentUSer();
+            Seller seller = getCurrentSeller(currentUser);
+
+            Property property = propertyRepository.findByIdWithDetails(propertyId).orElse(null);
+            if (property == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found", "Tài sản không tồn tại: id=" + propertyId));
+            }
+            if (property.getSeller() == null || !property.getSeller().getSellerId().equals(seller.getSellerId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.fail("Forbidden", "Tài sản này không thuộc sở hữu của bạn"));
+            }
+
+            int listingCount = (int) listingRepository.countByProperty_PropertyId(property.getPropertyId());
+            PropertyDetailResponse detail = listingMapper.toPropertyDetail(property, listingCount);
+
+            return ResponseEntity.ok(ApiResponse.success(detail, "Chi tiết tài sản"));
+        } catch (RuntimeException e) {
+            return handleAuthException(e);
+        } catch (Exception e) {
+            log.error("[ListingService] getMyPropertyDetail lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }

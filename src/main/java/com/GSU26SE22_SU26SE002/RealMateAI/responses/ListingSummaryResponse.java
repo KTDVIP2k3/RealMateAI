@@ -45,4 +45,11 @@ public class ListingSummaryResponse {
 
     /** Badge "tích xanh" — xem giải thích đầy đủ ở ListingDetailResponse. */
     private Boolean isVerified;
+
+    // MỚI: gói dịch vụ đăng tin ĐANG chạy cho tin này (PostingPackageOrder có
+    // isActive=true) — null nếu tin chưa từng thanh toán thành công, hoặc gói
+    // đã hết hạn (isActive tự về false khi hết hạn — xem cron/job hết hạn).
+    private Integer currentPostingPackageId;
+    private String currentPostingPackageName;
+    private java.time.LocalDateTime currentPostingPackageEndDate;
 }

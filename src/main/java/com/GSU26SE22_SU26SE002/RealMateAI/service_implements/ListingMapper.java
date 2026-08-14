@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
  * sau đó mới theo displayOrder.
  */
 
+
 @Component
 public class ListingMapper {
 
@@ -59,9 +60,6 @@ public class ListingMapper {
                 .price(l.getPrice())
                 .contactPerson(l.getContactPerson())
                 .contactPersonPhone(l.getContactPersonPhone())
-                .viewingDate(l.getViewingDate())
-                .startTime(l.getStartTime())
-                .endTime(l.getEndTime())
                 .isActive(l.getIsActive())
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .reviewerNote(lv != null ? lv.getReviewerNote() : null)
@@ -125,6 +123,17 @@ public class ListingMapper {
 
         ListingVerification lv = l.getListingVerification();
 
+        // MỚI: tìm PostingPackageOrder ĐANG active (isActive=true) — về nghiệp
+        // vụ tại 1 thời điểm chỉ có tối đa 1 order thật sự "đang chạy" cho 1
+        // Listing, nhưng vẫn duyệt an toàn qua toàn bộ danh sách + lấy
+        // endDate xa nhất phòng trường hợp dữ liệu có nhiều dòng active hơn
+        // dự kiến (không throw lỗi, chỉ lấy 1 đại diện hợp lý nhất).
+        PostingPackageOrder currentOrder = l.getPostingPackageOrders() == null ? null
+                : l.getPostingPackageOrders().stream()
+                .filter(o -> Boolean.TRUE.equals(o.getIsActive()))
+                .max(Comparator.comparing(PostingPackageOrder::getEndDate, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElse(null);
+
         return ListingSummaryResponse.builder()
                 .listingId(l.getListingId())
                 .title(l.getTitle())
@@ -142,6 +151,11 @@ public class ListingMapper {
                 .isFavorited(isFavorited)
                 .verificationStatus(lv != null && lv.getStatus() != null ? lv.getStatus().name() : null)
                 .isVerified(l.getIsVerified())
+                .currentPostingPackageId(currentOrder != null && currentOrder.getPostingPackage() != null
+                        ? currentOrder.getPostingPackage().getPostingPackageId() : null)
+                .currentPostingPackageName(currentOrder != null && currentOrder.getPostingPackage() != null
+                        ? currentOrder.getPostingPackage().getName() : null)
+                .currentPostingPackageEndDate(currentOrder != null ? currentOrder.getEndDate() : null)
                 .build();
     }
 
