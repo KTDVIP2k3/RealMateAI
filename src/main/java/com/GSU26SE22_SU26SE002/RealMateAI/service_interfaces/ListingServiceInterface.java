@@ -29,6 +29,9 @@ public interface ListingServiceInterface {
     /** Mặc định 10 tài sản/trang nếu size &lt;= 0. */
     ResponseEntity<ApiResponse> getMyProperties(int page, int size);
 
+    /** MỚI: GET /seller/properties/{propertyId} — chi tiết 1 tài sản của chính Seller. */
+    ResponseEntity<ApiResponse> getMyPropertyDetail(Integer propertyId);
+
     ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request);
 
     ResponseEntity<ApiResponse> getMyListingDetail(Integer listingId);

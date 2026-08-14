@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.repositories;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackageOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -68,13 +69,21 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
      * không cần DISTINCT.
      */
     @Query("""
-            SELECT l FROM Listing l
-            JOIN FETCH l.property p
-            LEFT JOIN FETCH p.propertyType pt
-            LEFT JOIN FETCH p.location loc
-            WHERE l.listingId IN :ids
-            """)
+        SELECT l FROM Listing l
+        JOIN FETCH l.property p
+        LEFT JOIN FETCH p.propertyType pt
+        LEFT JOIN FETCH p.location loc
+        WHERE l.listingId IN :ids
+        """)
     List<Listing> findAllByListingIdInWithDetails(@Param("ids") List<Integer> ids);
+    @Query("""
+        SELECT o FROM PostingPackageOrder o
+        JOIN FETCH o.postingPackage pp
+        LEFT JOIN FETCH pp.postingPackageCategory
+        JOIN o.listing l
+        WHERE l.listingId IN :ids
+        """)
+    List<PostingPackageOrder> findOrdersWithPackageByListingIds(@Param("ids") List<Integer> ids);
 
     /**
      * Chi tiết 1 bài đăng công khai — JOIN FETCH toàn bộ liên kết *ToOne cần

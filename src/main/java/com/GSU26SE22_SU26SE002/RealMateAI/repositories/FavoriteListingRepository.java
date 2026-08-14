@@ -43,4 +43,17 @@ public interface FavoriteListingRepository extends JpaRepository<FavoriteListing
      */
     @Query("SELECT fl.listing.listingId FROM FavoriteListing fl WHERE fl.investor.investorId = :investorId")
     List<Integer> findFavoritedListingIdsByInvestorId(@Param("investorId") Integer investorId);
+
+    // MỚI: dùng cho Seller Dashboard — tổng lượt yêu thích TRÊN TOÀN BỘ danh
+    // sách listing của 1 Seller (1 query, tránh N+1).
+    long countByListing_ListingIdIn(List<Integer> listingIds);
+
+    // MỚI: đếm RIÊNG theo từng listing — dùng cho "Top BĐS được lưu nhiều nhất".
+    @Query("""
+            SELECT fl.listing.listingId AS listingId, COUNT(fl) AS saveCount
+            FROM FavoriteListing fl
+            WHERE fl.listing.listingId IN :listingIds
+            GROUP BY fl.listing.listingId
+            """)
+    List<Object[]> countGroupedByListingId(@Param("listingIds") List<Integer> listingIds);
 }

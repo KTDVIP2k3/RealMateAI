@@ -32,17 +32,16 @@ public class ListingSummaryResponse {
     private java.math.BigDecimal latitude;
     private java.math.BigDecimal longitude;
 
-    /** Số lượt xem — dùng để hiển thị cùng sort MOST_VIEWED */
     private Integer viewCount;
 
     private LocalDateTime createdAt;
 
-    /** true nếu user hiện tại đã yêu thích bài đăng này */
     private Boolean isFavorited;
 
     /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
     private String verificationStatus;
 
-    /** Badge "tích xanh" — xem giải thích đầy đủ ở ListingDetailResponse. */
     private Boolean isVerified;
+
+    private String postingPackageCategoryName;
 }

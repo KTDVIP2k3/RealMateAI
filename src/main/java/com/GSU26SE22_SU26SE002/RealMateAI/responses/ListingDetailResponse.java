@@ -22,9 +22,6 @@ public class ListingDetailResponse {
     private Long price;
     private String contactPerson;
     private String contactPersonPhone;
-    private String viewingDate;
-    private LocalTime startTime;
-    private LocalTime endTime;
     private Boolean isActive;
 
     /** Trạng thái duyệt hiện tại: PENDING / APPROVED / REJECTED / EXPIRED */
