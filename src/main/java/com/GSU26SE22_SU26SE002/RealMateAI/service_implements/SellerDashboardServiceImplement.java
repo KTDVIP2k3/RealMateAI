@@ -1,143 +1,144 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.ListingStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.UserEventTypeEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.ListingVerification;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Seller;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ActiveLogRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.FavoriteListingRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.SellerRepository;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.PostingPackageOrderStatusEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackageOrder;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.Transaction;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.Wallet;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PostingPackageOrderRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.TransactionRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.WalletRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.SellerDashboardKpiDTO;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.SellerTopListingDTO;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDtoV2;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.TransactionSummaryDto;
+import com.GSU26SE22_SU26SE002.RealMateAI.responses.WalletSummaryDto;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.SellerDashboardServiceInterface;
-import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
-
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class SellerDashboardServiceImplement implements SellerDashboardServiceInterface {
 
-    private final AuthenUntil authenUntil;
-    private final SellerRepository sellerRepository;
-    private final ListingRepository listingRepository;
-    private final ActiveLogRepository activeLogRepository;
-    private final FavoriteListingRepository favoriteListingRepository;
+    @Autowired
+    private PostingPackageOrderRepository postingPackageOrderRepository;
 
-    private Seller getCurrentSeller() {
-        Account currentUser = authenUntil.getCurrentUSer();
-        return sellerRepository.findByAccount_AccountId(currentUser.getAccountId())
-                .orElseThrow(() -> new RuntimeException("Seller profile không tồn tại"));
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    @Autowired
+    private WalletRepository walletRepository;
+
+    private Integer getCurrentAccountId() {
+        return 88;
     }
 
+    @Transactional(readOnly = true)
     @Override
-    @Transactional
-    public ResponseEntity<ApiResponse> getSellerDashboardKpi() {
+    public ResponseEntity<ApiResponse> getPostingPackageOrders(Boolean activeOnly, Integer limit) {
         try {
-            Seller seller = getCurrentSeller();
+            Integer currentAccountId = getCurrentAccountId();
+            List<PostingPackageOrder> allOrders = postingPackageOrderRepository.findAll();
+            if (allOrders == null) {
+                allOrders = Collections.emptyList();
+            }
 
-            // Lấy TOÀN BỘ listing của Seller (không phân trang) — 1 Seller
-            // thường không có số lượng tin quá lớn nên gom hết vào bộ nhớ để
-            // đếm 1 lần là hợp lý, tránh nhiều round-trip DB.
-            List<Listing> listings = listingRepository.findBySellerId(seller.getSellerId(), Pageable.unpaged()).getContent();
+            LocalDateTime now = LocalDateTime.now();
 
-            long totalListings = listings.size();
-            long activeListings = listings.stream()
-                    .filter(l -> l.getStatus() == SellerListingStatusEnum.ACTIVE).count();
-            long hiddenListings = listings.stream()
-                    .filter(l -> l.getStatus() == SellerListingStatusEnum.HIDDEN).count();
-            long pendingApproval = listings.stream()
-                    .filter(l -> {
-                        ListingVerification lv = l.getListingVerification();
-                        return lv != null && lv.getStatus() == ListingStatusEnum.PENDING;
-                    }).count();
+            List<PostingPackageOrderDtoV2> filteredOrders = allOrders.stream()
+                    .filter(order -> order.getListing() != null
+                            && order.getListing().getSeller() != null
+                            && order.getListing().getSeller().getAccount() != null
+                            && currentAccountId.equals(order.getListing().getSeller().getAccount().getAccountId()))
+                    .filter(order -> !Boolean.TRUE.equals(activeOnly) || (Boolean.TRUE.equals(order.getIsActive()) && order.getStatus() == PostingPackageOrderStatusEnum.SUCCESS))
+                    .sorted(Comparator.comparing(PostingPackageOrder::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .limit(limit != null && limit > 0 ? limit : Long.MAX_VALUE)
+                    .map(order -> {
+                        PostingPackageOrderDtoV2 dto = new PostingPackageOrderDtoV2();
+                        dto.setPostingPackageOrderId(order.getPostingPackageOrderId());
 
-            List<Integer> listingIds = listings.stream().map(Listing::getListingId).toList();
-            long totalViews = listingIds.isEmpty() ? 0
-                    : activeLogRepository.countByListingIdInAndEventType(listingIds, UserEventTypeEnum.VIEW);
-            long totalContacts = listingIds.isEmpty() ? 0
-                    : activeLogRepository.countByListingIdInAndEventType(listingIds, UserEventTypeEnum.CONTACT);
-            long totalSaved = listingIds.isEmpty() ? 0
-                    : favoriteListingRepository.countByListing_ListingIdIn(listingIds);
+                        if (order.getPostingPackage() != null) {
+                            dto.setPostingPackageId(order.getPostingPackage().getPostingPackageId());
+                            dto.setPostingPackageName(order.getPostingPackage().getName());
+                        }
 
-            SellerDashboardKpiDTO dto = SellerDashboardKpiDTO.builder()
-                    .totalListings(totalListings)
-                    .activeListings(activeListings)
-                    .hiddenListings(hiddenListings)
-                    .pendingApproval(pendingApproval)
-                    .totalViews(totalViews)
-                    .totalSaved(totalSaved)
-                    .totalContacts(totalContacts)
-                    .build();
+                        if (order.getListing() != null) {
+                            dto.setListingId(order.getListing().getListingId());
+                            dto.setListingTitle(order.getListing().getTitle());
+                        }
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(dto, "Seller dashboard KPI"));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail("Unauthorized", e.getMessage()));
+                        dto.setTotalAmount(order.getTotalAmount());
+                        dto.setStartDate(order.getStartDate());
+                        dto.setEndDate(order.getEndDate());
+                        dto.setDuration(order.getDuration());
+                        dto.setIsActive(order.getIsActive());
+                        dto.setStatus(order.getStatus() != null ? order.getStatus().name() : "PENDING");
+
+                        if (order.getEndDate() != null && order.getEndDate().isAfter(now)) {
+                            long days = Duration.between(now, order.getEndDate()).toDays();
+                            dto.setDaysRemaining(days);
+                            dto.setIsExpiringSoon(days <= 3);
+                        } else {
+                            dto.setDaysRemaining(0L);
+                            dto.setIsExpiringSoon(false);
+                        }
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(filteredOrders, "Get seller posting package orders successfully"));
         } catch (Exception e) {
-            log.error("[SellerDashboardService] getSellerDashboardKpi lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
 
+    @Transactional(readOnly = true)
     @Override
-    @Transactional
-    public ResponseEntity<ApiResponse> getTopListings(int limit) {
+    public ResponseEntity<ApiResponse> getWalletSummary() {
         try {
-            Seller seller = getCurrentSeller();
-            int effectiveLimit = limit > 0 ? limit : 5;
+            Integer currentAccountId = getCurrentAccountId();
 
-            List<Listing> listings = listingRepository.findBySellerId(seller.getSellerId(), Pageable.unpaged()).getContent();
-            List<Integer> listingIds = listings.stream().map(Listing::getListingId).toList();
+            Wallet wallet = walletRepository.findAll().stream()
+                    .filter(w -> Boolean.TRUE.equals(w.getIsActive())
+                            && w.getAccount() != null
+                            && currentAccountId.equals(w.getAccount().getAccountId()))
+                    .findFirst()
+                    .orElse(null);
 
-            Map<Integer, Long> viewCountByListing = new HashMap<>();
-            Map<Integer, Long> saveCountByListing = new HashMap<>();
+            BigDecimal balance = (wallet != null && wallet.getBalance() != null) ? wallet.getBalance() : BigDecimal.ZERO;
 
-            if (!listingIds.isEmpty()) {
-                activeLogRepository.countGroupedByListingId(listingIds, UserEventTypeEnum.VIEW)
-                        .forEach(p -> viewCountByListing.put(p.getListingId(), p.getViewCount()));
-                favoriteListingRepository.countGroupedByListingId(listingIds)
-                        .forEach(row -> saveCountByListing.put((Integer) row[0], (Long) row[1]));
-            }
-
-            List<SellerTopListingDTO> topListings = listings.stream()
-                    .map(l -> SellerTopListingDTO.builder()
-                            .listingId(l.getListingId())
-                            .title(l.getTitle())
-                            .price(l.getPrice())
-                            .viewCount(viewCountByListing.getOrDefault(l.getListingId(), 0L))
-                            .saveCount(saveCountByListing.getOrDefault(l.getListingId(), 0L))
-                            .status(l.getStatus() != null ? l.getStatus().name() : null)
-                            .build())
-                    // Sắp xếp theo viewCount giảm dần — đúng ý nghĩa "Top BĐS được xem nhiều nhất"
-                    .sorted(Comparator.comparingLong(SellerTopListingDTO::getViewCount).reversed())
-                    .limit(effectiveLimit)
+            List<Transaction> allTransactions = transactionRepository.findAll();
+            List<TransactionSummaryDto> recentTransactions = allTransactions.stream()
+                    .filter(t -> t.getAccount() != null && currentAccountId.equals(t.getAccount().getAccountId()))
+                    .sorted(Comparator.comparing(Transaction::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                    .limit(5)
+                    .map(t -> {
+                        TransactionSummaryDto txDto = new TransactionSummaryDto();
+                        txDto.setTransactionId(t.getTransactionId());
+                        txDto.setAmount(t.getTotalAmount());
+                        txDto.setType(t.getTransactionType() != null ? t.getTransactionType().name() : "UNKNOWN");
+                        txDto.setCreatedAt(t.getCreatedAt());
+                        return txDto;
+                    })
                     .collect(Collectors.toList());
 
+            WalletSummaryDto summary = new WalletSummaryDto();
+            summary.setBalance(balance);
+            summary.setCurrency("VND");
+            summary.setRecentTransactions(recentTransactions);
+
             return ResponseEntity.status(HttpStatus.OK)
-                    .body(ApiResponse.success(topListings, "Top " + effectiveLimit + " BĐS được xem/lưu nhiều nhất"));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail("Unauthorized", e.getMessage()));
+                    .body(ApiResponse.success(summary, "Get wallet summary successfully"));
         } catch (Exception e) {
-            log.error("[SellerDashboardService] getTopListings lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }

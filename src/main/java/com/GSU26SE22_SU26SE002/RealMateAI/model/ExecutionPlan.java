@@ -1,10 +1,8 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.model;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.model.InvestmentProfile;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
 @NoArgsConstructor
@@ -26,14 +24,33 @@ public class ExecutionPlan {
     @JsonIgnore
     private InvestmentProfileVersion investmentProfileVersion;
 
-    private String name;
-
-    @Column(columnDefinition = "TEXT")
-    private String description;
+//    private String name;
+//
+//    @Column(columnDefinition = "TEXT")
+//    private String description;
 
     private int match_score;
-
-    private String status;
+//    private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private Double totalInvestmentCapital;
+    private Double decimloanPercentage;
+    private Double decimmonthlyPayment;
+    private Double decimprobability;
+    private Double decimnetCashflow;
+    private Integer maxHoldingMonths;
+    private Boolean booleanIsLegalClear;
+    private Boolean booleanIsLeverageSafe;
+    private String stringLiquidityDurationRange;
+    private Boolean booleanIsReserveFundEnough;
+
+    @Column(columnDefinition = "TEXT")
+    private String textTakeProfitStrategy;
+
+    @Column(columnDefinition = "TEXT")
+    private String textHoldingTimeLimit;
+
+    @Column(columnDefinition = "TEXT")
+    private String textQuickSellAction;
 }

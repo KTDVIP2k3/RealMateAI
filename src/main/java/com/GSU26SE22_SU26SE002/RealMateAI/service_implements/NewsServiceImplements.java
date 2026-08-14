@@ -15,7 +15,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,7 +32,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
-//@Profile("local")
 public class NewsServiceImplements implements NewsServiceInterface {
 
     @Autowired
@@ -45,7 +43,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
     @Autowired
     private ModelMapper modelMapper;
 
-    private static final int DAILY_TARGET_NEWS = 50;
+    private static final int DAILY_TARGET_NEWS = 500;
     private int currentDailyCrawledCount = 0;
 
     @Transactional(readOnly = true)
@@ -241,7 +239,6 @@ public class NewsServiceImplements implements NewsServiceInterface {
         this.currentDailyCrawledCount = 0;
     }
 
-//    @Scheduled(initialDelay = 5000, fixedDelay = 600000)
     @Override
     public void autoCrawlNewsData() {
         this.executeCrawlLogic();
@@ -271,10 +268,10 @@ public class NewsServiceImplements implements NewsServiceInterface {
         if (!profileDir.exists()) profileDir.mkdirs();
 
         int totalCrawledInBatch = 0;
-        int pageNum = 1;
+        int currentPageNum = 1;
 
         BrowserContext context = null;
-        Page page = null;
+        Page listPage = null;
 
         try (Playwright playwright = Playwright.create()) {
             List<String> browserArgs = Arrays.asList(
@@ -282,26 +279,14 @@ public class NewsServiceImplements implements NewsServiceInterface {
                     "--disable-dev-shm-usage",
                     "--disable-blink-features=AutomationControlled",
                     "--disable-infobars",
-                    "--disable-session-crashed-bubble",
-                    "--hide-crash-restore-bubble",
                     "--window-size=1920,1080",
                     "--start-maximized",
-                    "--lang=vi-VN,vi",
-                    "--crash-dumps-dir=" + crashDir.toString()
+                    "--lang=vi-VN,vi"
             );
 
             Map<String, String> headers = new HashMap<>();
             headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
             headers.put("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7");
-            headers.put("Cache-Control", "max-age=0");
-            headers.put("Sec-Ch-Ua", "\"Not/A)Brand\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
-            headers.put("Sec-Ch-Ua-Mobile", "?0");
-            headers.put("Sec-Ch-Ua-Platform", "\"Windows\"");
-            headers.put("Sec-Fetch-Dest", "document");
-            headers.put("Sec-Fetch-Mode", "navigate");
-            headers.put("Sec-Fetch-Site", "none");
-            headers.put("Sec-Fetch-User", "?1");
-            headers.put("Upgrade-Insecure-Requests", "1");
 
             BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                     .setHeadless(isServer)
@@ -319,170 +304,132 @@ public class NewsServiceImplements implements NewsServiceInterface {
             }
 
             context = playwright.chromium().launchPersistentContext(userDataDir, options);
-
-            context.addInitScript(
-                    "(() => {\n" +
-                            " Object.defineProperty(navigator, 'webdriver', { get: () => undefined });\n" +
-                            " window.chrome = { runtime: {}, app: { isInstalled: false } };\n" +
-                            " Object.defineProperty(navigator, 'languages', { get: () => ['vi-VN', 'vi', 'en-US', 'en'] });\n" +
-                            " Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });\n" +
-                            " Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });\n" +
-                            " Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });\n" +
-                            " const originalQuery = window.navigator.permissions.query;\n" +
-                            " window.navigator.permissions.query = (parameters) => (\n" +
-                            " parameters.name === 'notifications' ?\n" +
-                            " Promise.resolve({ state: Notification.permission }) :\n" +
-                            " originalQuery(parameters)\n" +
-                            " );\n" +
-                            "})();"
-            );
-
-            page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
+            listPage = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
 
             List<News> allExistingNews = newsRepository.findAll();
             Set<String> existingUrls = allExistingNews.stream()
                     .map(News::getSourceUrl)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-
-            Set<String> existingTitles = allExistingNews.stream()
-                    .map(n -> n.getTitle() != null ? n.getTitle().toLowerCase().trim() : "")
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toCollection(HashSet::new));
 
             Set<String> processedUrlsInBatch = new HashSet<>();
 
-            while (this.currentDailyCrawledCount < DAILY_TARGET_NEWS && pageNum <= 10) {
-                String targetUrl = (pageNum == 1)
-                        ? "https://batdongsan.com.vn/tin-tuc"
-                        : "https://batdongsan.com.vn/tin-tuc/p" + pageNum;
+            while (this.currentDailyCrawledCount < DAILY_TARGET_NEWS) {
+                String targetUrl = "https://vnexpress.net/kinh-doanh/bat-dong-san-p" + currentPageNum;
+                System.out.println("\n[NEWS] MỞ TRANG DANH SÁCH VNEXPRESS (TRANG " + currentPageNum + "): " + targetUrl);
 
                 try {
-                    System.out.println("\n[NEWS] MỞ TRANG DANH SÁCH (Trang " + pageNum + "): " + targetUrl);
-                    page.navigate(targetUrl, new Page.NavigateOptions()
+                    listPage.navigate(targetUrl, new Page.NavigateOptions()
                             .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                            .setTimeout(45000));
+                            .setTimeout(30000));
+                } catch (Exception e) {
+                    System.err.println("⚠️ Lỗi điều hướng trang danh sách: " + e.getMessage());
+                    currentPageNum++;
+                    continue;
+                }
 
-                    page.mouse().move(150, 200);
-                    page.mouse().move(350, 450);
-                    randomSleep(2000, 3500);
+                randomSleep(1500, 2500);
 
-                    String pageTitle = page.title();
-                    if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required")
-                            || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                        System.out.println("⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại: " + targetUrl);
-                        break;
-                    }
+                Document doc = Jsoup.parse(listPage.content());
+                Elements articleItems = doc.select(".item-news, .item-news-common, article.item-news");
 
-                    Document doc = Jsoup.parse(page.content());
-                    Elements articleCards = doc.select(".re__article-card, .re__news-card, .re__large-card, .re__card-full, .re__card-news, div[class*='article'], div[class*='news-card'], a[href*='/tin-tuc/']");
+                if (articleItems.isEmpty()) {
+                    System.out.println("🛑 Không tìm thấy thẻ bài viết nào trên trang " + currentPageNum + ". Kết thúc quét.");
+                    break;
+                }
 
-                    if (articleCards.isEmpty()) {
-                        System.out.println("🛑 [HẾT TRANG] Trang " + pageNum + " không tìm thấy card tin tức nào.");
-                        break;
-                    }
+                List<News> freshCandidates = new ArrayList<>();
+                for (Element item : articleItems) {
+                    News news = extractVnExpressBasicInfo(item);
+                    if (news != null && news.getSourceUrl() != null) {
+                        String url = news.getSourceUrl();
 
-                    List<News> freshCandidates = new ArrayList<>();
-
-                    for (Element card : articleCards) {
-                        News news = extractBasicNewsInfo(card);
-                        if (news != null && news.getSourceUrl() != null) {
-                            String url = news.getSourceUrl();
-                            String titleLower = news.getTitle() != null ? news.getTitle().toLowerCase().trim() : "";
-
-                            if (!existingUrls.contains(url) && !existingTitles.contains(titleLower) && !processedUrlsInBatch.contains(url)) {
-                                processedUrlsInBatch.add(url);
-                                freshCandidates.add(news);
-                            }
+                        if (!existingUrls.contains(url) && !processedUrlsInBatch.contains(url)) {
+                            processedUrlsInBatch.add(url);
+                            freshCandidates.add(news);
                         }
                     }
+                }
 
-                    System.out.println("--> Tìm thấy " + freshCandidates.size() + " tin tức mới hợp lệ trên trang " + pageNum);
+                System.out.println("--> Tìm thấy " + freshCandidates.size() + " tin tức BĐS mới hợp lệ tại Trang " + currentPageNum);
 
-                    List<News> pageResultList = new ArrayList<>();
-                    for (News candidate : freshCandidates) {
-                        if (this.currentDailyCrawledCount >= DAILY_TARGET_NEWS) {
-                            System.out.println("🎯 [NEWS CRAWLER] Đã đạt chỉ tiêu " + DAILY_TARGET_NEWS + " tin trong ngày.");
-                            break;
-                        }
-
-                        News fullNews = fetchNewsDetail(candidate, page);
-                        if (fullNews != null && isValidNews(fullNews)) {
-                            pageResultList.add(fullNews);
-                            this.currentDailyCrawledCount++;
-                            totalCrawledInBatch++;
-                            System.out.println(" ✅ [CÀO THÀNH CÔNG " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + "] " + fullNews.getTitle());
-                        }
-                    }
-
-                    if (!pageResultList.isEmpty()) {
-                        saveNewsInTransaction(pageResultList);
-                        pageResultList.forEach(n -> {
-                            existingUrls.add(n.getSourceUrl());
-                            existingTitles.add(n.getTitle().toLowerCase().trim());
-                        });
-                    }
-
+                List<News> pageResultList = new ArrayList<>();
+                for (News candidate : freshCandidates) {
                     if (this.currentDailyCrawledCount >= DAILY_TARGET_NEWS) {
                         break;
                     }
 
-                    pageNum++;
-                    randomSleep(2000, 4000);
+                    News fullNews = fetchVnExpressDetail(candidate, context);
+                    if (fullNews != null && isValidNews(fullNews)) {
+                        pageResultList.add(fullNews);
+                        this.currentDailyCrawledCount++;
+                        totalCrawledInBatch++;
+                        System.out.println(" ✅ [CÀO THÀNH CÔNG " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + "] " + fullNews.getTitle());
 
-                } catch (Exception pageEx) {
-                    System.err.println("⚠️ Lỗi khi cào trang news " + pageNum + ": " + pageEx.getMessage());
+                        existingUrls.add(fullNews.getSourceUrl());
+                    }
+                }
+
+                if (!pageResultList.isEmpty()) {
+                    saveNewsInTransaction(pageResultList);
+                }
+
+                if (this.currentDailyCrawledCount >= DAILY_TARGET_NEWS) {
+                    System.out.println("🎯 [NEWS CRAWLER] Đã đạt đủ chỉ tiêu " + DAILY_TARGET_NEWS + " bài tin tức BĐS.");
                     break;
                 }
+
+                currentPageNum++;
+                randomSleep(2000, 4000);
             }
 
         } catch (Exception e) {
-            System.err.println("❌ Lỗi hệ thống Playwright News Crawler: " + e.getMessage());
+            System.err.println("❌ Lỗi hệ thống VnExpress News Crawler: " + e.getMessage());
         } finally {
-            if (page != null && !page.isClosed()) try { page.close(); } catch (Exception ignored) {}
+            if (listPage != null && !listPage.isClosed()) try { listPage.close(); } catch (Exception ignored) {}
             if (context != null) try { context.close(); } catch (Exception ignored) {}
             if (isServer) try { FileSystemUtils.deleteRecursively(userDataDir); } catch (Exception ignored) {}
         }
 
-        System.out.println("\n🎉 HOÀN THÀNH BẢN CÀO TIN TỨC: + " + totalCrawledInBatch + " tin mới! (Tổng hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + ")");
+        System.out.println("\n🎉 HOÀN THÀNH ĐỢT CÀO TIN TỨC VNEXPRESS: + " + totalCrawledInBatch + " bài mới! (Tổng hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + ")");
     }
 
-    private News extractBasicNewsInfo(Element card) {
+    private News extractVnExpressBasicInfo(Element item) {
         try {
-            Element linkElem = card.is("a") ? card : card.selectFirst("a.re__card-title, h3.re__card-title a, a[href*='/tin-tuc/']");
-            if (linkElem == null) return null;
+            Element titleLink = item.selectFirst(".title-news a, h2.title-news a, h3.title-news a");
+            if (titleLink == null) {
+                titleLink = item.selectFirst("a[href*='.html']");
+            }
+            if (titleLink == null) return null;
 
-            String detailLink = linkElem.attr("href");
-            if (detailLink.isEmpty() || detailLink.equals("#") || detailLink.endsWith("/tin-tuc") || detailLink.endsWith("/tin-tuc/")) {
+            String fullUrl = titleLink.attr("href").trim();
+            if (!fullUrl.startsWith("http")) {
+                fullUrl = "https://vnexpress.net" + fullUrl;
+            }
+
+            if (fullUrl.contains("/video/") || fullUrl.contains("/podcast/") || fullUrl.contains("/interactive/")) {
                 return null;
             }
 
-            String fullUrl = detailLink.startsWith("http") ? detailLink : "https://batdongsan.com.vn" + detailLink;
+            String title = titleLink.text().trim();
+            if (title.isEmpty() || title.length() < 10) return null;
 
-            String title = linkElem.text().trim();
-            if (title.isEmpty()) {
-                Element titleElem = card.selectFirst("h3, .re__card-title, .title");
-                if (titleElem != null) {
-                    title = titleElem.text().trim();
-                }
-            }
-            if (title.isEmpty()) return null;
-
-            Element imgElem = card.selectFirst("img");
+            Element imgElem = item.selectFirst("picture img, .thumb-art img, img");
             String thumbnailUrl = "";
             if (imgElem != null) {
                 thumbnailUrl = imgElem.hasAttr("data-src") ? imgElem.attr("data-src") : imgElem.attr("src");
             }
 
-            Element summaryElem = card.selectFirst(".re__card-summary, .re__article-summary, p");
+            Element summaryElem = item.selectFirst(".description a, .description, p.description");
             String summary = (summaryElem != null) ? summaryElem.text().trim() : "";
 
             return News.builder()
                     .title(title)
-                    .slug(convertToSlug(title) + "-" + System.currentTimeMillis() % 10000)
+                    .slug(convertToSlug(title) + "-" + UUID.randomUUID().toString().substring(0, 8))
                     .sourceUrl(fullUrl)
                     .thumbnailUrl(thumbnailUrl)
                     .summary(summary)
-                    .sourceName("Batdongsan.com.vn")
+                    .sourceName("VnExpress")
                     .viewCount(0)
                     .isFeatured(false)
                     .isActive(true)
@@ -494,29 +441,41 @@ public class NewsServiceImplements implements NewsServiceInterface {
         }
     }
 
-    private News fetchNewsDetail(News news, Page page) {
+    private News fetchVnExpressDetail(News news, BrowserContext context) {
+        Page detailPage = null;
         try {
-            page.navigate(news.getSourceUrl(), new Page.NavigateOptions()
+            detailPage = context.newPage();
+            detailPage.navigate(news.getSourceUrl(), new Page.NavigateOptions()
                     .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                    .setTimeout(30000));
+                    .setTimeout(25000));
 
-            scrollPageSmoothly(page);
-            randomSleep(1000, 2000);
+            try {
+                detailPage.waitForSelector("article.fck_detail, .sidebar-1", new Page.WaitForSelectorOptions().setTimeout(4000));
+            } catch (Exception ignored) {}
 
-            Document doc = Jsoup.parse(page.content());
+            Document doc = Jsoup.parse(detailPage.content());
 
-            Element contentElem = doc.selectFirst(".re__section-body, .re__detail-content, article");
+            Element contentElem = doc.selectFirst("article.fck_detail, .fck_detail");
             if (contentElem != null) {
-                contentElem.select(".re__banner-inarticle, .re__social-share, .re__related-news, script, style").remove();
+                contentElem.select(".insert-link-news, .banner-ads, script, style, .table-tracking").remove();
                 news.setContent(contentElem.html());
-            } else if (news.getSummary() != null) {
-                news.setContent(news.getSummary());
             }
 
-            String categoryName = "Tin Tức Bất Động Sản";
-            Elements breadcrumbs = doc.select(".re__breadcrumb a, .breadcrumb a");
-            if (!breadcrumbs.isEmpty()) {
-                categoryName = breadcrumbs.last().text().trim();
+            if (news.getContent() == null || news.getContent().trim().length() < 50) {
+                if (news.getSummary() != null && !news.getSummary().isEmpty()) {
+                    news.setContent("<p>" + news.getSummary() + "</p>");
+                } else {
+                    news.setContent("<p>" + news.getTitle() + "</p>");
+                }
+            }
+
+            String categoryName = "Bất Động Sản";
+            Element breadcrumbElem = doc.selectFirst(".breadcrumb a, .parent-cate a");
+            if (breadcrumbElem != null) {
+                String extractedName = breadcrumbElem.text().trim();
+                if (!extractedName.isEmpty() && !extractedName.equalsIgnoreCase("Kinh doanh")) {
+                    categoryName = extractedName;
+                }
             }
 
             NewsCategory category = getOrCreateCategory(categoryName);
@@ -525,13 +484,27 @@ public class NewsServiceImplements implements NewsServiceInterface {
             return news;
         } catch (Exception e) {
             return null;
+        } finally {
+            if (detailPage != null && !detailPage.isClosed()) {
+                try {
+                    detailPage.close();
+                } catch (Exception ignored) {}
+            }
         }
     }
 
     private NewsCategory getOrCreateCategory(String categoryName) {
-        return newsCategoryRepository.findByName(categoryName).orElseGet(() -> {
+        if (categoryName == null || categoryName.trim().isEmpty()) {
+            categoryName = "Bất Động Sản";
+        }
+
+        String normalizedName = Arrays.stream(categoryName.trim().split("\\s+"))
+                .map(word -> word.isEmpty() ? "" : Character.toUpperCase(word.charAt(0)) + word.substring(1).toLowerCase())
+                .collect(Collectors.joining(" "));
+
+        return newsCategoryRepository.findByName(normalizedName).orElseGet(() -> {
             NewsCategory newCat = NewsCategory.builder()
-                    .name(categoryName)
+                    .name(normalizedName)
                     .isActive(true)
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
@@ -542,24 +515,20 @@ public class NewsServiceImplements implements NewsServiceInterface {
 
     private boolean isValidNews(News news) {
         if (news == null) return false;
-        if (news.getTitle() == null || news.getTitle().length() < 10) return false;
-        if (news.getContent() == null || news.getContent().length() < 100) return false;
+        if (news.getTitle() == null || news.getTitle().length() < 8) return false;
+        if (news.getContent() == null || news.getContent().length() < 30) return false;
         return true;
     }
 
     @Transactional
     public void saveNewsInTransaction(List<News> newsList) {
-        try {
-            newsRepository.saveAll(newsList);
-        } catch (Exception ignored) {}
-    }
-
-    private void scrollPageSmoothly(Page page) {
-        try {
-            page.evaluate("() => window.scrollTo({top: document.body.scrollHeight / 2, behavior: 'smooth'});");
-            randomSleep(500, 1000);
-            page.evaluate("() => window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});");
-        } catch (Exception ignored) {}
+        for (News news : newsList) {
+            try {
+                newsRepository.save(news);
+            } catch (Exception e) {
+                System.err.println("❌ LỖI DB KHI LƯU TIN [" + news.getTitle() + "]: " + e.getMessage());
+            }
+        }
     }
 
     private void randomSleep(long minMs, long maxMs) {

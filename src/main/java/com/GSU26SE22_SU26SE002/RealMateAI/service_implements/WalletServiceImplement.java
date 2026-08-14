@@ -335,7 +335,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
             if ("APPROVE".equals(status)) {
                 withdrawal.setStatus("APPROVE");
-                withdrawal.setNote(reason);
+                withdrawal.setReason(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Đã phê duyệt đơn rút, chờ Staff chuyển khoản"));
@@ -346,7 +346,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Đơn hàng phải ở trạng thái PENDING hoặc APPROVE mới có thể hoàn thành"));
                 }
                 withdrawal.setStatus("COMPLETE");
-                withdrawal.setNote(reason);
+                withdrawal.setReason(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
 

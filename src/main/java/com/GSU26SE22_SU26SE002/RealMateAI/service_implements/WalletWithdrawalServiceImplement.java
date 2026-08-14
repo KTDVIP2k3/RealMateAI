@@ -69,7 +69,7 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
 
     @Override
     @Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse> getWalletWithdrawalByAdmin(int page, int size, String status) {
+    public ResponseEntity<ApiResponse> getWalletWithdrawalByAdminStatus(int page, int size, String status) {
         try {
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
@@ -79,10 +79,10 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
 
             List<WalletWithdrawal> allWithdrawals = walletWithdrawalRepository.findAll();
 
-            String formattedStatus = formatStatus(status);
-            if (formattedStatus != null) {
+            if (status != null && !status.trim().isEmpty()) {
+                String searchStatus = status.trim();
                 allWithdrawals = allWithdrawals.stream()
-                        .filter(w -> formattedStatus.equals(w.getStatus()))
+                        .filter(w -> w.getStatus() != null && w.getStatus().equalsIgnoreCase(searchStatus))
                         .toList();
             }
 
@@ -96,7 +96,7 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
 
     @Override
     @Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse> getWalletWithdrawalByInvestorOrSeller(int page, int size, String status) {
+    public ResponseEntity<ApiResponse> getWalletWithdrawalByInvestorOrSellerByStatus(int page, int size, String status) {
         try {
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
@@ -111,7 +111,8 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
             List<WalletWithdrawal> userWithdrawals = allWithdrawals.stream()
                     .filter(w -> w.getWallet() != null && w.getWallet().getAccount() != null
                             && Objects.equals(w.getWallet().getAccount().getAccountId(), currentAccount.getAccountId()))
-                    .filter(w -> formattedStatus == null || formattedStatus.equals(w.getStatus()))
+                    .filter(w -> status == null || status.trim().isEmpty() ||
+                            (w.getStatus() != null && w.getStatus().equalsIgnoreCase(status.trim())))
                     .toList();
 
             return processPagination(userWithdrawals, page, size);
@@ -217,6 +218,8 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
     private WalletWithDrawlListDTO convertToListDTO(WalletWithdrawal entity) {
         WalletWithDrawlListDTO dto = new WalletWithDrawlListDTO();
         dto.setWalletWithDrawlId(entity.getWalletWithdrawalId());
+        dto.setBankName(entity.getBankName());
+        dto.setBankAccountNumber(entity.getBankAccountNumber());
         dto.setAmount(entity.getAmount());
         dto.setStatus(entity.getStatus());
         dto.setCreateAt(entity.getCreatedAt());
@@ -226,6 +229,8 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
     private WalletWithdrawalDetailDTO convertToDetailDTO(WalletWithdrawal entity) {
         WalletWithdrawalDetailDTO dto = new WalletWithdrawalDetailDTO();
         dto.setWalletWithDrawlId(entity.getWalletWithdrawalId());
+        dto.setBankName(entity.getBankName());
+        dto.setBankAccountNumber(entity.getBankAccountNumber());
         dto.setAmount(entity.getAmount());
         dto.setStatus(entity.getStatus());
         dto.setCreateAt(entity.getCreatedAt());
@@ -233,6 +238,9 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
         dto.setRejectReason(entity.getReason());
         if (entity.getWallet() != null && entity.getWallet().getAccount() != null) {
             dto.setFullName(entity.getWallet().getAccount().getFull_name());
+        }
+        if(entity.getWallet() != null && entity.getWallet().getAccount() != null){
+            dto.setPhone(entity.getWallet().getAccount().getPhone());
         }
         return dto;
     }

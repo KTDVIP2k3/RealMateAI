@@ -4,6 +4,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.CrawPropertyListing;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CrawPropertyListingServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitUntilState;
 import jakarta.persistence.EntityManager;
@@ -20,6 +22,10 @@ import org.springframework.util.FileSystemUtils;
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
@@ -49,6 +55,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         System.out.println("\n[SYSTEM] 🟢 SANG NGÀY MỚI (00:00)! Reset bộ đếm cào tin về 0.");
         this.currentDailyCrawledCount = 0;
     }
+
 
     @Override
     public void autoCrawlPropertyData() {
@@ -160,6 +167,8 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
             Set<String> processedUrlsInBatch = new HashSet<>();
 
+            List<String> waterKeywords = Arrays.asList("sông", "kênh", "rạch", "biển", "vịnh", "river", "canal", "ditch");
+
             while ((this.currentDailyCrawledCount + totalCrawledInBatch) < DAILY_TARGET_LISTINGS) {
                 String targetUrl = (pageNum == 1)
                         ? "https://batdongsan.com.vn/ban-nha-dat-tp-hcm"
@@ -239,8 +248,37 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         CrawPropertyListing fullListing = fetchCoordinates(candidate, page);
 
                         if (fullListing != null && fullListing.getLatitude() != null && fullListing.getLongitude() != null) {
-                            pageResultList.add(fullListing);
-                            totalCrawledInBatch++;
+                            boolean isWater = false;
+                            try {
+                                String osmUrl = String.format("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f",
+                                        fullListing.getLatitude(), fullListing.getLongitude());
+                                HttpClient client = HttpClient.newHttpClient();
+                                HttpRequest osmRequest = HttpRequest.newBuilder()
+                                        .uri(URI.create(osmUrl))
+                                        .header("User-Agent", "JavaPropertyCheckerBot/1.0 (bot-crawler@realmate.ai)")
+                                        .GET()
+                                        .build();
+
+                                HttpResponse<String> osmResponse = client.send(osmRequest, HttpResponse.BodyHandlers.ofString());
+                                String jsonResponse = osmResponse.body().toLowerCase();
+
+                                for (String keyword : waterKeywords) {
+                                    if (jsonResponse.contains(keyword)) {
+                                        isWater = true;
+                                        break;
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+
+                            if (isWater) {
+                                System.out.println(String.format("   👉 🚫 [WATER REJECT] Phát hiện tọa độ [%s, %s] nằm ngoài sông/biển/rạch. CHẶN LƯU TIN!",
+                                        fullListing.getLatitude(), fullListing.getLongitude()));
+                                System.out.flush();
+                            } else {
+                                pageResultList.add(fullListing);
+                                totalCrawledInBatch++;
+                            }
+                            randomSleep(1000, 1500);
                         }
                     }
 
@@ -269,21 +307,18 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
             if (page != null && !page.isClosed()) {
                 try {
                     page.close();
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
             if (context != null) {
                 try {
                     context.close();
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
 
             if (isServer) {
                 try {
                     FileSystemUtils.deleteRecursively(userDataDir);
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -700,20 +735,11 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
         try (Playwright playwright = Playwright.create()) {
             List<String> browserArgs = Arrays.asList(
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                    "--disable-session-crashed-bubble",
-                    "--hide-crash-restore-bubble",
-                    "--window-size=1920,1080",
-                    "--start-maximized",
-                    "--lang=vi-VN,vi",
-                    "--disable-extensions",
-                    "--disable-component-extensions-with-background-pages",
-                    "--disable-background-networking",
-                    "--allow-running-insecure-content",
-                    "--crash-dumps-dir=" + crashDir.toString()
+                    "--no-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars", "--disable-session-crashed-bubble", "--hide-crash-restore-bubble",
+                    "--window-size=1920,1080", "--start-maximized", "--lang=vi-VN,vi", "--disable-extensions",
+                    "--disable-component-extensions-with-background-pages", "--disable-background-networking",
+                    "--allow-running-insecure-content", "--crash-dumps-dir=" + crashDir.toString()
             );
 
             Map<String, String> headers = new HashMap<>();
@@ -792,174 +818,199 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                 try {
                     entityManager.clear();
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
 
-                CrawPropertyListing updated = fetchCoordinates(listing, page);
+                // 🔄 CƠ CHẾ THỬ LẠI (RETRY LOGIC) TẠI ĐÂY
+                int maxRetries = 3;
+                int retryCount = 0;
+                boolean success = false;
 
-                String pageTitle = "";
-                try {
-                    page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
-                    pageTitle = page.title();
-                } catch (Exception e) {
+                while (retryCount < maxRetries && !success) {
                     try {
-                        page.waitForTimeout(3000);
-                        pageTitle = page.title();
-                    } catch (Exception ignored) {
-                        pageTitle = "Unknown Error";
-                    }
-                }
+                        CrawPropertyListing updated = fetchCoordinates(listing, page);
 
-                if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                    System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP bị chặn. Đang khởi động lại Context trình duyệt...");
-                    try {
-                        if (page != null && !page.isClosed()) page.close();
-                        if (context != null) context.close();
-                        randomSleep(15000, 25000);
-                        context = playwright.chromium().launchPersistentContext(userDataDir, options);
-                        page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
-                        page.setDefaultTimeout(45000);
-                        page.setDefaultNavigationTimeout(45000);
-                    } catch (Exception ignored) {
-                    }
-                    continue;
-                }
-
-                BigDecimal webArea = null;
-                boolean isInvalidPage = false;
-
-                try {
-                    String htmlContent = "";
-                    try {
-                        htmlContent = page.content();
-                    } catch (Exception e) {
-                        page.waitForTimeout(2000);
+                        String pageTitle = "";
                         try {
-                            htmlContent = page.content();
-                        } catch (Exception ignored) {
-                        }
-                    }
-
-                    if (htmlContent != null && !htmlContent.isBlank()) {
-                        Document detailDoc = Jsoup.parse(htmlContent);
-
-                        boolean hasSearchBar = detailDoc.selectFirst(".re__search-bar, input[placeholder*='Đường Lê Hồng Phong'], button:contains(Tìm kiếm)") != null;
-                        boolean hasProductList = detailDoc.selectFirst(".re__left-container, .re__srp-list, #product-lists-page") != null;
-                        boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
-
-                        if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
-                            System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc. Tiến hành XÓA TIN!");
-                            isInvalidPage = true;
+                            page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
+                            pageTitle = page.title();
+                        } catch (Exception e) {
+                            try {
+                                page.waitForTimeout(3000);
+                                pageTitle = page.title();
+                            } catch (Exception ignored) {
+                                pageTitle = "Unknown Error";
+                            }
                         }
 
-                        if (!isInvalidPage) {
-                            Element areaBlock = null;
+                        if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
+                            retryCount++;
+                            System.out.println(String.format(" ⚠️ [CLOUDFLARE BLOCK] Lần %d/%d: Khởi động lại Context & Chờ 15s rồi thử lại tin này...", retryCount, maxRetries));
+                            try {
+                                if (page != null && !page.isClosed()) page.close();
+                                if (context != null) context.close();
+                                randomSleep(15000, 20000);
+                                context = playwright.chromium().launchPersistentContext(userDataDir, options);
+                                page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
+                                page.setDefaultTimeout(45000);
+                                page.setDefaultNavigationTimeout(45000);
+                            } catch (Exception ignored) {}
 
-                            Element specsContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__section-body");
-                            if (specsContainer != null) {
-                                Element labelSpecs = specsContainer.selectFirst(".re__pr-specs-content-item-title:contains(Diện tích), .re__pr-specs-title:contains(Diện tích)");
-                                if (labelSpecs != null) {
-                                    areaBlock = labelSpecs.nextElementSibling();
-                                }
+                            if (retryCount >= maxRetries) {
+                                System.out.println(" ❌ [RETRY FAILED] Bị chặn quá 3 lần liên tiếp. Tạm thời bỏ qua tin này để đi tiếp.");
+                                currentPosition++;
+                            }
+                            continue; // Thử lại đúng tin này
+                        }
+
+                        BigDecimal webArea = null;
+                        boolean isInvalidPage = false;
+
+                        try {
+                            String htmlContent = "";
+                            try {
+                                htmlContent = page.content();
+                            } catch (Exception e) {
+                                page.waitForTimeout(2000);
+                                try {
+                                    htmlContent = page.content();
+                                } catch (Exception ignored) {}
                             }
 
-                            if (areaBlock == null) {
-                                Element areaItem = detailDoc.select("div.re__pr-short-info-item").stream()
-                                        .filter(el -> el.select(".re__pr-short-info-item-title").text().contains("Diện tích"))
-                                        .findFirst()
-                                        .orElse(null);
-                                if (areaItem != null) {
-                                    areaBlock = areaItem.selectFirst("span.value");
-                                }
-                            }
+                            if (htmlContent != null && !htmlContent.isBlank()) {
+                                Document detailDoc = Jsoup.parse(htmlContent);
 
-                            if (areaBlock == null) {
-                                Element mainContent = detailDoc.selectFirst(".re__main-content, .re__pr-short-info, #product-detail-page");
-                                if (mainContent != null) {
-                                    Elements tags = mainContent.select("span, div");
-                                    for (Element el : tags) {
-                                        String txt = el.text().trim();
-                                        if (txt.contains("m²") && !txt.contains("/m²") && !txt.contains("PN") && txt.matches(".*\\d+.*") && txt.length() < 30) {
-                                            areaBlock = el;
-                                            break;
+                                boolean hasSearchBar = detailDoc.selectFirst(".re__search-bar, input[placeholder*='Đường Lê Hồng Phong'], button:contains(Tìm kiếm)") != null;
+                                boolean hasProductList = detailDoc.selectFirst(".re__left-container, .re__srp-list, #product-lists-page") != null;
+                                boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
+
+                                if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
+                                    System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc. Tiến hành XÓA TIN!");
+                                    isInvalidPage = true;
+                                }
+
+                                if (!isInvalidPage) {
+                                    Element areaBlock = null;
+
+                                    Element specsContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__section-body");
+                                    if (specsContainer != null) {
+                                        Element labelSpecs = specsContainer.selectFirst(".re__pr-specs-content-item-title:contains(Diện tích), .re__pr-specs-title:contains(Diện tích)");
+                                        if (labelSpecs != null) {
+                                            areaBlock = labelSpecs.nextElementSibling();
+                                        }
+                                    }
+
+                                    if (areaBlock == null) {
+                                        Element areaItem = detailDoc.select("div.re__pr-short-info-item").stream()
+                                                .filter(el -> el.select(".re__pr-short-info-item-title").text().contains("Diện tích"))
+                                                .findFirst()
+                                                .orElse(null);
+                                        if (areaItem != null) {
+                                            areaBlock = areaItem.selectFirst("span.value");
+                                        }
+                                    }
+
+                                    if (areaBlock == null) {
+                                        Element mainContent = detailDoc.selectFirst(".re__main-content, .re__pr-short-info, #product-detail-page");
+                                        if (mainContent != null) {
+                                            Elements tags = mainContent.select("span, div");
+                                            for (Element el : tags) {
+                                                String txt = el.text().trim();
+                                                if (txt.contains("m²") && !txt.contains("/m²") && !txt.contains("PN") && txt.matches(".*\\d+.*") && txt.length() < 30) {
+                                                    areaBlock = el;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (areaBlock != null) {
+                                        String rawAreaText = areaBlock.text().split("\n")[0].trim();
+                                        if (rawAreaText.length() > 50) {
+                                            System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích lỗi. Tiến hành XÓA TIN!");
+                                            isInvalidPage = true;
+                                        } else {
+                                            if (rawAreaText.contains("m²")) {
+                                                rawAreaText = rawAreaText.substring(0, rawAreaText.indexOf("m²") + 2);
+                                            }
+                                            webArea = parseAreaSafety(rawAreaText);
                                         }
                                     }
                                 }
                             }
+                        } catch (Exception ignored) {}
 
-                            if (areaBlock != null) {
-                                String rawAreaText = areaBlock.text().split("\n")[0].trim();
-                                if (rawAreaText.length() > 50) {
-                                    System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích lỗi. Tiến hành XÓA TIN!");
-                                    isInvalidPage = true;
+                        if (isInvalidPage) {
+                            try {
+                                deleteOneInNewTransaction(listing);
+                                System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
+                                totalElements--;
+                            } catch (Exception dbEx) {
+                                System.out.println(" ❌ [DB DELETE ERROR] " + dbEx.getMessage());
+                                currentPosition++;
+                            }
+                        } else if (updated != null) {
+                            boolean hasChanges = false;
+
+                            Double newLat = updated.getLatitude();
+                            Double newLng = updated.getLongitude();
+
+                            boolean isLatValid = currentLat != null && currentLat != 0.0 && currentLat != 0 && String.valueOf(currentLat).length() > 5;
+                            boolean isLngValid = currentLng != null && currentLng != 0.0 && currentLng != 0 && String.valueOf(currentLng).length() > 5;
+
+                            if (isLatValid && isLngValid && newLat != null && newLng != null && Double.compare(currentLat, newLat) == 0 && Double.compare(currentLng, newLng) == 0) {
+                                System.out.println(String.format("   👉  TỌA ĐỘ ĐÚNG! Giữ nguyên: [%s, %s]", currentLat, currentLng));
+                            } else if (newLat != null && newLng != null && newLat != 0.0) {
+                                System.out.println(String.format("   👉 📍 Tọa độ SAI hoặc THIẾU! Cập nhật từ [%s, %s] ➔ [%s, %s]", currentLat, currentLng, newLat, newLng));
+                                listing.setLatitude(newLat);
+                                listing.setLongitude(newLng);
+                                hasChanges = true;
+                            } else {
+                                System.out.println(String.format("   👉 ⚠️ Không lấy được tọa độ mới trên Web, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
+                            }
+
+                            if (webArea != null && webArea.compareTo(BigDecimal.ZERO) > 0) {
+                                if (dbArea == null || dbArea.compareTo(webArea) != 0) {
+                                    System.out.println(String.format("   👉 ❌ DIỆN TÍCH SAI! [Diện tích cũ: %s m²] ➔ [Sửa thành: %s m²]",
+                                            (dbArea != null ? dbArea : "Trống"), webArea));
+                                    listing.setArea(webArea);
+                                    hasChanges = true;
                                 } else {
-                                    if (rawAreaText.contains("m²")) {
-                                        rawAreaText = rawAreaText.substring(0, rawAreaText.indexOf("m²") + 2);
-                                    }
-                                    webArea = parseAreaSafety(rawAreaText);
+                                    System.out.println(String.format("   👉  DIỆN TÍCH ĐÚNG! Giữ nguyên: %s m²", dbArea));
+                                }
+                            } else {
+                                System.out.println(String.format("   👉 ⚠️ Không tìm thấy diện tích trên Web, giữ nguyên DB: %s m²", (dbArea != null ? dbArea : "Trống")));
+                            }
+
+                            System.out.flush();
+
+                            if (hasChanges) {
+                                try {
+                                    saveOneInNewTransaction(listing);
+                                    System.out.println("   💾 [DATABASE] --> Đã cập nhật thành công.");
+                                    updatedCount++;
+                                } catch (Exception dbEx) {
+                                    System.out.println(" ❌ [DB SAVE ERROR] " + dbEx.getMessage());
                                 }
                             }
-                        }
-                    }
-                } catch (Exception ignored) {
-                }
-
-                if (isInvalidPage) {
-                    try {
-                        deleteOneInNewTransaction(listing);
-                        System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
-                        totalElements--;
-                    } catch (Exception dbEx) {
-                        System.out.println(" ❌ [DB DELETE ERROR] " + dbEx.getMessage());
-                        currentPosition++;
-                    }
-                } else if (updated != null) {
-                    boolean hasChanges = false;
-
-                    Double newLat = updated.getLatitude();
-                    Double newLng = updated.getLongitude();
-
-                    boolean isLatValid = currentLat != null && currentLat != 0.0 && currentLat != 0 && String.valueOf(currentLat).length() > 5;
-                    boolean isLngValid = currentLng != null && currentLng != 0.0 && currentLng != 0 && String.valueOf(currentLng).length() > 5;
-
-                    if (isLatValid && isLngValid && newLat != null && newLng != null && Double.compare(currentLat, newLat) == 0 && Double.compare(currentLng, newLng) == 0) {
-                        System.out.println(String.format("   👉  TỌA ĐỘ ĐÚNG! Giữ nguyên: [%s, %s]", currentLat, currentLng));
-                    } else if (newLat != null && newLng != null && newLat != 0.0) {
-                        System.out.println(String.format("   👉 📍 Tọa độ SAI hoặc THIẾU! Cập nhật từ [%s, %s] ➔ [%s, %s]", currentLat, currentLng, newLat, newLng));
-                        listing.setLatitude(newLat);
-                        listing.setLongitude(newLng);
-                        hasChanges = true;
-                    } else {
-                        System.out.println(String.format("   👉 ⚠️ Không lấy được tọa độ mới trên Web, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
-                    }
-
-                    if (webArea != null && webArea.compareTo(BigDecimal.ZERO) > 0) {
-                        if (dbArea == null || dbArea.compareTo(webArea) != 0) {
-                            System.out.println(String.format("   👉 ❌ DIỆN TÍCH SAI! [Diện tích cũ: %s m²] ➔ [Sửa thành: %s m²]",
-                                    (dbArea != null ? dbArea : "Trống"), webArea));
-                            listing.setArea(webArea);
-                            hasChanges = true;
+                            currentPosition++;
                         } else {
-                            System.out.println(String.format("   👉  DIỆN TÍCH ĐÚNG! Giữ nguyên: %s m²", dbArea));
+                            currentPosition++;
                         }
-                    } else {
-                        System.out.println(String.format("   👉 ⚠️ Không tìm thấy diện tích trên Web, giữ nguyên DB: %s m²", (dbArea != null ? dbArea : "Trống")));
-                    }
 
-                    System.out.flush();
+                        // Đánh dấu đã xử lý thành công tin này
+                        success = true;
 
-                    if (hasChanges) {
-                        try {
-                            saveOneInNewTransaction(listing);
-                            System.out.println("   💾 [DATABASE] --> Đã cập nhật thành công.");
-                            updatedCount++;
-                        } catch (Exception dbEx) {
-                            System.out.println(" ❌ [DB SAVE ERROR] " + dbEx.getMessage());
+                    } catch (Exception singleListingEx) {
+                        retryCount++;
+                        System.out.println(String.format(" ❌ [PAGE ERROR] Lỗi tải trang (Lần %d/%d): %s", retryCount, maxRetries, singleListingEx.getMessage()));
+                        if (retryCount < maxRetries) {
+                            System.out.println(" ⏳ Tạm dừng 10s rồi CÀO LẠI đúng tin này...");
+                            try { Thread.sleep(10000); } catch (InterruptedException ignored) {}
+                        } else {
+                            System.out.println(" ❌ [GIVE UP] Đã thử 3 lần bất thành. Bỏ qua tin này!");
+                            currentPosition++;
                         }
                     }
-                    currentPosition++;
-                } else {
-                    currentPosition++;
                 }
 
                 randomSleep(2000, 4500);
@@ -1031,5 +1082,150 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         crawPropertyListingRepository.delete(listing);
         crawPropertyListingRepository.flush();
         entityManager.clear();
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private CrawPropertyListingServiceImplement self;
+
+    private static final List<String> WATER_TYPES = Arrays.asList(
+            "river", "canal", "ditch", "lake", "sea", "ocean", "stream", "bay",
+            "water", "waterway", "reservoir", "pond", "swamp", "marsh", "wetland",
+            "lagoon", "creek", "brook", "dock", "pier", "marina", "strait", "gulf",
+            "channel", "aquatic", "basin", "estuary", "drain", "floodway", "salt_pond",
+            "spring", "glacier", "mangrove", "moat"
+    );
+
+    private boolean isWaterCoordinate(Double lat, Double lng) {
+        if (lat == null || lng == null || lat == 0.0 || lng == 0.0) return false;
+        try {
+            String url = String.format("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f", lat, lng);
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .header("User-Agent", "JavaWaterCleanerApp/1.0 (cleaner@realmate.ai)")
+                    .GET()
+                    .build();
+
+            java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.body());
+
+            String clazz = root.has("class") ? root.get("class").asText().toLowerCase() : "";
+            String type = root.has("type") ? root.get("type").asText().toLowerCase() : "";
+
+            if (WATER_TYPES.contains(type) || WATER_TYPES.contains(clazz) || "natural".equals(clazz) || "waterway".equals(clazz)) {
+                if ("highway".equals(clazz) || "railway".equals(clazz)) {
+                    return false;
+                }
+                return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void deleteOneInNewTransactionV2(CrawPropertyListing listing) {
+        CrawPropertyListing managedListing = entityManager.merge(listing);
+
+        try {
+            if (managedListing.getHeatmapZones() != null) {
+                managedListing.getHeatmapZones().clear();
+            }
+        } catch (Exception ignored) {}
+
+        entityManager.createNativeQuery("DELETE FROM heatmap_zone WHERE center_latitude = :lat AND center_longitude = :lng")
+                .setParameter("lat", managedListing.getLatitude())
+                .setParameter("lng", managedListing.getLongitude())
+                .executeUpdate();
+
+        crawPropertyListingRepository.delete(managedListing);
+        crawPropertyListingRepository.flush();
+        entityManager.clear();
+    }
+
+    public void cleanAllWaterListingsFromDatabase() {
+        long totalElements = crawPropertyListingRepository.count();
+        if (totalElements == 0) return;
+
+        System.out.println("\n==========================================================================================");
+        System.out.println("[WATER-CLEANER] 🌊 Bắt đầu quét toàn bộ tọa độ sông biển. Tổng số tin hệ thống: " + totalElements);
+        System.out.println("==========================================================================================\n");
+        System.out.flush();
+
+        int deletedCount = 0;
+        int checkedCount = 0;
+        int pageIndex = 0;
+        int pageSize = 50;
+
+        while (true) {
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                    pageIndex, pageSize, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "crawPropertyListingId")
+            );
+
+            org.springframework.data.domain.Page<CrawPropertyListing> listingPage = crawPropertyListingRepository.findAll(pageable);
+
+            if (listingPage.isEmpty() || listingPage.getContent().isEmpty()) {
+                break;
+            }
+
+            List<CrawPropertyListing> currentBatch = listingPage.getContent();
+            int deletedInThisBatch = 0;
+
+            for (CrawPropertyListing listing : currentBatch) {
+                checkedCount++;
+                Integer id = listing.getCrawPropertyListingId();
+                Double lat = listing.getLatitude();
+                Double lng = listing.getLongitude();
+
+                System.out.println(String.format("[CLEANER] 📍 (%d / %d) [ID: %d] ➔ Kiểm tra tọa độ: [%s, %s]",
+                        checkedCount, totalElements, id, lat, lng));
+                System.out.flush();
+
+                try {
+                    entityManager.clear();
+                } catch (Exception ignored) {}
+
+                if (lat != null && lng != null && lat >= 8.4 && lat <= 23.4 && lng >= 102.1 && lng <= 110.0) {
+                    if (isWaterCoordinate(lat, lng)) {
+                        System.out.println("   ❌ [PHÁT HIỆN SÔNG/BIỂN] Tọa độ nằm dưới vùng nước! Đang tiến hành xóa khỏi hệ thống...");
+                        try {
+                            self.deleteOneInNewTransactionV2(listing);
+                            System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
+                            deletedCount++;
+                            deletedInThisBatch++;
+                            totalElements--;
+                        } catch (Exception dbEx) {
+                            System.out.println("   ❌ [LỖI XÓA DB] " + dbEx.getMessage());
+                        }
+                    } else {
+                        System.out.println("   ✅ [HỢP LỆ] Tọa độ nằm trên đất liền.");
+                    }
+                } else {
+                    System.out.println("   ⚠️ [BỎ QUA] Tin không có tọa độ hoặc định dạng tọa độ không hợp lệ.");
+                }
+
+                randomSleep(1000, 1500);
+            }
+
+            if (deletedInThisBatch == 0) {
+                pageIndex++;
+            } else {
+                pageIndex = 0;
+            }
+        }
+
+        System.out.println("\n==========================================================================================");
+        System.out.println(" --> [QUÉT HOÀN TẤT] Hệ thống sạch sẽ! Tổng số tin rác sông biển đã xóa: " + deletedCount);
+        System.out.println("==========================================================================================\n");
+        System.out.flush();
+    }
+
+
+    private void randomSleep(int min, int max) {
+        try {
+            long duration = min + (long)(Math.random() * (max - min));
+            Thread.sleep(duration);
+        } catch (InterruptedException ignored) {}
     }
 }

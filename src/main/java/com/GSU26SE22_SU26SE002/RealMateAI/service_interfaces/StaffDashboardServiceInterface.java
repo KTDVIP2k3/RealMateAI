@@ -5,4 +5,7 @@ import org.springframework.http.ResponseEntity;
 
 public interface StaffDashboardServiceInterface {
     ResponseEntity<ApiResponse> getDashBoardKpi();
+    ResponseEntity<ApiResponse> getPendingListing(int page, int size);
+    ResponseEntity<ApiResponse> getPendingAccountVerifications(int page, int size);
+    ResponseEntity<ApiResponse> getPendingPropertyValuations(int page, int size);;
 }
