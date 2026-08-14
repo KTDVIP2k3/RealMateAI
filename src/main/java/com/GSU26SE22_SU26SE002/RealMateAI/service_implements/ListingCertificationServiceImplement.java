@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.CertificationStatusEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingCertificationRequestRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
@@ -10,6 +11,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.SubmitCertificationRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.CertificationRequestResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingCertificationService;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class ListingCertificationServiceImplement implements ListingCertificatio
     private final ListingCertificationRequestRepository certificationRequestRepository;
     private final ListingRepository listingRepository;
     private final PropertyImageRepository propertyImageRepository;
+    private final NotificationService notificationService;
     private final CloudinaryMediaServiceImplement cloudinaryMediaService;
     private final AuthenUntil authenUntil;
 
@@ -238,6 +241,15 @@ public class ListingCertificationServiceImplement implements ListingCertificatio
                 listing.setIsVerified(true);
             }
             listingRepository.save(listing);
+
+            // MỚI: theo mục 4 (Cao) trong RealMateAI_API_Notification_Report.
+            Account sellerAccount = listing.getSeller() != null ? listing.getSeller().getAccount() : null;
+            if (sellerAccount != null) {
+                String certifyMsg = request.getDecision() == CertificationStatusEnum.APPROVED
+                        ? "Yêu cầu tích xanh cho tin đăng \"" + listing.getTitle() + "\" đã được DUYỆT."
+                        : "Yêu cầu tích xanh cho tin đăng \"" + listing.getTitle() + "\" bị TỪ CHỐI, lý do: " + request.getReviewerNote() + ".";
+                notificationService.notify(sellerAccount, certifyMsg, NotificationTypeEnum.VERIFICATION);
+            }
 
             log.info("[ListingCertificationService] Staff accountId={} {} yêu cầu tích xanh id={} (listingId={})",
                     currentUser.getAccountId(), request.getDecision(), id, listing.getListingId());

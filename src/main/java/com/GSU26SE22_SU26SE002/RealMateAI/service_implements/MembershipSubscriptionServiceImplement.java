@@ -1,12 +1,14 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.TransactionTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.MembershipSubscriptionDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.MembershipSubscriptionServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.geolatte.geom.M;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,9 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
 
     @Autowired
     private MembershipPlanRepository membershipPlanRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Override
     public ResponseEntity<ApiResponse> getMembershipSubscriptions(int page, int size) {
@@ -186,6 +191,11 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
             walletRepository.save(wallet);
             membershipSubscriptionRepository.save(membershipSubscription);
 
+            // MỚI: theo mục 10 (Trung bình) trong RealMateAI_API_Notification_Report.
+            notificationService.notify(account,
+                    "Mua gói thành viên " + membershipPlan.getName() + " thành công.",
+                    NotificationTypeEnum.TRANSACTION);
+
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Pay membership successfully"));
 
         } catch (Exception e) {
@@ -245,6 +255,11 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
             transactionRepository.save(transaction);
             walletRepository.save(wallet);
             membershipSubscriptionRepository.save(oldSubscription);
+
+            // MỚI: theo mục 11 (Trung bình) trong RealMateAI_API_Notification_Report.
+            notificationService.notify(account,
+                    "Gia hạn gói thành viên " + membershipPlan.getName() + " thành công.",
+                    NotificationTypeEnum.TRANSACTION);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Renewal membership subscription successfully"));
 
@@ -367,4 +382,3 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
         }
     }
 }
-

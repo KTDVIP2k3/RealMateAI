@@ -136,6 +136,20 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
             listing.setUpdatedAt(LocalDateTime.now());
             listingRepository.save(listing);
 
+            // MỚI: theo mục 3 (Cao) trong RealMateAI_API_Notification_Report —
+            // thông báo RIÊNG về quyết định duyệt/từ chối TIN ĐĂNG, KHÔNG điều
+            // kiện theo việc có gói dịch vụ đang chờ kích hoạt hay không (khác
+            // với đoạn notify() có sẵn bên dưới — đoạn đó chỉ báo về GÓI DỊCH
+            // VỤ, chỉ chạy khi có pendingOrders, dễ bỏ sót thông báo cho tin
+            // không có gói/gói đã active từ trước).
+            Account sellerAccountForVerification = listing.getSeller() != null ? listing.getSeller().getAccount() : null;
+            if (sellerAccountForVerification != null) {
+                String verificationMsg = approved
+                        ? "Tin đăng \"" + listing.getTitle() + "\" đã được DUYỆT."
+                        : "Tin đăng \"" + listing.getTitle() + "\" BỊ TỪ CHỐI, lý do: " + request.getReviewerNote() + ".";
+                notificationService.notify(sellerAccountForVerification, verificationMsg, NotificationTypeEnum.LISTING);
+            }
+
             // Đồng bộ Property: khi Listing được tạo kèm Property MỚI (property
             // chưa từng được duyệt lần nào — vẫn đang isActive=false/pending),
             // quyết định duyệt của bài đăng này áp dụng luôn cho cả Property

@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Investor;
@@ -13,6 +14,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.AdminAccountDetailDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.AdminAccountSummaryDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AdminAccountServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -48,6 +50,9 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
 
     @Autowired
     private EmailServiceVerificationImplement emailService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // ======================== READ ========================
 
@@ -254,6 +259,11 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
             account.setUpdateAt(LocalDateTime.now());
             accountRepository.save(account);
 
+            // MỚI: theo mục 14 (Thấp) trong RealMateAI_API_Notification_Report.
+            notificationService.notify(account,
+                    "Tài khoản của bạn vừa được đổi vai trò từ " + oldRole.name() + " sang " + newRole.name() + ".",
+                    NotificationTypeEnum.SYSTEM);
+
             // tạo entity profile khi đổi sang Investor/Seller nếu chưa có
             if (newRole == RoleEnum.Investor
                     && investorRepository.findByAccount_AccountId(accountId).isEmpty()) {
@@ -298,6 +308,11 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
             account.setIsActive(isActive);
             account.setUpdateAt(LocalDateTime.now());
             accountRepository.save(account);
+
+            // MỚI: theo mục 8 (Cao) trong RealMateAI_API_Notification_Report.
+            notificationService.notify(account,
+                    "Tài khoản của bạn vừa được " + (isActive ? "KÍCH HOẠT" : "VÔ HIỆU HOÁ") + ".",
+                    NotificationTypeEnum.SYSTEM);
 
             String msg = isActive ? "Kích hoạt tài khoản thành công" : "Vô hiệu hoá tài khoản thành công";
             return ResponseEntity.ok(ApiResponse.success(
