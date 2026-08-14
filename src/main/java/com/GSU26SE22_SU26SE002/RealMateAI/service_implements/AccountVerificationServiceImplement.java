@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.VerificationStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.AccountVerification;
@@ -12,6 +13,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.AccountVerificationDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.AccountVerificationListDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.AccountVerificationServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,9 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
 
     @Autowired
     private SellerRepository sellerRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Override
     public ResponseEntity<ApiResponse> getAccountVerificationByStaffOrAdmin() {
@@ -227,6 +232,11 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
             verification.setUpdatedAt(LocalDateTime.now());
             accountVerificationRepository.save(verification);
 
+            // MỚI: theo mục 1 (Cao) trong RealMateAI_API_Notification_Report.
+            notificationService.notify(verification.getAccount(),
+                    "Yêu cầu xác thực tài khoản của bạn đã được PHÊ DUYỆT.",
+                    NotificationTypeEnum.VERIFICATION);
+
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Approved verification successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));
@@ -243,6 +253,9 @@ public class AccountVerificationServiceImplement implements AccountVerificationS
             verification.setReason(reason);
             verification.setUpdatedAt(LocalDateTime.now());
             accountVerificationRepository.save(verification);
+            notificationService.notify(verification.getAccount(),
+                    "Yêu cầu xác thực tài khoản của bạn bị TỪ CHỐI, lý do: " + reason + ".",
+                    NotificationTypeEnum.VERIFICATION);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Rejected verification successfully"));
         } catch (Exception e) {

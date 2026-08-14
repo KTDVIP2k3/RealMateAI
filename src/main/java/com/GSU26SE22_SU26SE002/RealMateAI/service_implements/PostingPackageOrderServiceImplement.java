@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.PostingPackageOrderStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.TransactionTypeEnum;
@@ -10,6 +11,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PaymentAttemptResult;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingVerificationServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PostingPackageOrderServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.transaction.Transactional;
@@ -32,6 +34,9 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
 
     @Autowired
     private PostingPackageOrderRepository postingPackageOrderRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Autowired
     private AuthenUntil authenUntil;
@@ -279,6 +284,13 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
         walletRepository.save(wallet);
         PostingPackageOrder savedOrder = postingPackageOrderRepository.save(order);
 
+        // MỚI: theo mục 12 (Trung bình) trong RealMateAI_API_Notification_Report.
+        // Đặt ở đây (executePayment dùng CHUNG) để phủ cả payPostingPackage()
+        // VÀ attemptAutoPaymentForNewListing() (thanh toán tự động lúc tạo tin).
+        notificationService.notify(account,
+                "Mua gói đăng tin " + postingPackage.getName() + " thành công.",
+                NotificationTypeEnum.TRANSACTION);
+
         return PaymentAttemptResult.ok(savedOrder.getPostingPackageOrderId());
     }
 
@@ -349,6 +361,13 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             transactionRepository.save(transaction);
             walletRepository.save(wallet);
             postingPackageOrderRepository.save(postingPackageOrder);
+
+            // MỚI: theo mục 13 (Trung bình) trong RealMateAI_API_Notification_Report.
+            String packageName = postingPackageOrder.getPostingPackage() != null
+                    ? postingPackageOrder.getPostingPackage().getName() : "";
+            notificationService.notify(account,
+                    "Gia hạn gói đăng tin " + packageName + " thành công.",
+                    NotificationTypeEnum.TRANSACTION);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Renewal posting package successfully"));
 
@@ -454,11 +473,6 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             postingPackageOrder.setEndDate(null);
         }
 
-        // MỚI: nâng priority hiển thị của Listing theo gói VỪA thanh toán thành
-        // công (hàm này chỉ được gọi khi thanh toán ĐÃ trót lọt — xem
-        // executePayment/retryPayPostingPackage). Chỉ NÂNG lên nếu gói mới cao
-        // hơn priority hiện có — Seller mua thêm 1 gói thấp hơn gói đang có sẵn
-        // thì KHÔNG được hạ priority đang tốt hơn xuống.
         Integer newPriority = postingPackageOrder.getPostingPackage().getPriority() != null
                 ? postingPackageOrder.getPostingPackage().getPriority().intValue() : 0;
         int currentPriority = listing.getPriority() != null ? listing.getPriority() : 0;

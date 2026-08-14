@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.TransactionTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Transaction;
@@ -9,6 +10,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.TransactionRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.WalletRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.WalletWithdrawalRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.WalletServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,9 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
     @Autowired
     private PayOS payOS;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Value("${payos.return-url}")
     private String returnUrl;
@@ -214,6 +219,13 @@ public class WalletServiceImplement implements WalletServiceInterface {
                         wallet.setBalance(wallet.getBalance().add(amountToDeposit));
                         wallet.setUpdatedAt(LocalDateTime.now());
                         walletRepository.save(wallet);
+
+                        // MỚI: theo mục 6 (Cao) trong RealMateAI_API_Notification_Report.
+                        if (wallet.getAccount() != null) {
+                            notificationService.notify(wallet.getAccount(),
+                                    "Nạp " + transaction.getTotalAmount() + " vào ví thành công.",
+                                    NotificationTypeEnum.TRANSACTION);
+                        }
                     }
 
                     return ResponseEntity.status(HttpStatus.OK)
@@ -223,6 +235,14 @@ public class WalletServiceImplement implements WalletServiceInterface {
                 if ("CANCELLED".equals(status)) {
                     transaction.setTransactionStatus("CANCELLED");
                     transactionRepository.save(transaction);
+
+                    // MỚI: theo mục 6 (Cao) trong RealMateAI_API_Notification_Report.
+                    if (transaction.getWallet() != null && transaction.getWallet().getAccount() != null) {
+                        notificationService.notify(transaction.getWallet().getAccount(),
+                                "Giao dịch nạp tiền đã bị hủy.",
+                                NotificationTypeEnum.TRANSACTION);
+                    }
+
                     return ResponseEntity.status(HttpStatus.OK)
                             .body(ApiResponse.success(null, "Đã cập nhật trạng thái hủy giao dịch thành công"));
                 }
@@ -330,14 +350,29 @@ public class WalletServiceImplement implements WalletServiceInterface {
                             transactionRepository.save(t);
                         });
 
+                // MỚI: theo mục 7 (Cao) trong RealMateAI_API_Notification_Report.
+                if (wallet.getAccount() != null) {
+                    notificationService.notify(wallet.getAccount(),
+                            "Yêu cầu rút tiền đã bị TỪ CHỐI, lý do: " + reason + ". Số tiền đã được hoàn lại vào ví.",
+                            NotificationTypeEnum.TRANSACTION);
+                }
+
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Đã từ chối đơn rút tiền và hoàn tiền về ví thành công"));
             }
 
             if ("APPROVE".equals(status)) {
                 withdrawal.setStatus("APPROVE");
-                withdrawal.setReason(reason);
+                withdrawal.setNote(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
+
+                // MỚI: theo mục 7 (Cao) trong RealMateAI_API_Notification_Report.
+                if (withdrawal.getWallet() != null && withdrawal.getWallet().getAccount() != null) {
+                    notificationService.notify(withdrawal.getWallet().getAccount(),
+                            "Yêu cầu rút tiền đã được PHÊ DUYỆT, đang chờ Staff chuyển khoản.",
+                            NotificationTypeEnum.TRANSACTION);
+                }
+
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Đã phê duyệt đơn rút, chờ Staff chuyển khoản"));
             }
 
@@ -346,7 +381,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Đơn hàng phải ở trạng thái PENDING hoặc APPROVE mới có thể hoàn thành"));
                 }
                 withdrawal.setStatus("COMPLETE");
-                withdrawal.setReason(reason);
+                withdrawal.setNote(reason);
                 withdrawal.setUpdatedAt(LocalDateTime.now());
                 walletWithdrawalRepository.save(withdrawal);
 
@@ -355,6 +390,13 @@ public class WalletServiceImplement implements WalletServiceInterface {
                             t.setTransactionStatus("SUCCESS");
                             transactionRepository.save(t);
                         });
+
+                // MỚI: theo mục 7 (Cao) trong RealMateAI_API_Notification_Report.
+                if (withdrawal.getWallet() != null && withdrawal.getWallet().getAccount() != null) {
+                    notificationService.notify(withdrawal.getWallet().getAccount(),
+                            "Yêu cầu rút tiền đã CHUYỂN KHOẢN THÀNH CÔNG.",
+                            NotificationTypeEnum.TRANSACTION);
+                }
 
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Giao dịch rút tiền đã hoàn tất thành công"));
             }

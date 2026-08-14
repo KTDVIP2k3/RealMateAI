@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.PropertyValuationStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Property;
@@ -12,6 +13,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.RejectValuationRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.SubmitValuationRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PropertyValuationResponse;
+import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PropertyValuationRequestService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.transaction.Transactional;
@@ -43,6 +45,7 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
     private final PropertyValuationRepository propertyValuationRepository;
     private final PropertyRepository propertyRepository;
     private final AuthenUntil authenUntil;
+    private final NotificationService notificationService;
 
     // ════════════════════════════════════════════════════════════════════════
     // POST /seller/valuation-requests
@@ -208,6 +211,17 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
             valuation.setUpdatedAt(LocalDateTime.now());
             propertyValuationRepository.save(valuation);
 
+            // MỚI: theo mục 5 (Cao) trong RealMateAI_API_Notification_Report.
+            // Lấy account người YÊU CẦU định giá qua Property -> Seller -> Account
+            // (KHÔNG dùng valuation.getAccount() — field đó vừa bị ghi đè thành
+            // currentUser = Staff vừa xử lý, không còn là người yêu cầu ban đầu).
+            if (valuation.getProperty() != null && valuation.getProperty().getSeller() != null) {
+                Account requesterAccount = valuation.getProperty().getSeller().getAccount();
+                notificationService.notify(requesterAccount,
+                        "Yêu cầu định giá tài sản của bạn đã có kết quả, mức giá đề xuất: " + request.getTotalValue() + ".",
+                        NotificationTypeEnum.SYSTEM);
+            }
+
             log.info("[PropertyValuationRequestService] Staff accountId={} hoàn tất định giá requestId={}, totalValue={}",
                     currentUser.getAccountId(), id, request.getTotalValue());
 
@@ -245,6 +259,14 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
             valuation.setReviewedAt(LocalDateTime.now());
             valuation.setUpdatedAt(LocalDateTime.now());
             propertyValuationRepository.save(valuation);
+
+            // MỚI: theo mục 9 (Trung bình) trong RealMateAI_API_Notification_Report.
+            if (valuation.getProperty() != null && valuation.getProperty().getSeller() != null) {
+                Account requesterAccount = valuation.getProperty().getSeller().getAccount();
+                notificationService.notify(requesterAccount,
+                        "Yêu cầu định giá tài sản của bạn bị từ chối, lý do: " + request.getReason() + ".",
+                        NotificationTypeEnum.SYSTEM);
+            }
 
             return ResponseEntity.ok(ApiResponse.success(toResponse(valuation), "Đã từ chối yêu cầu định giá"));
 
