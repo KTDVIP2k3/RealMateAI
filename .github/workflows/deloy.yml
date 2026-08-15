@@ -86,7 +86,18 @@ jobs:
             exit 1
           fi
 
-      # Bước 6: Dọn sạch các layer rác cũ sau khi deploy thành công để trả lại dung lượng
+      # Bước 6: MỚI — train + sinh gợi ý MỘT LẦN ngay sau khi deploy code mới
+      # (đảm bảo có sẵn dữ liệu gợi ý ngay cả khi phải chờ tới chu kỳ 30 phút
+      # tiếp theo — xem ai-train-schedule.yml cho phần lặp lại định kỳ).
+      - name: Initial AI train + generate
+        continue-on-error: true
+        run: |
+          echo "==== TRAIN MODEL LẦN ĐẦU SAU DEPLOY ===="
+          docker compose --profile ai-train run --rm recommender-train
+          echo "==== SINH GỢI Ý LẦN ĐẦU SAU DEPLOY ===="
+          docker compose --profile ai-generate run --rm recommender-generate
+
+      # Bước 7: Dọn sạch các layer rác cũ sau khi deploy thành công để trả lại dung lượng
       - name: Post-clean Docker space
         run: |
           echo "==== GIẢI PHÓNG BỘ NHỚ SAU KHI DEPLOY THÀNH CÔNG ===="

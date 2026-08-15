@@ -47,5 +47,47 @@ services:
       postgres:
         condition: service_healthy
 
+
+  recommender-train:
+    container_name: recommender_train_container
+    build:
+      context: ./ai-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: RealmateAi
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      MODEL_DIR: /app/models
+      TOP_N: 10
+    volumes:
+      - ai_models:/app/models
+    command: ["python", "-m", "recommender.train"]
+    profiles: ["ai-train"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  recommender-generate:
+    container_name: recommender_generate_container
+    build:
+      context: ./ai-service
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: RealmateAi
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      MODEL_DIR: /app/models
+      TOP_N: 10
+    volumes:
+      - ai_models:/app/models
+    command: ["python", "-m", "recommender.generate_recommendations"]
+    profiles: ["ai-generate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  ai_models:
