@@ -17,9 +17,9 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
-    @GetMapping("/api/recommendations/{userId}")
-    @Operation(summary = "Gợi ý bất động sản dành riêng cho user (LightFM, sinh sẵn qua batch job offline)")
-    public ResponseEntity<ApiResponse> getRecommendations(@PathVariable("userId") Integer userId) {
-        return recommendationService.getRecommendationsForUser(userId);
+    @GetMapping("/api/recommendations/me")
+    @Operation(summary = "Gợi ý bất động sản dành riêng cho user ĐANG ĐĂNG NHẬP (LightFM, sinh sẵn qua batch job offline)")
+    public ResponseEntity<ApiResponse> getRecommendations() {
+        return recommendationService.getRecommendationsForCurrentUser();
     }
 }
