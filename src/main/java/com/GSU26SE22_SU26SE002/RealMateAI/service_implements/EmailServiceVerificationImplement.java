@@ -37,6 +37,8 @@ public class EmailServiceVerificationImplement {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(account.getEmail());
+            helper.setSubject("Tên đăng nhập");
+            helper.setText(account.getUsername());
             helper.setSubject("Mã OTP của bạn");
             helper.setText("Mã OTP của bạn là: " + otpCode, true);
             mailSender.send(message);
@@ -53,6 +55,8 @@ public class EmailServiceVerificationImplement {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(account.getEmail());
+            helper.setSubject("Tên đăng nhập");
+            helper.setText(account.getUsername());
             helper.setSubject("Mã OTP của bạn");
             helper.setText("Mã OTP của bạn là: " + otpCode, true);
             mailSender.send(message);
