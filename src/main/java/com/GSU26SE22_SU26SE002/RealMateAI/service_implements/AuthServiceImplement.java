@@ -86,10 +86,61 @@ public class AuthServiceImplement implements AuthServiceInterface {
             if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Information cannot be empty"));
             }
-            boolean existEmail = accountRepository.findAll().stream().anyMatch(account -> account.getEmail().toLowerCase().equalsIgnoreCase(registerRequest.getEmail()));
-            Account accountExistByEmail = accountRepository.findByEmail(registerRequest.getEmail()).orElse(null);
-            if(existEmail){
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email: " + registerRequest.getEmail() + " is existed"));
+
+            if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty() || registerRequest.getUserName().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Thông tin không được để trống"));
+            }
+
+            String username = registerRequest.getUserName();
+
+            if (username.contains(" ") || username.matches(".*\\s.*")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập không được chứa khoảng trắng"));
+            }
+
+            String validPattern = "^[a-zA-Z0-9._]+$";
+            if (!username.matches(validPattern)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập không được chứa dấu tiếng Việt hoặc ký tự đặc biệt"));
+            }
+
+            if (username.length() < 3 || username.length() > 20) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập phải từ 3 đến 20 ký tự"));
+            }
+
+            String password = registerRequest.getPassword();
+
+            if (password.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu không được để trống"));
+            }
+
+            if (password.contains(" ") || password.matches(".*\\s.*")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu không được chứa khoảng trắng"));
+            }
+
+            if (password.length() < 8 || password.length() > 32) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu phải từ 8 đến 32 ký tự"));
+            }
+
+            String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$";
+            if (!password.matches(passwordPattern)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu phải bao gồm cả chữ hoa, chữ thường, số và ký tự đặc biệt"));
+            }
+
+            String email = registerRequest.getEmail();
+            RoleEnum role = registerRequest.getRole();
+
+            boolean existEmailWithRole = accountRepository.findAll().stream()
+                    .anyMatch(account -> account.getEmail().equalsIgnoreCase(email) && account.getRole() == role);
+
+            if (existEmailWithRole) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Email này đã được đăng ký cho vai trò tương ứng"));
             }
 
             Account accountExistByName = accountRepository.findByUserName(registerRequest.getUserName()).orElse(null);
@@ -98,7 +149,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "UserName: " + registerRequest.getUserName() + " is existed"));
             }
             Account account = new Account();
-            account.setUserName(registerRequest.getUserName());
+            account.setUserName(registerRequest.getUserName().toLowerCase());
             account.setPassword(new BCryptPasswordEncoder(12).encode(registerRequest.getPassword()));
             account.setFull_name(registerRequest.getFullName());
             account.setPhone(registerRequest.getPhone());
@@ -155,6 +206,14 @@ public class AuthServiceImplement implements AuthServiceInterface {
             if (account == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ApiResponse.fail("Unauthorized", "User session missing or token expired"));
+            }
+
+            String inputUsername = resetPasswordRequest.getUserName().trim().toLowerCase();
+            String currentUsername = account.getUsername().toLowerCase();
+
+            if (!currentUsername.equals(inputUsername)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập không trùng khớp với tài khoản đang đăng nhập"));
             }
 
             BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
