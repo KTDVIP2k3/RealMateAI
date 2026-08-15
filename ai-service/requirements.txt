@@ -1,0 +1,7 @@
+lightfm==1.17
+numpy<2.0
+scipy
+pandas
+SQLAlchemy>=2.0
+psycopg2-binary
+python-dotenv

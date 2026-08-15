@@ -1,0 +1,12 @@
+# Bí mật — TUYỆT ĐỐI không commit
+.env
+
+# Môi trường ảo Python — không cần thiết trong repo, mỗi máy tự tạo lại
+venv/
+
+# Model đã train — quá nặng, không cần thiết trong repo, CI/CD tự sinh lại
+models/
+
+__pycache__/
+*.pyc
+lightfm_src/
