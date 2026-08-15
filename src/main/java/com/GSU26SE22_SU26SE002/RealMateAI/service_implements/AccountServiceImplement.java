@@ -136,16 +136,69 @@ public class AccountServiceImplement implements AccountServiceInterface {
     public ResponseEntity<ApiResponse> createAccount(CreateAccountRequestV2 createAccountRequestV2) {
         try{
             List<Account> accounts = accountRepository.findAll().stream().toList();
-            boolean existName = accounts.stream().anyMatch(account -> account.getUsername().equalsIgnoreCase(createAccountRequestV2.getUserName()));
+
+            boolean existName = accounts.stream().anyMatch(account -> account.getUsername().toLowerCase().equalsIgnoreCase(createAccountRequestV2.getUserName().toLowerCase()));
 
             if(existName){
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "User Name exists"));
             }
 
+            String username = createAccountRequestV2.getUserName();
+
+            if (username.contains(" ") || username.matches(".*\\s.*")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập không được chứa khoảng trắng"));
+            }
+
+            String validPattern = "^[a-zA-Z0-9._]+$";
+            if (!username.matches(validPattern)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập không được chứa dấu tiếng Việt hoặc ký tự đặc biệt"));
+            }
+
+            if (username.length() < 3 || username.length() > 20) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập phải từ 3 đến 20 ký tự"));
+            }
+
+            String password = createAccountRequestV2.getPassword();
+
+            if (password.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu không được để trống"));
+            }
+
+            if (password.contains(" ") || password.matches(".*\\s.*")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu không được chứa khoảng trắng"));
+            }
+
+            if (password.length() < 8 || password.length() > 32) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu phải từ 8 đến 32 ký tự"));
+            }
+
+            String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$";
+            if (!password.matches(passwordPattern)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Mật khẩu phải bao gồm cả chữ hoa, chữ thường, số và ký tự đặc biệt"));
+            }
+
+            boolean existEmail = accountRepository.findAll().stream().anyMatch(account -> account.getEmail().toLowerCase().equalsIgnoreCase(createAccountRequestV2.getEmail()));
+            String email = createAccountRequestV2.getEmail();
+            RoleEnum role = createAccountRequestV2.getRole();
+
+            boolean existEmailWithRole = accountRepository.findAll().stream()
+                    .anyMatch(account -> account.getEmail().equalsIgnoreCase(email) && account.getRole() == role);
+
+            if (existEmailWithRole) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Email này đã được đăng ký cho vai trò tương ứng"));
+            }
 
 
             Account account = new Account();
-            account.setUserName(createAccountRequestV2.getUserName());
+            account.setUserName(createAccountRequestV2.getUserName().toLowerCase());
             account.setPassword(new BCryptPasswordEncoder(12).encode(createAccountRequestV2.getPassword()));
             account.setEmail(createAccountRequestV2.getEmail());
             account.setFull_name(createAccountRequestV2.getFullName());
