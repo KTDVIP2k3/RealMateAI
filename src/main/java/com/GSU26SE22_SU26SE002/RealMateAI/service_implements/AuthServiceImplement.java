@@ -208,11 +208,14 @@ public class AuthServiceImplement implements AuthServiceInterface {
                         .body(ApiResponse.fail("Unauthorized", "User session missing or token expired"));
             }
 
-            boolean existUserName = accountRepository.findAll().stream()
-                    .anyMatch(account1 -> account1.getUsername().toLowerCase().equalsIgnoreCase(resetPasswordRequest.getUserName().toLowerCase()));
-            if(!existUserName){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "UserName không tồn tại"));
+            String inputUsername = resetPasswordRequest.getUserName().trim().toLowerCase();
+            String currentUsername = account.getUsername().toLowerCase();
+
+            if (!currentUsername.equals(inputUsername)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Tên đăng nhập không trùng khớp với tài khoản đang đăng nhập"));
             }
+
             BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 
