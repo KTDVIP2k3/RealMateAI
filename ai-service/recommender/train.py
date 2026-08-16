@@ -45,6 +45,9 @@ def build_dataset(interactions_df, item_features_df, user_tags: dict):
     (LightFM báo lỗi "unknown user"), dù mục tiêu chính của việc thêm user
     features là để phục vụ ĐÚNG nhóm user này.
     """
+
+    valid_item_ids = set(item_features_df["listing_id"].unique())
+    interactions_df = interactions_df[interactions_df["listing_id"].isin(valid_item_ids)]
     dataset = Dataset()
 
     interaction_user_ids = set(interactions_df["account_id"].unique().tolist())
