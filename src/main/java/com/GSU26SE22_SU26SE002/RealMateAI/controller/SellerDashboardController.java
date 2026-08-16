@@ -33,4 +33,20 @@ public class SellerDashboardController {
     public ResponseEntity<ApiResponse> getWalletSummary() {
         return sellerDashboardServiceInterface.getWalletSummary();
     }
+
+    // MỚI: theo đúng dashboard_api_specification.md mục 5.2 và 5.3.
+    @GetMapping("/api/dashboard/seller/listings-summary")
+    @Operation(description = "Thống kê số lượng tin đăng theo 4 trạng thái: ACTIVE/PENDING/REJECTED/EXPIRED")
+    @PreAuthorize("hasRole('Seller')")
+    public ResponseEntity<ApiResponse> getListingsSummary() {
+        return sellerDashboardServiceInterface.getListingsSummary();
+    }
+
+    @GetMapping("/api/dashboard/seller/top-listings")
+    @Operation(description = "Top tin đăng ACTIVE có lượt xem cao nhất (mặc định limit=5)")
+    @PreAuthorize("hasRole('Seller')")
+    public ResponseEntity<ApiResponse> getTopListings(
+            @RequestParam(value = "limit", defaultValue = "5") Integer limit) {
+        return sellerDashboardServiceInterface.getTopListings(limit);
+    }
 }

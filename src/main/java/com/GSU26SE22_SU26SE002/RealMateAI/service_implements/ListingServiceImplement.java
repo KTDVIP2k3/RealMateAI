@@ -58,28 +58,29 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final Client geminiClient;
     private final ObjectMapper objectMapper;
     private final PostingPackageOrderServiceInterface postingPackageOrderServiceInterface;
-    private final SearchHistoryRepository searchHistoryRepository;
+
 
     @Autowired
     @Lazy
     private ListingServiceImplement self;
+    private final SearchHistoryRepository searchHistoryRepository;
 
     private static final int PAGE_SIZE = 10;
     private static final int GEMINI_MAX_RETRY = 5;
     private static final long GEMINI_RETRY_DELAY_MS = 8000;
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
+    // MỚI: số gợi ý tối đa mỗi nhóm ở GET /listings/search/suggestions.
     private static final int SUGGESTION_LIMIT = 5;
+    // MỚI: số dòng lịch sử tìm kiếm tối đa lưu cho mỗi tài khoản.
     private static final int SEARCH_HISTORY_CAP = 20;
 
     private static class ListingConflictException extends RuntimeException {
         final HttpStatus status;
-
         ListingConflictException(HttpStatus status, String message) {
             super(message);
             this.status = status;
         }
     }
-
     private Seller getCurrentSeller(Account currentUser) {
         if (currentUser == null) {
             throw new RuntimeException("Unauthorized");
@@ -87,36 +88,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
         if (currentUser.getRole() == null || !"Seller".equals(currentUser.getRole().name())) {
             throw new RuntimeException("Forbidden: Chỉ tài khoản Seller mới được thực hiện chức năng này");
         }
+
         return sellerRepository.findByAccount_AccountId(currentUser.getAccountId())
                 .orElseThrow(() -> new RuntimeException("Seller profile không tồn tại"));
     }
 
-    /**
-     * Gắn postingPackageOrders (đã fetch package + category) vào từng Listing
-     * để mapper lấy được postingPackageCategoryName — tránh lazy null.
-     */
-    private void attachPostingPackageOrders(List<Listing> listings) {
-        if (listings == null || listings.isEmpty()) {
-            return;
-        }
-        List<Integer> ids = listings.stream()
-                .map(Listing::getListingId)
-                .filter(Objects::nonNull)
-                .toList();
-        if (ids.isEmpty()) {
-            return;
-        }
-        List<PostingPackageOrder> orders = listingRepository.findOrdersWithPackageByListingIds(ids);
-        Map<Integer, List<PostingPackageOrder>> byListingId = orders.stream()
-                .collect(Collectors.groupingBy(o -> o.getListing().getListingId()));
-        for (Listing l : listings) {
-            l.setPostingPackageOrders(byListingId.getOrDefault(l.getListingId(), new ArrayList<>()));
-        }
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // CREATE LISTING
-    // ════════════════════════════════════════════════════════════════════════
     @Override
     public ResponseEntity<ApiResponse> createListing(CreateListingRequest request) {
         try {
@@ -148,11 +124,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             if (request.getPostingPackageId() != null) {
                 PaymentAttemptResult paymentResult = postingPackageOrderServiceInterface
-                        .attemptAutoPaymentForNewListing(
-                                saved.getListingId(),
-                                request.getPostingPackageId(),
-                                request.getDuration(),
-                                request.getTotalAmount());
+                        .attemptAutoPaymentForNewListing(saved.getListingId(), request.getPostingPackageId(),
+                                request.getDuration(), request.getTotalAmount());
 
                 Map<String, Object> data = new LinkedHashMap<>();
                 data.put("listing", listingDetail);
@@ -169,8 +142,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         + paymentResult.getPostingPackageOrderId() + " để thanh toán lại";
 
                 log.info("[ListingService] createListing: thanh toán tự động listingId={}, success={}, errorCode={}, orderId={}",
-                        saved.getListingId(), paymentResult.isSuccess(), paymentResult.getErrorCode(),
-                        paymentResult.getPostingPackageOrderId());
+                        saved.getListingId(), paymentResult.isSuccess(), paymentResult.getErrorCode(), paymentResult.getPostingPackageOrderId());
 
                 return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(data, finalMsg));
             }
@@ -191,6 +163,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    /** MỚI: kết quả nội bộ của persistNewListingCore() — không phải response HTTP. */
     private static class NewListingCreationResult {
         Property property;
         Listing listing;
@@ -200,26 +173,31 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Transactional
     public NewListingCreationResult persistNewListingCore(CreateListingRequest request, Account currentUser, Seller seller) {
         boolean reuseExisting = Boolean.TRUE.equals(request.getReuseExistingProperty());
+
         LocalDateTime now = LocalDateTime.now();
         Property property;
         boolean isNewProperty;
 
         if (reuseExisting) {
+            // ── Nhánh: dùng lại tài sản ĐÃ CÓ SẴN ────────────────────────
             if (request.getExistingPropertyId() == null) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST,
                         "existingPropertyId không được để trống khi reuseExistingProperty=true");
             }
+
             property = propertyRepository.findById(request.getExistingPropertyId()).orElse(null);
             if (property == null) {
                 throw new ListingConflictException(HttpStatus.NOT_FOUND,
                         "Tài sản không tồn tại: id=" + request.getExistingPropertyId());
             }
-            if (property.getSeller() == null
-                    || !property.getSeller().getSellerId().equals(seller.getSellerId())) {
+            if (property.getSeller() == null ||
+                    !property.getSeller().getSellerId().equals(seller.getSellerId())) {
                 throw new ListingConflictException(HttpStatus.FORBIDDEN, "Tài sản này không thuộc sở hữu của bạn");
             }
             isNewProperty = false;
+
         } else {
+            // ── Nhánh: tạo tài sản MỚI ───────────────────────────────────
             if (request.getPropTitle() == null || request.getPropTitle().isBlank()) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propTitle không được để trống");
             }
@@ -238,6 +216,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             if (request.getPropWardCode() == null || request.getPropWardCode().isBlank()) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propWardCode không được để trống");
             }
+            // Tài sản mới chưa có ảnh nào để tự động dùng lại → bắt buộc Seller
+            // phải upload ảnh trước và truyền publicId vào draftImagePublicIds.
             if (request.getDraftImagePublicIds() == null || request.getDraftImagePublicIds().isEmpty()) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST,
                         "Tạo tài sản mới phải kèm ít nhất 1 ảnh (draftImagePublicIds) — "
@@ -316,8 +296,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 .viewingDate(request.getViewingDate())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
-                .viewCount(0)
-                .priority(0)
                 .isActive(false)
                 .status(SellerListingStatusEnum.ACTIVE)
                 .createdAt(now)
@@ -381,15 +359,16 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // Helper xử lý exception auth
     private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
         if (e instanceof ListingConflictException lce) {
             return ResponseEntity.status(lce.status).body(ApiResponse.fail(lce.status.toString(), e.getMessage()));
         }
-        if (e.getMessage() != null && e.getMessage().contains("Unauthorized")) {
+        if (e.getMessage().contains("Unauthorized")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
         }
-        if (e.getMessage() != null && e.getMessage().contains("Forbidden")) {
+        if (e.getMessage().contains("Forbidden")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.fail("Forbidden", e.getMessage()));
         }
@@ -397,6 +376,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 .body(ApiResponse.fail("Server_Error", e.getMessage()));
     }
 
+
+    // ════════════════════════════════════════════════════════════════════════
     private Pageable resolvePageable(Integer page, Integer size, Sort sort) {
         boolean wantAll = page != null && page == 0 && size != null && size == 0;
         if (wantAll) {
@@ -408,16 +389,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
         return PageRequest.of(effectivePage, effectiveSize, sort);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // GET MARKET / DETAIL / MY LISTINGS
-    // ════════════════════════════════════════════════════════════════════════
+    // Các method khác giữ nguyên (public + seller)
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getMarketListings(int page, int size) {
         try {
             Pageable pageable = resolvePageable(page, size,
-                    Sort.by(Sort.Direction.DESC, "priority")
-                            .and(Sort.by(Sort.Direction.DESC, "createdAt")));
+                    Sort.by(Sort.Direction.ASC, "priority").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
             Page<Listing> listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
                     pageable,
@@ -425,8 +403,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     listingRepository::findAllByListingIdInWithDetails,
                     Listing::getListingId
             );
-
-            attachPostingPackageOrders(listingPage.getContent());
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
@@ -438,22 +414,16 @@ public class ListingServiceImplement implements ListingServiceInterface {
                             favoriteListingRepository.findFavoritedListingIdsByInvestorId(investor.getInvestorId()));
                 }
             }
+
             final Set<Integer> favIds = favoritedIds;
 
-            List<Integer> pageListingIds = listingPage.getContent().stream()
-                    .map(Listing::getListingId)
-                    .toList();
-            Map<Integer, Long> realViewCountByListingId = pageListingIds.isEmpty()
-                    ? Map.of()
+            List<Integer> pageListingIds = listingPage.getContent().stream().map(Listing::getListingId).toList();
+            Map<Integer, Long> realViewCountByListingId = pageListingIds.isEmpty() ? Map.of()
                     : activeLogRepository.countGroupedByListingId(pageListingIds, UserEventTypeEnum.VIEW).stream()
-                    .collect(Collectors.toMap(
-                            FeaturedListingProjection::getListingId,
-                            FeaturedListingProjection::getViewCount));
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
 
             List<ListingSummaryResponse> content = listingPage.getContent().stream()
-                    .map(l -> listingMapper.toListingSummary(
-                            l,
-                            favIds.contains(l.getListingId()),
+                    .map(l -> listingMapper.toListingSummary(l, favIds.contains(l.getListingId()),
                             realViewCountByListingId.get(l.getListingId())))
                     .collect(Collectors.toList());
 
@@ -503,9 +473,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Seller seller = getCurrentSeller(currentUser);
 
             Pageable pageable = resolvePageable(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-            Page<Listing> listingPage = listingRepository.findBySellerId(seller.getSellerId(), pageable);
 
-            attachPostingPackageOrders(listingPage.getContent());
+            Page<Listing> listingPage = listingRepository.findBySellerId(seller.getSellerId(), pageable);
 
             List<ListingSummaryResponse> content = listingPage.getContent().stream()
                     .map(l -> listingMapper.toListingSummary(l, false))
@@ -537,6 +506,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Seller seller = getCurrentSeller(currentUser);
 
             Pageable pageable = resolvePageable(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
             Page<Property> propertyPage = propertyRepository.findBySellerIdWithDetails(seller.getSellerId(), pageable);
 
             List<PropertyDetailResponse> content = propertyPage.getContent().stream()
@@ -594,9 +564,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // UPDATE LISTING
-    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request) {
@@ -623,8 +590,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             if (!isAdminOrStaff) {
                 Seller seller = getCurrentSeller(currentUser);
-                boolean isOwner = listing.getSeller() != null
-                        && listing.getSeller().getSellerId().equals(seller.getSellerId());
+                boolean isOwner = listing.getSeller() != null &&
+                        listing.getSeller().getSellerId().equals(seller.getSellerId());
                 if (!isOwner) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
                             .body(ApiResponse.fail("Forbidden", "Bạn không có quyền sửa bài đăng này"));
@@ -694,8 +661,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(refreshedListing, refreshed),
-                    "Cập nhật bài đăng thành công — cần Staff duyệt lại"
-                            + (reparentedCount > 0 ? " (đã gắn " + reparentedCount + " ảnh mới)" : "")));
+                    "Cập nhật bài đăng thành công — cần Staff duyệt lại"));
 
         } catch (RuntimeException e) {
             return handleAuthException(e);
@@ -717,6 +683,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
         int targetIdx = callerSpecifiedThumbnail ? thumbnailImageIndex : 0;
 
         if (callerSpecifiedThumbnail) {
+            // Đảm bảo luôn CHỈ 1 thumbnail: bỏ đánh dấu thumbnail của mọi ảnh cũ
+            // trước khi gán ảnh mới làm thumbnail.
             listingImageRepository.clearThumbnailByListingId(listing.getListingId());
         }
 
@@ -725,6 +693,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
         for (int i = 0; i < publicIds.size(); i++) {
             String publicId = publicIds.get(i);
+
             int claimed = mediaAssetRepository.claimDraftAsset(
                     publicId, owner.getAccountId(), (long) owner.getAccountId(),
                     EntityType.LISTING, listingIdL);
@@ -781,7 +750,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
         return 0;
     }
-
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getMyListingDetail(Integer listingId) {
@@ -789,18 +757,18 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId()).orElse(null);
+            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
+                    .orElse(null);
             if (listing == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail("Not_Found",
                                 "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
             }
 
-            attachPostingPackageOrders(List.of(listing));
-
             return ResponseEntity.ok(ApiResponse.success(
                     listingMapper.toListingDetail(listing, listing.getProperty()),
                     "Chi tiết tin đăng của bạn"));
+
         } catch (RuntimeException e) {
             return handleAuthException(e);
         } catch (Exception e) {
@@ -813,33 +781,47 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> softDeleteListing(Integer listingId) {
-        UpdateListingStatusRequest req = new UpdateListingStatusRequest();
-        req.setStatus(SellerListingStatusEnum.DELETED);
-        return updateListingStatus(listingId, req);
+        return changeSellerListingStatus(listingId, SellerListingStatusEnum.DELETED);
     }
 
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> updateListingStatus(Integer listingId, UpdateListingStatusRequest request) {
+        if (request.getStatus() == null) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.fail("Bad_Request", "status không được để trống (ACTIVE, HIDDEN hoặc DELETED)"));
+        }
+        return changeSellerListingStatus(listingId, request.getStatus());
+    }
+
+    private ResponseEntity<ApiResponse> changeSellerListingStatus(Integer listingId, SellerListingStatusEnum targetStatus) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId()).orElse(null);
+            Listing listing = listingRepository.findByIdAndSellerId(listingId, seller.getSellerId())
+                    .orElse(null);
             if (listing == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail("Not_Found",
                                 "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
             }
 
-            SellerListingStatusEnum targetStatus = request.getStatus();
-            SellerListingStatusEnum currentStatus = listing.getStatus();
-            String msg;
+            SellerListingStatusEnum currentStatus = listing.getStatus() != null
+                    ? listing.getStatus() : SellerListingStatusEnum.ACTIVE;
 
+            String msg;
             switch (targetStatus) {
                 case ACTIVE -> {
-                    ListingVerification lv = listing.getListingVerification();
-                    ListingStatusEnum verificationStatus = lv != null ? lv.getStatus() : null;
+                    if (currentStatus != SellerListingStatusEnum.HIDDEN) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(ApiResponse.fail("Conflict",
+                                        "Chỉ mở lại được bài đăng đang ở trạng thái tạm ẩn (HIDDEN). "
+                                                + "Trạng thái hiện tại: " + currentStatus));
+                    }
+                    ListingVerification verification = listingVerificationRepository
+                            .findByListing_ListingId(listingId).orElse(null);
+                    ListingStatusEnum verificationStatus = verification != null ? verification.getStatus() : null;
                     if (verificationStatus != ListingStatusEnum.APPROVED) {
                         return ResponseEntity.status(HttpStatus.CONFLICT)
                                 .body(ApiResponse.fail("Conflict",
@@ -892,9 +874,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // AI / SEARCH / FEATURED / COMPARE / SUGGESTIONS
-    // ════════════════════════════════════════════════════════════════════════
+
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> generateListingContent(GenerateListingContentRequest request) {
@@ -965,8 +945,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             GenerateContentResponse response = callGeminiWithRetry(prompt, config);
 
             Map<String, Object> parsed = objectMapper.readValue(
-                    response.text().trim(),
-                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                    response.text().trim(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+
 
             String rawDescription = String.valueOf(parsed.get("description"));
             String formattedDescription = formatSentencesOnNewLines(rawDescription);
@@ -994,6 +974,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         if (text == null || text.isBlank()) return text;
         return text.trim().replaceAll("\\.\\s+", ".\n");
     }
+
 
     @Override
     @Transactional
@@ -1085,8 +1066,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             GenerateContentResponse response = callGeminiWithRetry(prompt, config);
 
             Map<String, Object> parsed = objectMapper.readValue(
-                    response.text().trim(),
-                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                    response.text().trim(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
 
             PriceSuggestionResponse result = PriceSuggestionResponse.builder()
                     .suggestedPrice(((Number) parsed.get("suggestedPrice")).longValue())
@@ -1112,6 +1092,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> searchListings(ListingSearchRequest request) {
@@ -1125,7 +1106,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 case MOST_VIEWED -> Sort.by(Sort.Direction.DESC, "viewCount");
                 case NEWEST -> Sort.by(Sort.Direction.DESC, "createdAt");
             };
-            Sort sort = Sort.by(Sort.Direction.DESC, "priority").and(userSort);
+            // Kim Cương=1 lên đầu, Tin Thường=4 xuống cuối): đổi DESC -> ASC.
+            Sort sort = Sort.by(Sort.Direction.ASC, "priority").and(userSort);
+
             Pageable pageable = resolvePageable(request.getPage(), request.getSize(), sort);
 
             Specification<Listing> spec = ListingSpecification.fromRequest(request);
@@ -1135,8 +1118,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     listingRepository::findAllByListingIdInWithDetails,
                     Listing::getListingId
             );
-
-            attachPostingPackageOrders(listingPage.getContent());
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
@@ -1167,6 +1148,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             result.put("last", listingPage.isLast());
 
             return ResponseEntity.ok(ApiResponse.success(result, "Kết quả tìm kiếm tin đăng"));
+
         } catch (Exception e) {
             log.error("[ListingService] searchListings lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -1174,8 +1156,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+
     @Override
-    @Transactional
     public ResponseEntity<ApiResponse> getFeaturedListings(int page, int size) {
         try {
             Pageable pageable = (page == 0 && size == 0)
@@ -1190,21 +1172,15 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .toList();
 
             Map<Integer, Long> viewCountByListingId = topViewed.getContent().stream()
-                    .collect(Collectors.toMap(
-                            FeaturedListingProjection::getListingId,
-                            FeaturedListingProjection::getViewCount));
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
 
-            List<Listing> loaded = listingRepository.findAllByListingIdInWithDetails(orderedIds);
-            attachPostingPackageOrders(loaded);
-
-            Map<Integer, Listing> listingById = loaded.stream()
-                    .collect(Collectors.toMap(Listing::getListingId, l -> l, (a, b) -> a));
+            Map<Integer, Listing> listingById = listingRepository.findAllByListingIdInWithDetails(orderedIds)
+                    .stream().collect(Collectors.toMap(Listing::getListingId, l -> l, (a, b) -> a));
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
             if (currentUser != null) {
-                Investor investor = investorRepository
-                        .findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
+                Investor investor = investorRepository.findByAccount_AccountId(currentUser.getAccountId()).orElse(null);
                 if (investor != null) {
                     favoritedIds = new HashSet<>(
                             favoriteListingRepository.findFavoritedListingIdsByInvestorId(investor.getInvestorId()));
@@ -1214,14 +1190,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             List<Map<String, Object>> content = orderedIds.stream()
                     .map(listingById::get)
-                    .filter(Objects::nonNull)
+                    .filter(java.util.Objects::nonNull)
                     .map(l -> {
                         Map<String, Object> item = new LinkedHashMap<>();
-                        item.put("listing", listingMapper.toListingSummary(
-                                l,
-                                favIds.contains(l.getListingId()),
-                                viewCountByListingId.get(l.getListingId())));
-                        item.put("viewCount", viewCountByListingId.getOrDefault(l.getListingId(), 0L));
+                        item.put("listing", listingMapper.toListingSummary(l, favIds.contains(l.getListingId())));
+                        item.put("viewCount", viewCountByListingId.get(l.getListingId()));
                         return item;
                     })
                     .collect(Collectors.toList());
@@ -1250,6 +1223,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .body(ApiResponse.fail("Bad_Request", "Vui lòng gửi danh sách listingId cần so sánh"));
             }
 
+            // Loại trùng nhưng GIỮ NGUYÊN thứ tự đầu tiên xuất hiện — Investor gửi
+            // trùng 1 id 2 lần thì chỉ so sánh 1 lần, không lỗi cứng vì lý do nhỏ này.
             List<Integer> distinctIds = listingIds.stream().distinct().toList();
 
             if (distinctIds.size() < 2) {
@@ -1271,7 +1246,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             List<Object> content = distinctIds.stream()
                     .map(listingById::get)
-                    .filter(Objects::nonNull)
+                    .filter(java.util.Objects::nonNull)
                     .map(l -> listingMapper.toListingDetail(l, l.getProperty()))
                     .collect(Collectors.toList());
 
@@ -1283,6 +1258,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("listings", content);
             if (!notFoundIds.isEmpty()) {
+                // Vẫn trả kết quả so sánh được với các tin TÌM THẤY, chỉ cảnh báo
+                // riêng tin nào không tồn tại — không chặn cứng cả request vì 1 id sai.
                 result.put("notFoundListingIds", notFoundIds);
             }
 
@@ -1297,6 +1274,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
+
 
     private void recordSearchHistory(Account account, String keyword) {
         try {
@@ -1372,6 +1350,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
     }
 
+    // Nhóm LOCATION — khớp tên Phường/Xã trước (cụ thể hơn), rồi tới Tỉnh/Thành,
+    // gộp chung rồi cắt về đúng SUGGESTION_LIMIT.
     private List<SearchSuggestionItem> buildLocationSuggestions(String keyword) {
         List<SearchSuggestionItem> result = new ArrayList<>();
 
@@ -1398,6 +1378,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         return result.stream().limit(SUGGESTION_LIMIT).toList();
     }
 
+
     private List<SearchSuggestionItem> buildListingSuggestions(String keyword) {
         Pageable top = PageRequest.of(0, SUGGESTION_LIMIT);
         return listingRepository.searchSuggestionsByTitleOrProjectName(keyword, top).stream()
@@ -1415,7 +1396,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 .toList();
     }
 
+    // Nhóm PROPERTY_TYPE — khớp tên loại BĐS đang active.
     private List<SearchSuggestionItem> buildPropertyTypeSuggestions(String keyword) {
+        Pageable top = PageRequest.of(0, SUGGESTION_LIMIT);
         return propertyTypeRepository.findTop5ByIsActiveTrueAndNameContainingIgnoreCase(keyword).stream()
                 .map(pt -> SearchSuggestionItem.builder()
                         .type("PROPERTY_TYPE")
@@ -1426,6 +1409,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 .toList();
     }
 
+    // Nhóm RECENT_SEARCH — lịch sử tìm kiếm CỦA CHÍNH tài khoản đang đăng nhập.
+    // keyword rỗng -> trả về gần đây nhất không lọc; có keyword -> lọc theo chuỗi đang gõ.
     private List<SearchSuggestionItem> buildRecentSearchSuggestions(Account account, String keyword) {
         List<SearchHistory> histories = StringUtils.hasText(keyword)
                 ? searchHistoryRepository.findTop5ByAccount_AccountIdAndKeywordContainingIgnoreCaseOrderByUpdatedAtDesc(
@@ -1441,6 +1426,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .build())
                 .toList();
     }
+
 
     private GenerateContentResponse callGeminiWithRetry(String prompt, GenerateContentConfig config) {
         int retryCount = 0;

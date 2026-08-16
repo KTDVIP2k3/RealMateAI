@@ -1,17 +1,15 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.PostingPackageOrderStatusEnum;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.PostingPackageOrder;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Transaction;
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Wallet;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PostingPackageOrderRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.TransactionRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.WalletRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.UserEventTypeEnum;
+import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDtoV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.TransactionSummaryDto;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.WalletSummaryDto;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.SellerDashboardServiceInterface;
+import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,8 +34,28 @@ public class SellerDashboardServiceImplement implements SellerDashboardServiceIn
     @Autowired
     private WalletRepository walletRepository;
 
+    @Autowired
+    private AuthenUntil authenUntil;
+
+    @Autowired
+    private SellerRepository sellerRepository;
+
+    @Autowired
+    private ListingRepository listingRepository;
+
+    @Autowired
+    private ActiveLogRepository activeLogRepository;
+
+    @Autowired
+    private ListingMapper listingMapper;
+
+    // SỬA (fix bug NGHIÊM TRỌNG): trước đây hardcode "return 88" — MỌI Seller
+    // gọi Dashboard đều thấy dữ liệu của TÀI KHOẢN 88, không phải của chính
+    // họ (giống lỗi IDOR — lộ dữ liệu người khác). Giờ lấy đúng từ token đăng
+    // nhập, đúng pattern AuthenUntil dùng xuyên suốt hệ thống.
     private Integer getCurrentAccountId() {
-        return 88;
+        Account currentUser = authenUntil.getCurrentUSer();
+        return currentUser != null ? currentUser.getAccountId() : null;
     }
 
     @Transactional(readOnly = true)
@@ -138,6 +156,117 @@ public class SellerDashboardServiceImplement implements SellerDashboardServiceIn
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(summary, "Get wallet summary successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // MỚI: GET /dashboard/seller/listings-summary — theo đúng
+    // dashboard_api_specification.md mục 5.2. Đếm theo 4 trạng thái duyệt
+    // (ListingStatusEnum trên ListingVerification) — ACTIVE gộp cả điều
+    // kiện Seller không tự ẩn tin (SellerListingStatusEnum.ACTIVE).
+    // ════════════════════════════════════════════════════════════════════
+    @Transactional(readOnly = true)
+    @Override
+    public ResponseEntity<ApiResponse> getListingsSummary() {
+        try {
+            Integer currentAccountId = getCurrentAccountId();
+            if (currentAccountId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Unauthorized", "Vui lòng đăng nhập"));
+            }
+            Seller seller = sellerRepository.findByAccount_AccountId(currentAccountId).orElse(null);
+            if (seller == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found", "Seller profile không tồn tại"));
+            }
+
+            List<Listing> listings = listingRepository.findBySellerId(seller.getSellerId(),
+                    org.springframework.data.domain.Pageable.unpaged()).getContent();
+
+            long activeCount = 0, pendingCount = 0, rejectedCount = 0, expiredCount = 0;
+            for (Listing l : listings) {
+                ListingVerification lv = l.getListingVerification();
+                if (lv == null || lv.getStatus() == null) continue;
+                switch (lv.getStatus()) {
+                    case APPROVED -> {
+                        if (Boolean.TRUE.equals(l.getIsActive())) activeCount++;
+                    }
+                    case PENDING, WAITING_PAYMENT -> pendingCount++;
+                    case REJECTED -> rejectedCount++;
+                    case EXPIRED -> expiredCount++;
+                }
+            }
+
+            Map<String, Object> summary = new LinkedHashMap<>();
+            summary.put("activeCount", activeCount);
+            summary.put("pendingCount", pendingCount);
+            summary.put("rejectedCount", rejectedCount);
+            summary.put("expiredCount", expiredCount);
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(summary, "Get listings summary successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Server_Error", e.getMessage()));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // MỚI: GET /dashboard/seller/top-listings — theo đúng
+    // dashboard_api_specification.md mục 5.3. Top N tin ACTIVE có viewCount
+    // THẬT (đếm từ ActiveLog, không dùng cột Listing.viewCount cũ chưa từng
+    // được cập nhật — xem lý do đã ghi rõ ở ListingMapper).
+    // ════════════════════════════════════════════════════════════════════
+    @Transactional(readOnly = true)
+    @Override
+    public ResponseEntity<ApiResponse> getTopListings(Integer limit) {
+        try {
+            Integer currentAccountId = getCurrentAccountId();
+            if (currentAccountId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Unauthorized", "Vui lòng đăng nhập"));
+            }
+            Seller seller = sellerRepository.findByAccount_AccountId(currentAccountId).orElse(null);
+            if (seller == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail("Not_Found", "Seller profile không tồn tại"));
+            }
+            int effectiveLimit = (limit != null && limit > 0) ? limit : 5;
+
+            List<Listing> activeListings = listingRepository.findBySellerId(seller.getSellerId(),
+                            org.springframework.data.domain.Pageable.unpaged()).getContent()
+                    .stream()
+                    .filter(l -> Boolean.TRUE.equals(l.getIsActive()))
+                    .toList();
+
+            List<Integer> listingIds = activeListings.stream().map(Listing::getListingId).toList();
+            Map<Integer, Long> viewCountByListing = new HashMap<>();
+            if (!listingIds.isEmpty()) {
+                activeLogRepository.countGroupedByListingId(listingIds, UserEventTypeEnum.VIEW)
+                        .forEach(p -> viewCountByListing.put(p.getListingId(), p.getViewCount()));
+            }
+
+            List<Map<String, Object>> topListings = activeListings.stream()
+                    .sorted((a, b) -> Long.compare(
+                            viewCountByListing.getOrDefault(b.getListingId(), 0L),
+                            viewCountByListing.getOrDefault(a.getListingId(), 0L)))
+                    .limit(effectiveLimit)
+                    .map(l -> {
+                        Map<String, Object> item = new LinkedHashMap<>();
+                        item.put("listingId", l.getListingId());
+                        item.put("title", l.getTitle());
+                        item.put("thumbnailUrl", listingMapper.resolveThumbnailUrl(l));
+                        item.put("price", l.getPrice());
+                        item.put("viewCount", viewCountByListing.getOrDefault(l.getListingId(), 0L));
+                        return item;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(topListings, "Get top listings successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));

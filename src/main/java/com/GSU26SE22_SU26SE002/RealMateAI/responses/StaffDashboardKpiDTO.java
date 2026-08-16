@@ -12,4 +12,9 @@ public class StaffDashboardKpiDTO {
     private long pendingAccountVerificationsCount;
     private long pendingListingCertificationsCount;
     private long pendingPropertyValuationsCount;
+
+    private long pendingVerificationCount;
+    private long pendingValuationCount;
+    private long pendingListingCount;
+    private long totalPendingCount;
 }

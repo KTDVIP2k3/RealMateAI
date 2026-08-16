@@ -36,9 +36,6 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
     private PostingPackageOrderRepository postingPackageOrderRepository;
 
     @Autowired
-    private NotificationService notificationService;
-
-    @Autowired
     private AuthenUntil authenUntil;
 
     @Autowired
@@ -282,14 +279,17 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 "PAY_" + System.currentTimeMillis(), now);
 
         walletRepository.save(wallet);
+        // SỬA (fix bug thật): transitionListingForNewPackageOrder() chỉ set
+        // listing.priority TRÊN OBJECT JAVA trong bộ nhớ — KHÔNG tự động lưu
+        // xuống DB. Với luồng thanh toán NGAY LÚC TẠO TIN MỚI
+        // (attemptAutoPaymentForNewListing, gọi qua self-proxy REQUIRES_NEW),
+        // "listing" là entity ĐÃ DETACHED (đến từ transaction persistNewListingCore()
+        // vừa commit trước đó) — Hibernate KHÔNG dirty-checking được, thay đổi
+        // priority bị MẤT HOÀN TOÀN, không bao giờ lưu vào DB. Phải gọi save()
+        // TƯỜNG MINH — đây chính là nguyên nhân "get all listing" không bao giờ
+        // thấy hiệu lực ưu tiên dù thanh toán thành công.
+        listingRepository.save(listing);
         PostingPackageOrder savedOrder = postingPackageOrderRepository.save(order);
-
-        // MỚI: theo mục 12 (Trung bình) trong RealMateAI_API_Notification_Report.
-        // Đặt ở đây (executePayment dùng CHUNG) để phủ cả payPostingPackage()
-        // VÀ attemptAutoPaymentForNewListing() (thanh toán tự động lúc tạo tin).
-        notificationService.notify(account,
-                "Mua gói đăng tin " + postingPackage.getName() + " thành công.",
-                NotificationTypeEnum.TRANSACTION);
 
         return PaymentAttemptResult.ok(savedOrder.getPostingPackageOrderId());
     }
@@ -361,13 +361,6 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             transactionRepository.save(transaction);
             walletRepository.save(wallet);
             postingPackageOrderRepository.save(postingPackageOrder);
-
-            // MỚI: theo mục 13 (Trung bình) trong RealMateAI_API_Notification_Report.
-            String packageName = postingPackageOrder.getPostingPackage() != null
-                    ? postingPackageOrder.getPostingPackage().getName() : "";
-            notificationService.notify(account,
-                    "Gia hạn gói đăng tin " + packageName + " thành công.",
-                    NotificationTypeEnum.TRANSACTION);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Renewal posting package successfully"));
 
@@ -448,6 +441,10 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                     "PAY_RETRY_" + System.currentTimeMillis(), now);
 
             walletRepository.save(wallet);
+            // SỬA (đồng bộ với fix ở executePayment()): tường minh lưu lại
+            // listing sau khi priority có thể đã được nâng — không phụ thuộc
+            // vào dirty-checking ngầm của Hibernate.
+            listingRepository.save(listing);
             postingPackageOrderRepository.save(order);
 
             return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "Thanh toán lại gói dịch vụ đăng tin thành công"));
@@ -473,10 +470,13 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             postingPackageOrder.setEndDate(null);
         }
 
+
+        final int DEFAULT_NO_PACKAGE_PRIORITY = 5;
         Integer newPriority = postingPackageOrder.getPostingPackage().getPriority() != null
-                ? postingPackageOrder.getPostingPackage().getPriority().intValue() : 0;
-        int currentPriority = listing.getPriority() != null ? listing.getPriority() : 0;
-        if (newPriority > currentPriority) {
+                ? postingPackageOrder.getPostingPackage().getPriority().intValue() : DEFAULT_NO_PACKAGE_PRIORITY;
+        int currentPriority = (listing.getPriority() != null && listing.getPriority() > 0)
+                ? listing.getPriority() : DEFAULT_NO_PACKAGE_PRIORITY;
+        if (newPriority < currentPriority) {
             listing.setPriority(newPriority);
         }
     }
