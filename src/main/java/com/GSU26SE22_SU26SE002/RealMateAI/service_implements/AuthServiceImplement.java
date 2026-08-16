@@ -312,7 +312,14 @@ public class AuthServiceImplement implements AuthServiceInterface {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "UserName/Password should not be blank"));
             }
 
-            Account account = accountRepository.findByUserName(loginRequest.getUserName()).orElse(null);
+//            Account account = accountRepository.findByUserName(loginRequest.getUserName()).orElse(null);
+
+
+            Account account = accountRepository.findAll().stream()
+                    .filter(account1 -> account1.getUsername().toLowerCase().equalsIgnoreCase(loginRequest.getUserName().toLowerCase()))
+                    .findAny()
+                    .orElse(null);
+
             if (account == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Account does not exist"));
             }
