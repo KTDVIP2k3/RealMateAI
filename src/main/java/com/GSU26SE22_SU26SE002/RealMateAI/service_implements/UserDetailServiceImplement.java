@@ -15,7 +15,10 @@ public class UserDetailServiceImplement implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Account account = accountRepository.findByUserName(username).orElse(null);
+        Account account = accountRepository.findAll().stream()
+                .filter(account1 -> account1.getUsername().toLowerCase().equalsIgnoreCase(username.toLowerCase()))
+                .findAny()
+                .orElse(null);
         if(account == null){
            throw new UsernameNotFoundException("Username : " + username + " does not exist");
         }
