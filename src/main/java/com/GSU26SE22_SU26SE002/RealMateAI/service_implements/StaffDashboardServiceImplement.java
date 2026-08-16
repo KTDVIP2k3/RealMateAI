@@ -1,6 +1,8 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.model.ListingCertificationRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyValuation;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingCertificationRequestRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.AccountVerificationDTOV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PropertyValuationDTO;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,9 @@ public class StaffDashboardServiceImplement implements StaffDashboardServiceInte
     private AccountVerificationRepository accountVerificationRepository;
 
     @Autowired
+    private ListingCertificationRequestRepository certificationRequestRepository;
+
+    @Autowired
     private PropertyValuationRepository propertyValuationRepository;
 
     public ResponseEntity<ApiResponse> getDashBoardKpi() {
@@ -48,8 +53,8 @@ public class StaffDashboardServiceImplement implements StaffDashboardServiceInte
             long property_valuation_count = 0;
 
             listing_count_pending = listingRepository.findAll().stream()
-                    .filter(listing -> Boolean.TRUE.equals(listing.getIsVerified()
-                            &&Boolean.TRUE.equals(listing.getIsActive())))
+                    .filter(listing -> listing.getListingVerification() != null
+                            && listing.getListingVerification().getStatus() == ListingStatusEnum.PENDING)
                     .count();
             listing_count_certification = listingRepository.findAll().stream()
                     .filter(listing -> Boolean.TRUE.equals(listing.getIsActive())
@@ -71,6 +76,11 @@ public class StaffDashboardServiceImplement implements StaffDashboardServiceInte
             staffDashboardKpiDTO.setPendingAccountVerificationsCount(account_verification_count);
             staffDashboardKpiDTO.setPendingPropertyValuationsCount(property_valuation_count);
             staffDashboardKpiDTO.setPendingListingCertificationsCount(listing_count_certification);
+
+            staffDashboardKpiDTO.setPendingVerificationCount(listing_count_certification);
+            staffDashboardKpiDTO.setPendingValuationCount(property_valuation_count);
+            staffDashboardKpiDTO.setPendingListingCount(listing_count_pending);
+            staffDashboardKpiDTO.setTotalPendingCount(listing_count_certification + property_valuation_count + listing_count_pending);
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(staffDashboardKpiDTO, "Staff dashboard kpi"));
@@ -190,51 +200,64 @@ public class StaffDashboardServiceImplement implements StaffDashboardServiceInte
         return dto;
     }
 
+    // SỬA (fix bug thật — semantic mismatch nghiêm trọng): TRƯỚC ĐÂY hàm này
+    // query bảng AccountVerification (xác thực TÀI KHOẢN/KYC) — nhưng theo
+    // đúng dashboard_api_specification.md mục 4.2, endpoint
+    // "/dashboard/staff/pending-verifications" phải trả về hàng đợi "Xác
+    // thực BĐS, duyệt cấp tích xanh" — tức ListingCertificationRequest, HOÀN
+    // TOÀN khác đối tượng. Response DTO cũ (accountVerification-based) cũng
+    // sai hẳn cấu trúc so với spec (spec cần verificationId/propertyId/
+    // title/requesterName/submittedAt — không phải cấu trúc tài khoản).
     @Transactional(readOnly = true)
     @Override
     public ResponseEntity<ApiResponse> getPendingAccountVerifications(int page, int size) {
         try {
-            List<AccountVerification> allVerifications = accountVerificationRepository.findAll();
-            if (allVerifications == null) {
-                allVerifications = Collections.emptyList();
+            List<ListingCertificationRequest> pendingList =
+                    certificationRequestRepository.findByStatusWithDetails(CertificationStatusEnum.PENDING);
+            if (pendingList == null) {
+                pendingList = Collections.emptyList();
             }
-
-            List<AccountVerification> sortedList = allVerifications.stream()
-                    .filter(av -> Boolean.TRUE.equals(av.getIsActive())
-                            && av.getVerificationStatus() == VerificationStatusEnum.PENDING)
-                    .sorted(Comparator.comparing(
-                            AccountVerification::getCreatedAt,
-                            Comparator.nullsLast(Comparator.reverseOrder())
-                    ))
+            // findByStatusWithDetails đã ORDER BY createdAt ASC — đảo lại DESC
+            // (mới nhất trước) cho đúng quy ước hiển thị chung của Dashboard.
+            List<ListingCertificationRequest> sortedList = pendingList.stream()
+                    .sorted(Comparator.comparing(ListingCertificationRequest::getCreatedAt,
+                            Comparator.nullsLast(Comparator.reverseOrder())))
                     .toList();
 
             boolean isGetAll = (page == 0 && size == 0);
 
-            List<AccountVerificationDTOV2> pagedContent;
             int effectivePage = 0;
             int effectiveSize = sortedList.size();
             int totalElements = sortedList.size();
             int totalPages = 1;
             boolean isLast = true;
+            List<ListingCertificationRequest> pageSlice;
 
             if (isGetAll) {
-                pagedContent = sortedList.stream().map(this::convertToAccountVerificationDTOV2).collect(Collectors.toList());
+                pageSlice = sortedList;
             } else {
-                effectiveSize = size > 0 ? size : 20;
+                effectiveSize = size > 0 ? size : 5;
                 effectivePage = Math.max(page, 0);
-
                 int offset = effectivePage * effectiveSize;
                 totalPages = (int) Math.ceil((double) totalElements / effectiveSize);
                 if (totalPages == 0) totalPages = 1;
                 isLast = effectivePage >= totalPages - 1;
-
-                List<AccountVerification> slicedList = sortedList.stream()
-                        .skip(offset)
-                        .limit(effectiveSize)
-                        .toList();
-
-                pagedContent = slicedList.stream().map(this::convertToAccountVerificationDTOV2).collect(Collectors.toList());
+                pageSlice = sortedList.stream().skip(offset).limit(effectiveSize).toList();
             }
+
+            // Đúng shape response theo dashboard_api_specification.md mục 4.2:
+            // verificationId, propertyId, title, requesterName, submittedAt.
+            List<Map<String, Object>> pagedContent = pageSlice.stream().map(r -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("verificationId", r.getCertificationRequestId());
+                item.put("propertyId", r.getListing() != null && r.getListing().getProperty() != null
+                        ? r.getListing().getProperty().getPropertyId() : null);
+                item.put("title", r.getListing() != null ? r.getListing().getTitle() : null);
+                item.put("requesterName", r.getSeller() != null && r.getSeller().getAccount() != null
+                        ? r.getSeller().getAccount().getFull_name() : "Ẩn danh");
+                item.put("submittedAt", r.getCreatedAt());
+                return item;
+            }).collect(Collectors.toList());
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("content", pagedContent);
@@ -244,7 +267,7 @@ public class StaffDashboardServiceImplement implements StaffDashboardServiceInte
             result.put("totalPages", totalPages);
             result.put("last", isLast);
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "Get pending account verifications successfully"));
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "Get pending listing certification (verification) requests successfully"));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("Server_Error", e.getMessage()));

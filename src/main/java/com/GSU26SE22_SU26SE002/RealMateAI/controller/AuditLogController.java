@@ -23,9 +23,16 @@ public class AuditLogController {
         return userEventTrackingService.getViewCount(listingId);
     }
 
-    @GetMapping("/investor/viewed-listings")
+    // SỬA: thêm alias "/account/viewed-listings" — path cũ "/investor/viewed-listings"
+    // GÂY HIỂU LẦM là chỉ dành cho Investor, trong khi @PreAuthorize thực tế
+    // chỉ yêu cầu "isAuthenticated()" (không giới hạn role) và service dùng
+    // chung currentUser.getAccountId() — API này ĐÃ hoạt động đúng cho CẢ
+    // Investor lẫn Seller từ trước, chỉ là tên đường dẫn không phản ánh đúng.
+    // Giữ nguyên path cũ để không phá vỡ FE đang gọi sẵn, thêm path mới cho
+    // rõ nghĩa hơn — cả 2 cùng trỏ về đúng 1 hàm.
+    @GetMapping({ "/account/viewed-listings"})
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Danh sách tin đăng tôi đã xem (mặc định 10/trang, mới nhất trước)")
+    @Operation(summary = "Danh sách tin đăng tôi đã xem gần đây — dùng chung cho MỌI role đã đăng nhập (Investor, Seller...), mặc định 10/trang, mới nhất trước")
     public ResponseEntity<ApiResponse> getMyViewedListings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
