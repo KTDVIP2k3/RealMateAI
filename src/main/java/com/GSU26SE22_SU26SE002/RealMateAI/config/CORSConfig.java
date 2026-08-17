@@ -14,7 +14,9 @@ public class CORSConfig implements WebMvcConfigurer {
                         "http://localhost:3000",
                         "http://103.161.180.17:8081",
                         "http://103.161.180.17",
-                        "https://sep490-gsu26se22.vercel.app")
+                        "https://sep490-gsu26se22.vercel.app",
+                        "https://vercel.com/harrrys-projects-252f0bb1/sep490-gsu26se22/JSaWbrZACbTXPBvBX7oF3NjEMEsM"
+                )
                 .allowedHeaders("*")
                 .exposedHeaders("Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers")
                 .allowedMethods("*")
