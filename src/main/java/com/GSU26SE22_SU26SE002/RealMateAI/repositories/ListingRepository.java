@@ -182,17 +182,33 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
     List<Listing> findOtherListingsOfPropertyWithImages(@Param("propertyId") Integer propertyId,
                                                         @Param("excludeListingId") Integer excludeListingId);
     long countByProperty_PropertyId(Integer propertyId);
+
     @Query("SELECT l FROM Listing l " +
             "JOIN l.property p " +
             "JOIN p.propertyCondition pc " +
             "JOIN pc.propertyType pt " +
             "JOIN p.location loc " +
             "JOIN loc.ward w " +
-            "WHERE (w.name = :ward OR :ward IS NULL) " +
-            "AND pt.propertyTypeId = :propertyTypeId " +
-            "AND l.price <= :maxPrice " +
+            "WHERE l.price <= :maxPrice " +
             "AND l.isActive = true " +
             "AND p.isActive = true " +
+            "AND ( " +
+            "   ((w.name = :ward OR :ward IS NULL) AND pt.propertyTypeId = :propertyTypeId) " +
+            "   OR " +
+            "   NOT EXISTS ( " +
+            "       SELECT 1 FROM Listing l2 " +
+            "       JOIN l2.property p2 " +
+            "       JOIN p2.propertyCondition pc2 " +
+            "       JOIN pc2.propertyType pt2 " +
+            "       JOIN p2.location loc2 " +
+            "       JOIN loc2.ward w2 " +
+            "       WHERE l2.price <= :maxPrice " +
+            "       AND l2.isActive = true " +
+            "       AND p2.isActive = true " +
+            "       AND (w2.name = :ward OR :ward IS NULL) " +
+            "       AND pt2.propertyTypeId = :propertyTypeId " +
+            "   ) " +
+            ") " +
             "ORDER BY l.price DESC")
     List<Listing> findRealPropertiesByAiStrategy(
             @Param("ward") String ward,
