@@ -131,14 +131,14 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
                         .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan id does not exist"));
             }
 
-            boolean existName = membershipPlanRepository.findAll().stream()
-                    .filter(p -> !p.getMembershipPlanId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted())) // Tránh tự trùng với chính nó khi không đổi tên
-                    .anyMatch(p -> p.getName().trim().toLowerCase().equals(membershipPlanRequest.getName().trim().toLowerCase()));
-
-            if (existName) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership plan name exist"));
-            }
+//            boolean existName = membershipPlanRepository.findAll().stream()
+//                    .filter(p -> !p.getMembershipPlanId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted())) // Tránh tự trùng với chính nó khi không đổi tên
+//                    .anyMatch(p -> p.getName().trim().toLowerCase().equals(membershipPlanRequest.getName().trim().toLowerCase()));
+//
+//            if (existName) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership plan name exist"));
+//            }
 
             membershipPlan.setName(membershipPlanRequest.getName());
             membershipPlan.setDescription(membershipPlanRequest.getDescription());
