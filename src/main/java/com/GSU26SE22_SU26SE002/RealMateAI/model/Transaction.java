@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @NoArgsConstructor @AllArgsConstructor @Getter
@@ -39,7 +40,7 @@ public class Transaction {
     private Integer docnoId;
 
     @Column(name = "total_amount")
-    private Long totalAmount;
+    private BigDecimal totalAmount;
 
     @Column(name = "transaction_code")
     private String transactionCode;

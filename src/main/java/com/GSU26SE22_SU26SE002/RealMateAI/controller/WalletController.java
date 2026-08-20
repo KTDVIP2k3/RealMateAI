@@ -27,7 +27,7 @@ public class WalletController {
     @PreAuthorize("hasAnyRole('Investor', 'Seller')")
     @Operation(summary = "[FE CALL] Người investor hoặc seller nạp tiền vào ví - Frontend gọi trực tiếp để lấy link thanh toán")
     public ResponseEntity<ApiResponse> deposit(
-            @RequestParam("amount") Long amount,
+            @RequestParam("amount") BigDecimal amount,
             @RequestParam(value = "returnUrl", required = false) String customReturnUrl,
             @RequestParam(value = "cancelUrl", required = false) String customCancelUrl) {
         return walletService.initiateDeposit(amount, customReturnUrl, customCancelUrl);

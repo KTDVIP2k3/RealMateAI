@@ -60,7 +60,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
     @Override
     @Transactional
-    public ResponseEntity<ApiResponse> initiateDeposit(Long amount, String customReturnUrl, String customCancelUrl) {
+    public ResponseEntity<ApiResponse> initiateDeposit(BigDecimal amount, String customReturnUrl, String customCancelUrl) {
         try {
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
@@ -107,7 +107,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
             CreatePaymentLinkRequest paymentRequest = CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode)
-                    .amount(amount)
+                    .amount(amount.longValue())
                     .description("Nap tien vi RealMateAI")
                     .returnUrl(finalReturnUrl)
                     .cancelUrl(finalCancelUrl)
@@ -215,7 +215,8 @@ public class WalletServiceImplement implements WalletServiceInterface {
 
                     Wallet wallet = transaction.getWallet();
                     if (wallet != null && transaction.getTotalAmount() != null) {
-                        BigDecimal amountToDeposit = BigDecimal.valueOf(transaction.getTotalAmount());
+//                        BigDecimal amountToDeposit = BigDecimal.valueOf(transaction.getTotalAmount());
+                        BigDecimal amountToDeposit = transaction.getTotalAmount();
                         wallet.setBalance(wallet.getBalance().add(amountToDeposit));
                         wallet.setUpdatedAt(LocalDateTime.now());
                         walletRepository.save(wallet);
@@ -303,7 +304,7 @@ public class WalletServiceImplement implements WalletServiceInterface {
                     .account(currentAccount)
                     .transactionType(TransactionTypeEnum.WALLET_WITHDRAWAL)
                     .transactionDate(LocalDateTime.now())
-                    .totalAmount(amount.longValue())
+                    .totalAmount(amount)
                     .docnoId(withdrawal.getWalletWithdrawalId())
                     .transactionCode("RUT" + System.currentTimeMillis())
                     .contentDescription("Yêu cầu rút tiền về ngân hàng: " + bankName)

@@ -3,6 +3,8 @@ package com.GSU26SE22_SU26SE002.RealMateAI.responses;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -10,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class TransactionSummaryDto {
     private Integer transactionId;
-    private Long amount;
+    private BigDecimal amount;
     private String type;
     private LocalDateTime createdAt;
 }
