@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -23,7 +24,7 @@ public class TransactionDetailDTO {
 
     private String packageName;
 
-    private Long totalAmount;
+    private BigDecimal totalAmount;
 
     private String transactionCode;
 

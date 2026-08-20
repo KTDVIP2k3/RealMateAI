@@ -84,32 +84,48 @@ public class AdminDashboardServiceImplement implements AdminDashboardServiceInte
     public ResponseEntity<ApiResponse> getRevenueAnalytics(String timeframe) {
         try {
             List<Transaction> transactions = transactionRepository.findAll();
-            if (transactions == null) transactions = Collections.emptyList();
+            if (transactions == null) {
+                transactions = Collections.emptyList();
+            }
 
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime startDate;
 
             if ("this_month".equalsIgnoreCase(timeframe)) {
-                startDate = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                startDate = now.withDayOfMonth(1)
+                        .withHour(0)
+                        .withMinute(0)
+                        .withSecond(0)
+                        .withNano(0);
             } else if ("this_year".equalsIgnoreCase(timeframe)) {
-                startDate = now.withDayOfYear(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+                startDate = now.withDayOfYear(1)
+                        .withHour(0)
+                        .withMinute(0)
+                        .withSecond(0)
+                        .withNano(0);
             } else {
                 startDate = now.minusDays(30);
             }
 
             List<Transaction> filteredTx = transactions.stream()
-                    .filter(t -> "SUCCESS".equalsIgnoreCase(t.getTransactionStatus()) || "PAID".equalsIgnoreCase(t.getTransactionStatus()))
-                    .filter(t -> t.getCreatedAt() != null && !t.getCreatedAt().isBefore(startDate))
+                    .filter(t -> "SUCCESS".equalsIgnoreCase(t.getTransactionStatus())
+                            || "PAID".equalsIgnoreCase(t.getTransactionStatus()))
+                    .filter(t -> t.getCreatedAt() != null
+                            && !t.getCreatedAt().isBefore(startDate))
                     .collect(Collectors.toList());
 
             BigDecimal postingRevenue = filteredTx.stream()
                     .filter(t -> t.getTransactionType() == TransactionTypeEnum.POSTING_PACKAGE_PAYMENT)
-                    .map(t -> BigDecimal.valueOf(t.getTotalAmount() != null ? t.getTotalAmount() : 0L))
+                    .map(t -> t.getTotalAmount() != null
+                            ? t.getTotalAmount()
+                            : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal membershipRevenue = filteredTx.stream()
                     .filter(t -> t.getTransactionType() == TransactionTypeEnum.MEMBERSHIP_PAYMENT)
-                    .map(t -> BigDecimal.valueOf(t.getTotalAmount() != null ? t.getTotalAmount() : 0L))
+                    .map(t -> t.getTotalAmount() != null
+                            ? t.getTotalAmount()
+                            : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal totalRevenue = postingRevenue.add(membershipRevenue);
@@ -118,10 +134,19 @@ public class AdminDashboardServiceImplement implements AdminDashboardServiceInte
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
             for (Transaction t : filteredTx) {
-                if (t.getTransactionType() == TransactionTypeEnum.POSTING_PACKAGE_PAYMENT || t.getTransactionType() == TransactionTypeEnum.MEMBERSHIP_PAYMENT) {
+                if (t.getTransactionType() == TransactionTypeEnum.POSTING_PACKAGE_PAYMENT
+                        || t.getTransactionType() == TransactionTypeEnum.MEMBERSHIP_PAYMENT) {
+
                     String dateKey = t.getCreatedAt().format(formatter);
-                    BigDecimal amount = BigDecimal.valueOf(t.getTotalAmount() != null ? t.getTotalAmount() : 0L);
-                    chartMap.put(dateKey, chartMap.getOrDefault(dateKey, BigDecimal.ZERO).add(amount));
+
+                    BigDecimal amount = t.getTotalAmount() != null
+                            ? t.getTotalAmount()
+                            : BigDecimal.ZERO;
+
+                    chartMap.put(
+                            dateKey,
+                            chartMap.getOrDefault(dateKey, BigDecimal.ZERO).add(amount)
+                    );
                 }
             }
 
@@ -129,11 +154,23 @@ public class AdminDashboardServiceImplement implements AdminDashboardServiceInte
                     .map(e -> new RevenueChartDataDto(e.getKey(), e.getValue()))
                     .collect(Collectors.toList());
 
-            RevenueBreakdownDto breakdown = new RevenueBreakdownDto(postingRevenue, membershipRevenue);
-            RevenueAnalyticsDto responseDto = new RevenueAnalyticsDto(totalRevenue, "VND", breakdown, chartData);
+            RevenueBreakdownDto breakdown =
+                    new RevenueBreakdownDto(postingRevenue, membershipRevenue);
+
+            RevenueAnalyticsDto responseDto =
+                    new RevenueAnalyticsDto(
+                            totalRevenue,
+                            "VND",
+                            breakdown,
+                            chartData
+                    );
 
             return ResponseEntity.status(HttpStatus.OK)
-                    .body(ApiResponse.success(responseDto, "Get revenue analytics successfully"));
+                    .body(ApiResponse.success(
+                            responseDto,
+                            "Get revenue analytics successfully"
+                    ));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
