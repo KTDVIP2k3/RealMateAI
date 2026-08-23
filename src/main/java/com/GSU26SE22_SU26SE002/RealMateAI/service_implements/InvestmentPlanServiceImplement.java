@@ -1094,7 +1094,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             }
         }
     }
-
     private InvestmentPlanDTO callExternalAIServiceToPlan(
             InvestmentPlanRequest request,
             Investor investor
@@ -1135,7 +1134,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     Property p1 = l1.getProperty();
 
                     String conditionName =
-                            p1 != null && p1.getPropertyCondition() != null
+                            p1 != null
+                                    && p1.getPropertyCondition() != null
                                     ? p1.getPropertyCondition().getName()
                                     : "Standard Condition";
 
@@ -1145,8 +1145,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                     ? l1.getDescription()
                                     : "");
 
-                    String pTypeName1 =
-                            p1 != null && p1.getPropertyType() != null
+                    String propertyTypeName =
+                            p1 != null
+                                    && p1.getPropertyType() != null
                                     ? p1.getPropertyType().getName()
                                     : "Căn hộ chung cư";
 
@@ -1155,10 +1156,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                     .listingId(l1.getListingId())
                                     .proposalType("TOTAL_CAPITAL_BASED")
                                     .propertyProjectName(
-                                            p1 != null ? p1.getTitle() : null
+                                            p1 != null
+                                                    ? p1.getTitle()
+                                                    : null
                                     )
                                     .area(
-                                            p1 != null && p1.getArea() != null
+                                            p1 != null
+                                                    && p1.getArea() != null
                                                     ? p1.getArea().intValue()
                                                     : 0
                                     )
@@ -1172,24 +1176,47 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                     proposedPropertyDTOList.add(prop1);
 
-                    Map<String, Object> aiMap1 = new HashMap<>();
+                    Map<String, Object> aiMap1 =
+                            new HashMap<>();
 
-                    aiMap1.put("listingId", l1.getListingId());
-                    aiMap1.put("title", l1.getTitle());
-                    aiMap1.put("price", l1.getPrice());
+                    aiMap1.put(
+                            "listingId",
+                            l1.getListingId()
+                    );
+
+                    aiMap1.put(
+                            "title",
+                            l1.getTitle()
+                    );
+
+                    aiMap1.put(
+                            "price",
+                            l1.getPrice()
+                    );
+
                     aiMap1.put(
                             "address",
-                            p1 != null ? p1.getAddressParticular() : ""
+                            p1 != null
+                                    ? p1.getAddressParticular()
+                                    : ""
                     );
+
                     aiMap1.put(
                             "area",
-                            p1 != null ? p1.getArea() : 0.0
+                            p1 != null
+                                    ? p1.getArea()
+                                    : 0.0
                     );
+
                     aiMap1.put(
                             "proposalType",
                             "TOTAL_CAPITAL_BASED"
                     );
-                    aiMap1.put("propertyTypeName", pTypeName1);
+
+                    aiMap1.put(
+                            "propertyTypeName",
+                            propertyTypeName
+                    );
 
                     propertiesForAi.add(aiMap1);
                 }
@@ -1208,9 +1235,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     boolean isDifferent =
                             propertiesForAi.isEmpty()
                                     || candidate.getListingId()
-                                    != (int) propertiesForAi
+                                    != ((Number) propertiesForAi
                                     .get(0)
-                                    .get("listingId");
+                                    .get("listingId"))
+                                    .intValue();
 
                     if (isDifferent) {
                         l2 = candidate;
@@ -1226,13 +1254,14 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                     Property p2 = l2.getProperty();
 
-                    String pType =
+                    String proposalType =
                             l2.getPrice() <= equityCapital
                                     ? "EQUITY_BASED"
                                     : "ALTERNATIVE_STRATEGY";
 
                     String conditionName =
-                            p2 != null && p2.getPropertyCondition() != null
+                            p2 != null
+                                    && p2.getPropertyCondition() != null
                                     ? p2.getPropertyCondition().getName()
                                     : "Standard Condition";
 
@@ -1242,20 +1271,24 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                     ? l2.getDescription()
                                     : "");
 
-                    String pTypeName2 =
-                            p2 != null && p2.getPropertyType() != null
+                    String propertyTypeName =
+                            p2 != null
+                                    && p2.getPropertyType() != null
                                     ? p2.getPropertyType().getName()
                                     : "Căn hộ chung cư";
 
                     ProposedPropertyDTO prop2 =
                             ProposedPropertyDTO.builder()
                                     .listingId(l2.getListingId())
-                                    .proposalType(pType)
+                                    .proposalType(proposalType)
                                     .propertyProjectName(
-                                            p2 != null ? p2.getTitle() : null
+                                            p2 != null
+                                                    ? p2.getTitle()
+                                                    : null
                                     )
                                     .area(
-                                            p2 != null && p2.getArea() != null
+                                            p2 != null
+                                                    && p2.getArea() != null
                                                     ? p2.getArea().intValue()
                                                     : 0
                                     )
@@ -1269,21 +1302,47 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                     proposedPropertyDTOList.add(prop2);
 
-                    Map<String, Object> aiMap2 = new HashMap<>();
+                    Map<String, Object> aiMap2 =
+                            new HashMap<>();
 
-                    aiMap2.put("listingId", l2.getListingId());
-                    aiMap2.put("title", l2.getTitle());
-                    aiMap2.put("price", l2.getPrice());
+                    aiMap2.put(
+                            "listingId",
+                            l2.getListingId()
+                    );
+
+                    aiMap2.put(
+                            "title",
+                            l2.getTitle()
+                    );
+
+                    aiMap2.put(
+                            "price",
+                            l2.getPrice()
+                    );
+
                     aiMap2.put(
                             "address",
-                            p2 != null ? p2.getAddressParticular() : ""
+                            p2 != null
+                                    ? p2.getAddressParticular()
+                                    : ""
                     );
+
                     aiMap2.put(
                             "area",
-                            p2 != null ? p2.getArea() : 0.0
+                            p2 != null
+                                    ? p2.getArea()
+                                    : 0.0
                     );
-                    aiMap2.put("proposalType", pType);
-                    aiMap2.put("propertyTypeName", pTypeName2);
+
+                    aiMap2.put(
+                            "proposalType",
+                            proposalType
+                    );
+
+                    aiMap2.put(
+                            "propertyTypeName",
+                            propertyTypeName
+                    );
 
                     propertiesForAi.add(aiMap2);
                 }
@@ -1309,7 +1368,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         propertiesForAi
                 );
 
-                criteriaForAiPrompt.add(critAiNode);
+                criteriaForAiPrompt.add(
+                        critAiNode
+                );
             }
         }
 
@@ -1362,47 +1423,66 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         Map<String, Object> strategyDetail =
                 request.getInvestmentStrategyDetail();
 
-        String strategyCode = "BDS_DONG_TIEN";
-        int minDurationMonths = 36;
-        int maxDurationMonths = 60;
-        double minProfitRate = 0.04;
-        double maxProfitRate = 0.06;
-        String profitUnit = "PER_YEAR";
+        String strategyCode =
+                "BDS_DONG_TIEN";
+
+        int minDurationMonths =
+                36;
+
+        int maxDurationMonths =
+                60;
+
+        double minProfitRate =
+                0.04;
+
+        double maxProfitRate =
+                0.06;
+
+        String profitUnit =
+                "PER_YEAR";
 
         if (strategyDetail != null) {
 
             if (strategyDetail.get("strategyCode") != null) {
                 strategyCode =
-                        strategyDetail.get("strategyCode").toString();
+                        strategyDetail
+                                .get("strategyCode")
+                                .toString();
             }
 
             if (strategyDetail.get("minDurationMonths") != null) {
                 minDurationMonths =
-                        ((Number) strategyDetail.get("minDurationMonths"))
+                        ((Number) strategyDetail
+                                .get("minDurationMonths"))
                                 .intValue();
             }
 
             if (strategyDetail.get("maxDurationMonths") != null) {
                 maxDurationMonths =
-                        ((Number) strategyDetail.get("maxDurationMonths"))
+                        ((Number) strategyDetail
+                                .get("maxDurationMonths"))
                                 .intValue();
             }
 
             if (strategyDetail.get("minExpectedProfitRate") != null) {
                 minProfitRate =
-                        ((Number) strategyDetail.get("minExpectedProfitRate"))
+                        ((Number) strategyDetail
+                                .get("minExpectedProfitRate"))
                                 .doubleValue();
             }
 
             if (strategyDetail.get("maxExpectedProfitRate") != null) {
                 maxProfitRate =
-                        ((Number) strategyDetail.get("maxExpectedProfitRate"))
+                        ((Number) strategyDetail
+                                .get("maxExpectedProfitRate"))
                                 .doubleValue();
             }
 
             if (strategyDetail.get("profitUnit") != null) {
                 profitUnit =
-                        strategyDetail.get("profitUnit").toString();
+                        strategyDetail
+                                .get("profitUnit")
+                                .toString();
             }
         }
 
@@ -1417,24 +1497,25 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 );
 
         String marketSourcesAndFormulas =
-                "--- OFFICIAL MARKET BENCHMARK SOURCES (Batdongsan.com.vn & CBRE Vietnam Annual Reports) ---\n"
-                        + "AI MUST match the 'propertyTypeName' from input with the strict categories below to determine the precise Annual Rental Yield Percentage:\n\n"
-                        + "1. HIGH-YIELD CATEGORY (Annual Rental Yield: 4.5% - 6.5%)\n"
-                        + "   - Specific Types: 'Căn hộ chung cư', 'Officetel', 'Condotel', 'Căn hộ cho thuê', 'Phòng trọ', 'Văn phòng cho thuê', 'Văn phòng'.\n"
-                        + "2. MEDIUM-YIELD CATEGORY (Annual Rental Yield: 2.5% - 4.5%)\n"
-                        + "   - Specific Types: 'Nhà riêng', 'Nhà liền kề', 'Shophouse', 'Mặt bằng kinh doanh', 'Cửa hàng', 'Nhà cho thuê', 'Mặt bằng cho thuê'.\n"
-                        + "3. INDUSTRIAL LOGISTICS CATEGORY (Annual Rental Yield: 5.0% - 7.0%)\n"
-                        + "   - Specific Types: 'Nhà xưởng', 'Kho bãi', 'Kho xưởng cho thuê'.\n"
-                        + "4. LOW-YIELD / APPRECIATION CATEGORY (Annual Rental Yield: 1.0% - 2.5%)\n"
-                        + "   - Specific Types: 'Biệt thự', 'Đất thổ cư', 'Đất nền dự án', 'Đất thương mại dịch vụ', 'Biệt thự nghỉ dưỡng', 'Resort'.\n"
-                        + "5. ZERO-YIELD / CAPITAL GROWTH ONLY CATEGORY (Annual Rental Yield: 0.0%)\n"
-                        + "   - Specific Types: 'Đất nông nghiệp'.\n\n"
-                        + "--- MANDATORY MATHEMATICAL FORMULAS FOR AI ---\n"
-                        + "1. Monthly Rental Cashflow Formula:\n"
-                        + "   monthlyRentalCashflow = (Property Price * Selected Yield Percentage) / 12\n"
-                        + "2. Capital Growth Rate Boundary Constraint:\n"
-                        + "   estimatedPriceGrowth = Selected growth rate index as a Double value (e.g., 0.052)\n"
-                        + "   * Strict Rule: "
+                "--- OFFICIAL MARKET BENCHMARK SOURCES ---\n"
+                        + "AI MUST match propertyTypeName with the following rental yield categories.\n\n"
+                        + "1. HIGH-YIELD CATEGORY (4.5% - 6.5%)\n"
+                        + "Types: 'Căn hộ chung cư', 'Officetel', 'Condotel', "
+                        + "'Căn hộ cho thuê', 'Phòng trọ', 'Văn phòng cho thuê', 'Văn phòng'.\n\n"
+                        + "2. MEDIUM-YIELD CATEGORY (2.5% - 4.5%)\n"
+                        + "Types: 'Nhà riêng', 'Nhà liền kề', 'Shophouse', "
+                        + "'Mặt bằng kinh doanh', 'Cửa hàng', 'Nhà cho thuê', 'Mặt bằng cho thuê'.\n\n"
+                        + "3. INDUSTRIAL LOGISTICS CATEGORY (5.0% - 7.0%)\n"
+                        + "Types: 'Nhà xưởng', 'Kho bãi', 'Kho xưởng cho thuê'.\n\n"
+                        + "4. LOW-YIELD / APPRECIATION CATEGORY (1.0% - 2.5%)\n"
+                        + "Types: 'Biệt thự', 'Đất thổ cư', 'Đất nền dự án', "
+                        + "'Đất thương mại dịch vụ', 'Biệt thự nghỉ dưỡng', 'Resort'.\n\n"
+                        + "5. ZERO-YIELD CATEGORY (0.0%)\n"
+                        + "Types: 'Đất nông nghiệp'.\n\n"
+                        + "--- FORMULAS ---\n"
+                        + "monthlyRentalCashflow = (Property Price * Selected Yield Percentage) / 12\n"
+                        + "estimatedPriceGrowth must be a decimal rate.\n"
+                        + "STRICT RULE: "
                         + minProfitRate
                         + " <= estimatedPriceGrowth <= "
                         + maxProfitRate
@@ -1443,18 +1524,25 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         String prompt =
                 "You are an expert financial and real estate analyst AI.\n\n"
                         + marketSourcesAndFormulas
-                        + "--- INPUT STRATEGY RULES ---\n"
-                        + "- Strategy Applied: "
+                        + "\n--- INPUT STRATEGY RULES ---\n"
+                        + "Strategy Applied: "
                         + strategyCode
                         + "\n"
-                        + "- Profit Frequency Rule: "
+                        + "Profit Frequency Rule: "
                         + profitUnit
                         + "\n"
-                        + "- Targeted Holding Duration Window: "
+                        + "Minimum Holding Duration: "
                         + minDurationMonths
-                        + " to "
+                        + " Months\n"
+                        + "Maximum Holding Duration: "
                         + maxDurationMonths
-                        + " Months\n\n"
+                        + " Months\n"
+                        + "Minimum Expected Profit Rate: "
+                        + minProfitRate
+                        + "\n"
+                        + "Maximum Expected Profit Rate: "
+                        + maxProfitRate
+                        + "\n\n"
                         + "--- DATASET INPUT ---\n"
                         + "Investor Profile: "
                         + investorJson
@@ -1463,178 +1551,207 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         + inputPropertiesJson
                         + "\n\n"
                         + "YOUR TASK:\n"
-                        + "1. Evaluate a global compatibility 'score' (int 0-100) between the Investor Profile and this investment proposal.\n"
+                        + "1. Evaluate a global compatibility score from 0 to 100.\n"
                         + "2. Generate exactly 3 market scenarios.\n"
-                        + "   The scenarios MUST be exactly these 3 types:\n"
-                        + "   - 'xu hướng tăng'\n"
-                        + "   - 'trung bình'\n"
-                        + "   - 'xu hướng giảm'\n"
-                        + "3. The scenarios MUST appear exactly once each and MUST NOT contain any other scenario type.\n"
-                        + "4. The scenario order MUST be:\n"
-                        + "   1. 'xu hướng tăng'\n"
-                        + "   2. 'trung bình'\n"
-                        + "   3. 'xu hướng giảm'\n"
-                        + "5. For each property, calculate 'monthlyRentalCashflow' using the matched 'propertyTypeName' index and select an 'estimatedPriceGrowth' satisfying the constraints.\n\n"
-                        + "Respond with a single valid JSON object containing a 'data' object. "
-                        + "Inside 'data', include 'score', 'scenarios' array, and "
-                        + "'investmentCriteriaDTOV2s' array containing 'proposedPropertyDTOList'. "
-                        + "Do not include markdown code block formatting.";
+                        + "3. The scenario types MUST be exactly:\n"
+                        + "xu hướng tăng\n"
+                        + "trung bình\n"
+                        + "xu hướng giảm\n"
+                        + "4. Each scenario must appear exactly once.\n"
+                        + "5. Scenario order MUST be exactly:\n"
+                        + "xu hướng tăng, trung bình, xu hướng giảm.\n"
+                        + "6. Calculate monthlyRentalCashflow for every property.\n"
+                        + "7. estimatedPriceGrowth MUST be a decimal rate such as 0.04, 0.052 or 0.06.\n"
+                        + "8. estimatedPriceGrowth MUST satisfy the configured minimum and maximum values.\n"
+                        + "9. Do not return price gain as estimatedPriceGrowth.\n"
+                        + "10. Return one valid JSON object containing data.\n";
+
+        Schema financialMetricsSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "monthlyRentalCashflow",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
+
+                                        "estimatedPriceGrowth",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "monthlyRentalCashflow",
+                                        "estimatedPriceGrowth"
+                                )
+                        )
+                        .build();
+
+        Schema proposedPropertySchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "listingId",
+                                        Schema.builder()
+                                                .type("INTEGER")
+                                                .build(),
+
+                                        "financialMetrics",
+                                        financialMetricsSchema
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "listingId",
+                                        "financialMetrics"
+                                )
+                        )
+                        .build();
+
+        Schema investmentCriteriaSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "proposedPropertyDTOList",
+                                        Schema.builder()
+                                                .type("ARRAY")
+                                                .items(
+                                                        proposedPropertySchema
+                                                )
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "proposedPropertyDTOList"
+                                )
+                        )
+                        .build();
+
+        Schema scenarioSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "pkInvestmentScenarioId",
+                                        Schema.builder()
+                                                .type("INTEGER")
+                                                .build(),
+
+                                        "enumScenarioType",
+                                        Schema.builder()
+                                                .type("STRING")
+                                                .build(),
+
+                                        "decimprofitYield",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
+
+                                        "decimmonthlyCashflow",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
+
+                                        "decimprobability",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
+
+                                        "textMarketNote",
+                                        Schema.builder()
+                                                .type("STRING")
+                                                .build(),
+
+                                        "durationMonths",
+                                        Schema.builder()
+                                                .type("INTEGER")
+                                                .build(),
+
+                                        "decimpriceGrowthMin",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
+
+                                        "decimpriceGrowthMax",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "enumScenarioType",
+                                        "decimprofitYield",
+                                        "decimmonthlyCashflow",
+                                        "decimprobability",
+                                        "textMarketNote",
+                                        "durationMonths",
+                                        "decimpriceGrowthMin",
+                                        "decimpriceGrowthMax"
+                                )
+                        )
+                        .build();
+
+        Schema dataSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "score",
+                                        Schema.builder()
+                                                .type("INTEGER")
+                                                .build(),
+
+                                        "scenarios",
+                                        Schema.builder()
+                                                .type("ARRAY")
+                                                .minItems(3L)
+                                                .maxItems(3L)
+                                                .items(scenarioSchema)
+                                                .build(),
+
+                                        "investmentCriteriaDTOV2s",
+                                        Schema.builder()
+                                                .type("ARRAY")
+                                                .items(
+                                                        investmentCriteriaSchema
+                                                )
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "score",
+                                        "scenarios",
+                                        "investmentCriteriaDTOV2s"
+                                )
+                        )
+                        .build();
+
+        Schema rootSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "data",
+                                        dataSchema
+                                )
+                        )
+                        .required(
+                                List.of("data")
+                        )
+                        .build();
 
         GenerateContentConfig config =
                 GenerateContentConfig.builder()
                         .responseMimeType("application/json")
-                        .responseSchema(
-                                Schema.builder()
-                                        .type("OBJECT")
-                                        .properties(
-                                                Map.of(
-                                                        "data",
-                                                        Schema.builder()
-                                                                .type("OBJECT")
-                                                                .properties(
-                                                                        Map.of(
-                                                                                "score",
-                                                                                Schema.builder()
-                                                                                        .type("INTEGER")
-                                                                                        .build(),
-
-                                                                                "scenarios",
-                                                                                Schema.builder()
-                                                                                        .type("ARRAY")
-                                                                                        .minItems(3l)
-                                                                                        .maxItems(3l)
-                                                                                        .items(
-                                                                                                Schema.builder()
-                                                                                                        .type("OBJECT")
-                                                                                                        .properties(
-                                                                                                                Map.of(
-                                                                                                                        "pkInvestmentScenarioId",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("INTEGER")
-                                                                                                                                .build(),
-
-                                                                                                                        "enumScenarioType",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("STRING")
-                                                                                                                                .build(),
-
-                                                                                                                        "decimprofitYield",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("NUMBER")
-                                                                                                                                .build(),
-
-                                                                                                                        "decimmonthlyCashflow",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("NUMBER")
-                                                                                                                                .build(),
-
-                                                                                                                        "decimprobability",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("NUMBER")
-                                                                                                                                .build(),
-
-                                                                                                                        "textMarketNote",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("STRING")
-                                                                                                                                .build(),
-
-                                                                                                                        "durationMonths",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("INTEGER")
-                                                                                                                                .build(),
-
-                                                                                                                        "decimpriceGrowthMin",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("NUMBER")
-                                                                                                                                .build(),
-
-                                                                                                                        "decimpriceGrowthMax",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("NUMBER")
-                                                                                                                                .build()
-                                                                                                                )
-                                                                                                        )
-                                                                                                        .required(
-                                                                                                                List.of(
-                                                                                                                        "enumScenarioType",
-                                                                                                                        "decimprofitYield",
-                                                                                                                        "decimmonthlyCashflow",
-                                                                                                                        "decimprobability",
-                                                                                                                        "textMarketNote",
-                                                                                                                        "durationMonths",
-                                                                                                                        "decimpriceGrowthMin",
-                                                                                                                        "decimpriceGrowthMax"
-                                                                                                                )
-                                                                                                        )
-                                                                                                        .build()
-                                                                                        )
-                                                                                        .build(),
-
-                                                                                "investmentCriteriaDTOV2s",
-                                                                                Schema.builder()
-                                                                                        .type("ARRAY")
-                                                                                        .items(
-                                                                                                Schema.builder()
-                                                                                                        .type("OBJECT")
-                                                                                                        .properties(
-                                                                                                                Map.of(
-                                                                                                                        "proposedPropertyDTOList",
-                                                                                                                        Schema.builder()
-                                                                                                                                .type("ARRAY")
-                                                                                                                                .items(
-                                                                                                                                        Schema.builder()
-                                                                                                                                                .type("OBJECT")
-                                                                                                                                                .properties(
-                                                                                                                                                        Map.of(
-                                                                                                                                                                "listingId",
-                                                                                                                                                                Schema.builder()
-                                                                                                                                                                        .type("INTEGER")
-                                                                                                                                                                        .build(),
-
-                                                                                                                                                                "financialMetrics",
-                                                                                                                                                                Schema.builder()
-                                                                                                                                                                        .type("OBJECT")
-                                                                                                                                                                        .properties(
-                                                                                                                                                                                Map.of(
-                                                                                                                                                                                        "monthlyRentalCashflow",
-                                                                                                                                                                                        Schema.builder()
-                                                                                                                                                                                                .type("NUMBER")
-                                                                                                                                                                                                .build(),
-
-                                                                                                                                                                                        "estimatedPriceGrowth",
-                                                                                                                                                                                        Schema.builder()
-                                                                                                                                                                                                .type("NUMBER")
-                                                                                                                                                                                                .build()
-                                                                                                                                                                                )
-                                                                                                                                                                        )
-                                                                                                                                                                        .build()
-                                                                                                                                                        )
-                                                                                                                                                )
-                                                                                                                                                .build()
-                                                                                                                                )
-                                                                                                                                .build()
-                                                                                                                )
-                                                                                                        )
-                                                                                                        .build()
-                                                                                        )
-                                                                                        .build()
-                                                                        )
-                                                                )
-                                                                .required(
-                                                                        List.of(
-                                                                                "score",
-                                                                                "scenarios",
-                                                                                "investmentCriteriaDTOV2s"
-                                                                        )
-                                                                )
-                                                                .build()
-                                                )
-                                        )
-                                        .required(
-                                                List.of("data")
-                                        )
-                                        .build()
-                        )
+                        .responseSchema(rootSchema)
                         .build();
 
         var response =
@@ -1647,33 +1764,40 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         String jsonResponse =
                 response.text();
 
-        if (jsonResponse != null) {
+        if (jsonResponse == null
+                || jsonResponse.isBlank()) {
 
-            jsonResponse =
-                    jsonResponse.trim();
-
-            if (jsonResponse.startsWith("```json")) {
-                jsonResponse =
-                        jsonResponse.substring(7);
-            } else if (jsonResponse.startsWith("```")) {
-                jsonResponse =
-                        jsonResponse.substring(3);
-            }
-
-            if (jsonResponse.endsWith("```")) {
-                jsonResponse =
-                        jsonResponse.substring(
-                                0,
-                                jsonResponse.length() - 3
-                        );
-            }
-
-            jsonResponse =
-                    jsonResponse.trim();
+            throw new IllegalStateException(
+                    "AI returned an empty response."
+            );
         }
 
+        jsonResponse =
+                jsonResponse.trim();
+
+        if (jsonResponse.startsWith("```json")) {
+            jsonResponse =
+                    jsonResponse.substring(7);
+        } else if (jsonResponse.startsWith("```")) {
+            jsonResponse =
+                    jsonResponse.substring(3);
+        }
+
+        if (jsonResponse.endsWith("```")) {
+            jsonResponse =
+                    jsonResponse.substring(
+                            0,
+                            jsonResponse.length() - 3
+                    );
+        }
+
+        jsonResponse =
+                jsonResponse.trim();
+
         JsonNode rootNode =
-                objectMapper.readTree(jsonResponse);
+                objectMapper.readTree(
+                        jsonResponse
+                );
 
         JsonNode dataNode =
                 rootNode.has("data")
@@ -1697,7 +1821,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
              i < criteriaDTOV2List.size();
              i++) {
 
-            var hardCriteria =
+            InvestmentCriteriaDTOV2 hardCriteria =
                     criteriaDTOV2List.get(i);
 
             JsonNode aiCritNode =
@@ -1714,7 +1838,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                          .size();
                  j++) {
 
-                var hardProp =
+                ProposedPropertyDTO hardProp =
                         hardCriteria
                                 .getProposedPropertyDTOList()
                                 .get(j);
@@ -1735,15 +1859,21 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                 hardProp.getListingId()
                         );
 
-                if (optL.isPresent()) {
+                if (optL.isPresent()
+                        && optL.get().getPrice() != null) {
+
                     propProposedPrice =
                             optL.get().getPrice();
                 }
 
                 long estimatedRental =
-                        metricsNode
-                                .path("monthlyRentalCashflow")
-                                .asLong(0);
+                        Math.round(
+                                metricsNode
+                                        .path(
+                                                "monthlyRentalCashflow"
+                                        )
+                                        .asDouble(0)
+                        );
 
                 long loanPrincipal =
                         "EQUITY_BASED".equals(
@@ -1755,25 +1885,34 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 double monthlyInterestRate =
                         0.095 / 12.0;
 
-                int totalMonths = 180;
+                int totalLoanMonths =
+                        180;
 
-                long monthlyPrincipalInterest = 0;
+                long monthlyPrincipalInterest =
+                        0;
 
                 if (loanPrincipal > 0) {
 
                     double powered =
                             Math.pow(
                                     1 + monthlyInterestRate,
-                                    totalMonths
+                                    totalLoanMonths
                             );
 
                     double monthlyPayment =
                             loanPrincipal
-                                    * (monthlyInterestRate * powered)
-                                    / (powered - 1);
+                                    * (
+                                    monthlyInterestRate
+                                            * powered
+                            )
+                                    / (
+                                    powered - 1
+                            );
 
                     monthlyPrincipalInterest =
-                            Math.round(monthlyPayment);
+                            Math.round(
+                                    monthlyPayment
+                            );
                 }
 
                 long netCashflow =
@@ -1782,8 +1921,22 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                 double estimatedGrowth =
                         metricsNode
-                                .path("estimatedPriceGrowth")
-                                .asDouble(minProfitRate);
+                                .path(
+                                        "estimatedPriceGrowth"
+                                )
+                                .asDouble(
+                                        minProfitRate
+                                );
+
+                if (estimatedGrowth < minProfitRate) {
+                    estimatedGrowth =
+                            minProfitRate;
+                }
+
+                if (estimatedGrowth > maxProfitRate) {
+                    estimatedGrowth =
+                            maxProfitRate;
+                }
 
                 long priceGain =
                         Math.round(
@@ -1793,24 +1946,32 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                 long estimatedProfit;
 
-                if ("PER_DEAL".equals(profitUnit)) {
+                if ("PER_DEAL".equalsIgnoreCase(
+                        profitUnit
+                )) {
 
                     estimatedProfit =
                             priceGain
-                                    + (netCashflow
-                                    * calculatedDurationMonths);
+                                    + (
+                                    netCashflow
+                                            * calculatedDurationMonths
+                            );
 
                 } else {
 
                     estimatedProfit =
                             priceGain
-                                    + (netCashflow * 12);
+                                    + (
+                                    netCashflow * 12
+                            );
                 }
 
                 double roiPercentage =
                         propProposedPrice > 0
-                                ? ((double) estimatedProfit * 100.0)
-                                / propProposedPrice
+                                ? (
+                                (double) estimatedProfit
+                                        * 100.0
+                        ) / propProposedPrice
                                 : 0.0;
 
                 FinancialMetricsDTO metricsDTO =
@@ -1845,7 +2006,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 new ArrayList<>();
 
         JsonNode scenarioArray =
-                dataNode.path("scenarios");
+                dataNode.path(
+                        "scenarios"
+                );
 
         if (!scenarioArray.isArray()
                 || scenarioArray.size() != 3) {
@@ -1855,8 +2018,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             );
         }
 
-        Set<String> requiredScenarioTypes =
-                Set.of(
+        List<String> requiredScenarioOrder =
+                List.of(
                         "xu hướng tăng",
                         "trung bình",
                         "xu hướng giảm"
@@ -1865,17 +2028,24 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         Set<String> actualScenarioTypes =
                 new HashSet<>();
 
-        for (JsonNode sceneNode :
-                scenarioArray) {
+        for (int i = 0;
+             i < scenarioArray.size();
+             i++) {
+
+            JsonNode sceneNode =
+                    scenarioArray.get(i);
 
             String scenarioType =
                     sceneNode
-                            .path("enumScenarioType")
+                            .path(
+                                    "enumScenarioType"
+                            )
                             .asText();
 
-            if (!requiredScenarioTypes.contains(
+            if (!requiredScenarioOrder.contains(
                     scenarioType
             )) {
+
                 throw new IllegalStateException(
                         "Invalid investment scenario type: "
                                 + scenarioType
@@ -1885,9 +2055,19 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             if (!actualScenarioTypes.add(
                     scenarioType
             )) {
+
                 throw new IllegalStateException(
                         "Duplicate investment scenario type: "
                                 + scenarioType
+                );
+            }
+
+            if (!requiredScenarioOrder
+                    .get(i)
+                    .equals(scenarioType)) {
+
+                throw new IllegalStateException(
+                        "Invalid investment scenario order."
                 );
             }
 
@@ -1898,49 +2078,72 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                             )
                             .decimprofitYield(
                                     sceneNode
-                                            .path("decimprofitYield")
+                                            .path(
+                                                    "decimprofitYield"
+                                            )
                                             .asDouble(0)
                             )
                             .decimprobability(
                                     sceneNode
-                                            .path("decimprobability")
+                                            .path(
+                                                    "decimprobability"
+                                            )
                                             .asDouble(0)
                             )
                             .textMarketNote(
                                     sceneNode
-                                            .path("textMarketNote")
+                                            .path(
+                                                    "textMarketNote"
+                                            )
                                             .asText("")
                             )
                             .decimmonthlyCashflow(
                                     sceneNode
-                                            .path("decimmonthlyCashflow")
+                                            .path(
+                                                    "decimmonthlyCashflow"
+                                            )
                                             .asDouble(0)
                             )
                             .durationMonths(
                                     sceneNode
-                                            .path("durationMonths")
+                                            .path(
+                                                    "durationMonths"
+                                            )
                                             .asInt(
                                                     calculatedDurationMonths
                                             )
                             )
                             .decimpriceGrowthMin(
                                     sceneNode
-                                            .path("decimpriceGrowthMin")
-                                            .asDouble(0)
+                                            .path(
+                                                    "decimpriceGrowthMin"
+                                            )
+                                            .asDouble(
+                                                    minProfitRate
+                                            )
                             )
                             .decimpriceGrowthMax(
                                     sceneNode
-                                            .path("decimpriceGrowthMax")
-                                            .asDouble(0)
+                                            .path(
+                                                    "decimpriceGrowthMax"
+                                            )
+                                            .asDouble(
+                                                    maxProfitRate
+                                            )
                             )
                             .build();
 
-            scenarioDTOList.add(sceneDTO);
+            scenarioDTOList.add(
+                    sceneDTO
+            );
         }
 
         if (!actualScenarioTypes.equals(
-                requiredScenarioTypes
+                new HashSet<>(
+                        requiredScenarioOrder
+                )
         )) {
+
             throw new IllegalStateException(
                     "AI must return exactly the required 3 scenario types."
             );
