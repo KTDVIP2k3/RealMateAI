@@ -1,6 +1,7 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.requests;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestmentPlanRequest {
@@ -16,19 +18,15 @@ public class InvestmentPlanRequest {
     private Long equity;
     private Long loanCapital;
     private Long reserveFund;
+    private Long currentCashFlow;
     private String consciousName;
-    private String wardName;
+    private List<String> wardNames;
     private Long expectedRoi;
-//    private Long minProfit;
     private String riskToleranceLevel;
     private Long durationYear;
     private LocalDate startDate;
-//    private String investmentType;
     private List<String> legalStatus;
-//    private String version;
-    private Integer strategy_id;
+    private Integer strategyId;
     private Map<String, Object> investmentStrategyDetail;
-
-
     private List<CriteriaRequest> criteriaList;
 }

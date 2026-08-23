@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -60,6 +61,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
      * propertyType, location) cho ĐÚNG danh sách listingId đã phân trang sẵn ở
      * QUERY 1 (findByIsActiveTrue hoặc findAll(Specification, Pageable)).
      * KHÔNG JOIN FETCH listingImages (xem lý do ở Listing#listingImages —
+     *
      * @BatchSize đảm nhiệm việc load ảnh theo batch, KHÔNG dùng JOIN FETCH vì
      * sẽ cần DISTINCT, mà DISTINCT trên các cột json (property_attribute,
      * property_purpose) khiến Postgres báo lỗi "could not identify an
@@ -69,21 +71,23 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
      * không cần DISTINCT.
      */
     @Query("""
-        SELECT l FROM Listing l
-        JOIN FETCH l.property p
-        LEFT JOIN FETCH p.propertyType pt
-        LEFT JOIN FETCH p.location loc
-        WHERE l.listingId IN :ids
-        """)
+            SELECT l FROM Listing l
+            JOIN FETCH l.property p
+            LEFT JOIN FETCH p.propertyType pt
+            LEFT JOIN FETCH p.location loc
+            WHERE l.listingId IN :ids
+            """)
     List<Listing> findAllByListingIdInWithDetails(@Param("ids") List<Integer> ids);
+
     @Query("""
-        SELECT o FROM PostingPackageOrder o
-        JOIN FETCH o.postingPackage pp
-        LEFT JOIN FETCH pp.postingPackageCategory
-        JOIN o.listing l
-        WHERE l.listingId IN :ids
-        """)
+            SELECT o FROM PostingPackageOrder o
+            JOIN FETCH o.postingPackage pp
+            LEFT JOIN FETCH pp.postingPackageCategory
+            JOIN o.listing l
+            WHERE l.listingId IN :ids
+            """)
     List<PostingPackageOrder> findOrdersWithPackageByListingIds(@Param("ids") List<Integer> ids);
+
 
     /**
      * Chi tiết 1 bài đăng công khai — JOIN FETCH toàn bộ liên kết *ToOne cần
@@ -122,10 +126,10 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             ORDER BY l.createdAt DESC
             """,
             countQuery = """
-            SELECT COUNT(l) FROM Listing l
-            WHERE l.seller.sellerId = :sellerId
-              AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
-            """)
+                    SELECT COUNT(l) FROM Listing l
+                    WHERE l.seller.sellerId = :sellerId
+                      AND (l.status IS NULL OR l.status <> com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.DELETED)
+                    """)
     Page<Listing> findBySellerId(@Param("sellerId") Integer sellerId, Pageable pageable);
 
     /**
@@ -144,6 +148,26 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             WHERE l.listingId = :listingId
             """)
     Optional<Listing> findByIdWithDetails(@Param("listingId") Integer listingId);
+
+    @Query("""
+                SELECT l
+                FROM Listing l
+                JOIN l.property p
+                JOIN p.location loc
+                JOIN loc.ward w
+                WHERE p.propertyType.propertyTypeId = :propertyTypeId
+                  AND w.name IN :wardNames
+                  AND l.price <= :maxBudget
+                  AND l.isActive = true
+                  AND l.status = com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.ACTIVE
+                ORDER BY l.price DESC
+            """)
+    List<Listing> findListingsByCriteria(
+            @Param("propertyTypeId") Integer propertyTypeId,
+            @Param("wardNames") List<String> wardNames,
+            @Param("maxBudget") Long maxBudget
+    );
+
     /**
      * Seller xem chi tiết 1 listing của chính mình (kể cả chưa duyệt, kể cả HIDDEN).
      * Ownership được xác thực ngay trong query (AND l.seller.sellerId = :sellerId).
@@ -181,6 +205,7 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             """)
     List<Listing> findOtherListingsOfPropertyWithImages(@Param("propertyId") Integer propertyId,
                                                         @Param("excludeListingId") Integer excludeListingId);
+
     long countByProperty_PropertyId(Integer propertyId);
 
     @Query("SELECT l FROM Listing l " +

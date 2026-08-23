@@ -12,4 +12,5 @@ import java.util.List;
 public interface InvestmentProfileVersionRepository extends JpaRepository<InvestmentProfileVersion, Integer> {
 
     List<InvestmentProfileVersion> findByBaseVersion_ProfileVersionIdOrderByCreatedAtDesc(Integer baseVersionId);
+    long countByInvestmentProfile_InvestmentProfileId(Integer investmentProfileId);
 }

@@ -43,21 +43,29 @@ public class InvestmentProfileVersion {
 
     private Long equity;
     private Long loanCapital;
-    private Long reserveFund;
+    private Long currentCashflow;
     private String conscious;
-    private String ward;
-    private Long expectedRoi;
+
+    private Long totalCapital;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "wards", columnDefinition = "json")
+    private List<String> wards;
+
+//    private Long expectedRoi;
     private Long minProfit;
     private String riskToleranceLevel;
-    private Long durationYear;
+//    private Long durationYear;
     private LocalDate startDate;
     private String investmentType;
+
+    private int match_score;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "investment_strategy_detail", columnDefinition = "json")
     private Map<String, Object> investmentStrategyDetail;
 
-    private String legalStatus;
+//    private String legalStatus;
     private String version;
     private Boolean isActive;
     private LocalDateTime createdAt;
@@ -80,13 +88,13 @@ public class InvestmentProfileVersion {
     @JsonIgnore
     private List<InvestmentScenario> investmentScenarios = new ArrayList<>();
 
-    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @JsonIgnore
-    private List<InvestmentPortfolio> investmentPortfolios = new ArrayList<>();
-
-    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @JsonIgnore
-    private List<ExecutionPlan> executionPlans = new ArrayList<>();
+//    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//    @Builder.Default
+//    @JsonIgnore
+//    private List<InvestmentPortfolio> investmentPortfolios = new ArrayList<>();
+//
+//    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//    @Builder.Default
+//    @JsonIgnore
+//    private List<ExecutionPlan> executionPlans = new ArrayList<>();
 }

@@ -22,9 +22,9 @@ public class Strategy {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "strategy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore
-    private List<StrategyPortfolio> strategyPortfolios = new ArrayList<>();
+//    @OneToMany(mappedBy = "strategy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//    @JsonIgnore
+//    private List<StrategyPortfolio> strategyPortfolios = new ArrayList<>();
 
     @OneToMany(mappedBy = "strategy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore

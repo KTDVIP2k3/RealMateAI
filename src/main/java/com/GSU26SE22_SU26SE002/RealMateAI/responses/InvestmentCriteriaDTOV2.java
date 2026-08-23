@@ -5,11 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InvestmentCriteriaDTO {
+public class InvestmentCriteriaDTOV2 {
+    private Integer investmentCriteriaId;
     private String propertyTypeName;
-//    private String propertyConditionName;
+
+    private List<ProposedPropertyDTO> proposedPropertyDTOList;
 }
