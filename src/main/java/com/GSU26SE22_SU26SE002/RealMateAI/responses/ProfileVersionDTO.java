@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -14,13 +15,14 @@ import java.time.LocalDateTime;
 public class ProfileVersionDTO {
     private Integer investmentProfileVersionId;
     private Integer matchScore;
+    private Long totalCapital;
     private String name;
     private String consciousName;
-    private String wardName;
+    private List<String> wardName;
     private Boolean isActive;
     private Long equity;
-    private Long expectedRoi;
-    private Long durationYear;
+//    private Long expectedRoi;
+//    private Long durationYear;
     private String strategyName;
     private LocalDateTime createdAt;
 }

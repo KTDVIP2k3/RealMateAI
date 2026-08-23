@@ -11,7 +11,9 @@ import java.util.List;
 @AllArgsConstructor
 public class InvestmentPlanDTO {
     private Integer score;
-    private List<InvestmentPortfolioDTO> investmentPortfolios;
+    private Long totalCapital;
+//    private List<InvestmentPortfolioDTO> investmentPortfolios;
+    private List<InvestmentCriteriaDTOV2> investmentCriteriaDTOV2s;
     private List<InvestmentScenarioDTO> scenarios;
-    private ExecutionPlanDTO executionPlan;
+//    private ExecutionPlanDTO executionPlan;
 }

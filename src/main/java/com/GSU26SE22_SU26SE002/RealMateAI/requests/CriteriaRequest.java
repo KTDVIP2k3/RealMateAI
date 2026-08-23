@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CriteriaRequest {
     private Integer propertyTypeId;
-    private Integer propertyConditionId;
+//    private Integer propertyConditionId;
 }

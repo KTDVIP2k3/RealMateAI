@@ -20,9 +20,9 @@ public class InvestmentProfileVersionDTO {
     private String name;
     private Long equity;
     private Long loanCapital;
-    private Long reserveFund;
+    private Long currentCashflow;
     private String consciousName;
-    private String wardName;
+    private List<String> wardName;
     private Long expectedRoi;
 //    private Long minProfit;
     private String riskToleranceLevel;
@@ -30,7 +30,7 @@ public class InvestmentProfileVersionDTO {
     private LocalDate startDate;
 //    private String investmentType;
     private Map<String, Object> investmentStrategyDetail;
-    private List<String> legalStatus;
+//    private List<String> legalStatus;
     private String version;
     private Boolean isActive;
     private LocalDateTime createdAt;

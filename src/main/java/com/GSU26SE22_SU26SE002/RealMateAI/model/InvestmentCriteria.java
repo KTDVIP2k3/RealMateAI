@@ -6,9 +6,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @NoArgsConstructor @AllArgsConstructor @Getter
-@Setter  @Builder
+@Setter
 @Entity @Table(name = "investment_criteria")
 public class InvestmentCriteria {
 
@@ -26,10 +27,14 @@ public class InvestmentCriteria {
     @JsonIgnore
     private PropertyType propertyType;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "property_condition_id")
-    @JsonIgnore
-    private PropertyCondition propertyCondition;
+    @OneToMany( mappedBy = "investmentCriteria", cascade = CascadeType.ALL,fetch =  FetchType.LAZY)
+    private List<ProposedProperty> proposedProperties;
+
+
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "property_condition_id")
+//    @JsonIgnore
+//    private PropertyCondition propertyCondition;
 
 ////    private Long minPrice;
 ////    private Long maxPrice;
