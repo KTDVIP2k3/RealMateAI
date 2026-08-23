@@ -14,18 +14,15 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateInvestmentPlanRequest {
+
     private Integer strategyId;
     private Long equity;
     private Long loanCapital;
-    private Long reserveFund;
     private Long currentCashFlow;
     private String consciousName;
     private List<String> wardNames;
-    private Long expectedRoi;
     private String riskToleranceLevel;
-    private Long durationYear;
     private LocalDate startDate;
     private Map<String, Object> investmentStrategyDetail;
-    private List<String> legalStatus;
     private List<CriteriaRequest> criteriaList;
 }
