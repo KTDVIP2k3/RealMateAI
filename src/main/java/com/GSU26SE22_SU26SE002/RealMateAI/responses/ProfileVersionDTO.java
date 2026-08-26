@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ProfileVersionDTO {
     private Integer investmentProfileVersionId;
-    private Integer matchScore;
+//    private Integer matchScore;
     private Long totalCapital;
     private String name;
     private String consciousName;

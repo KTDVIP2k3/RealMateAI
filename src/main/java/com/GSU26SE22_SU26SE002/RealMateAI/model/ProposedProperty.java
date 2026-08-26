@@ -42,8 +42,8 @@ public class ProposedProperty {
     @Column(name = "estimated_profit")
     private Long estimatedProfit;
 
-    @Column(name = "estimated_price_growth")
-    private Long estimatedPriceGrowth;
+//    @Column(name = "estimated_price_growth")
+//    private Long estimatedPriceGrowth;
 
     @Column(name = "monthly_rental_cashflow")
     private Long monthlyRentalCashflow;

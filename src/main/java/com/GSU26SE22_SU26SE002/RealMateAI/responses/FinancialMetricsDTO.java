@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class FinancialMetricsDTO {
     private Long estimatedProfit;
-    private Long estimatedPriceGrowth;
+//    private Long estimatedPriceGrowth;
     private Long monthlyRentalCashflow;
     private Long monthlyPrincipalInterest;
     private Long netCashflow;
