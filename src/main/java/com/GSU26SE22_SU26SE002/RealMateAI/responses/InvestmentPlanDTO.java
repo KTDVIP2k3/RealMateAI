@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestmentPlanDTO {
-    private Integer score;
+//    private Integer score;
     private Long totalCapital;
 //    private List<InvestmentPortfolioDTO> investmentPortfolios;
     private List<InvestmentCriteriaDTOV2> investmentCriteriaDTOV2s;

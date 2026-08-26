@@ -124,7 +124,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 //                        ))
 //                                .collect(Collectors.toList());
 
-                Integer matchScore = latestVersion.getMatch_score() != 0 ? latestVersion.getMatch_score() : 0;
+//                Integer matchScore = latestVersion.getMatch_score() != 0 ? latestVersion.getMatch_score() : 0;
 //                if (latestVersion.getExecutionPlans() != null && !latestVersion.getExecutionPlans().isEmpty()) {
 //                    matchScore = latestVersion.getExecutionPlans().get(0).getMatch_score();
 //                    if (matchScore == null) matchScore = 0;
@@ -134,7 +134,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .investmentProfileId(profile.getInvestmentProfileId())
                         .latestVersionId(latestVersion.getProfileVersionId())
                         .totalCapital(latestVersion.getTotalCapital() != 0 ? latestVersion.getTotalCapital() : 0)
-                        .matchScore(matchScore)
+//                        .matchScore(matchScore)
                         .name(profile.getName())
                         .consciousName(conscious)
                         .wardName(wards)
@@ -192,7 +192,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
                         return ProfileVersionDTO.builder()
                                 .investmentProfileVersionId(version.getProfileVersionId())
-                                .matchScore(version.getMatch_score() != 0 ? version.getMatch_score() : 0)
+//                                .matchScore(version.getMatch_score() != 0 ? version.getMatch_score() : 0)
                                 .totalCapital(version.getTotalCapital())
                                 .name(version.getProfileVersionName())
                                 .consciousName(version.getConscious())
@@ -278,9 +278,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .wardName(profileVersion.getWards() != null ? profileVersion.getWards() : new ArrayList<>())
 //                    .expectedRoi(profileVersion.getExpectedRoi())
 //                    .minProfit(profileVersion.getMinProfit())
-                    .riskToleranceLevel(profileVersion.getRiskToleranceLevel())
-//                    .durationYear(profileVersion.getDurationYear())
-                    .startDate(profileVersion.getStartDate())
+//                    .riskToleranceLevel(profileVersion.getRiskToleranceLevel())
+////                    .durationYear(profileVersion.getDurationYear())
+//                    .startDate(profileVersion.getStartDate())
 //                    .investmentType(profileVersion.getInvestmentType())
                     .investmentStrategyDetail(profileVersion.getInvestmentStrategyDetail())
 //                    .legalStatus(legalStatusList)
@@ -328,7 +328,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 //                        .collect(Collectors.toList());
 //            }
 
-            Integer finalMatchScore = profileVersion.getMatch_score();
+//            Integer finalMatchScore = profileVersion.getMatch_score();
             Long totalCapital = (profileVersion.getEquity() != null ? profileVersion.getEquity() : 0L)
                     + (profileVersion.getLoanCapital() != null ? profileVersion.getLoanCapital() : 0L);
 
@@ -350,7 +350,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                                         .description(prop.getDescription())
                                                         .financialMetrics(FinancialMetricsDTO.builder()
                                                                 .estimatedProfit(prop.getEstimatedProfit())
-                                                                .estimatedPriceGrowth(prop.getEstimatedPriceGrowth())
+//                                                                .estimatedPriceGrowth(prop.getEstimatedPriceGrowth())
                                                                 .monthlyRentalCashflow(prop.getMonthlyRentalCashflow())
                                                                 .monthlyPrincipalInterest(prop.getMonthlyPrincipalInterest())
                                                                 .netCashflow(prop.getNetCashflow())
@@ -381,7 +381,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             }
 
             InvestmentPlanDTO finalOutput = InvestmentPlanDTO.builder()
-                    .score(finalMatchScore)
+//                    .score(finalMatchScore)
                     .totalCapital(totalCapital)
                     .investmentCriteriaDTOV2s(criteriaDTOV2s)
                     .scenarios(scenarioDTOList)
@@ -556,7 +556,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         ));
             }
 
-            InvestmentPlanDTO finalOutput = callExternalAIServiceToPlan(request, investor);
+
+            InvestmentPlanDTO finalOutput = callExternalAIServiceToPlan(request, strategy);
 
             saveNewInvestmentPlan(investor, request, finalOutput, strategy);
 
@@ -677,16 +678,16 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                             .equity(request.getEquity())
                             .loanCapital(request.getLoanCapital())
                             .currentCashFlow(request.getCurrentCashFlow())
-                            .riskToleranceLevel(request.getRiskToleranceLevel())
+//                            .riskToleranceLevel(request.getRiskToleranceLevel())
                             .consciousName(request.getConsciousName())
                             .wardNames(request.getWardNames())
-                            .startDate(request.getStartDate())
+//                            .startDate(request.getStartDate())
                             .investmentStrategyDetail(request.getInvestmentStrategyDetail())
                             .criteriaList(request.getCriteriaList())
                             .build();
 
             InvestmentPlanDTO finalOutput =
-                    callExternalAIServiceToPlan(convertedRequest, investor);
+                    callExternalAIServiceToPlan(convertedRequest, strategy);
 
             saveUpdateInvestmentPlan(
                     existingProfile,
@@ -880,10 +881,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             LocalDateTime now
     ) throws Exception {
 
-        int scoreEvaluated =
-                output != null && output.getScore() != null
-                        ? output.getScore()
-                        : 85;
+//        int scoreEvaluated =
+//                output != null && output.getScore() != null
+//                        ? output.getScore()
+//                        : 85;
 
         long totalCapitalCalculated =
                 request.getEquity() + request.getLoanCapital();
@@ -903,12 +904,12 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                         : new ArrayList<>()
                         )
                         .totalCapital(totalCapitalCalculated)
-                        .riskToleranceLevel(request.getRiskToleranceLevel())
-                        .startDate(request.getStartDate())
+//                        .riskToleranceLevel(request.getRiskToleranceLevel())
+//                        .startDate(request.getStartDate())
                         .investmentStrategyDetail(
                                 request.getInvestmentStrategyDetail()
                         )
-                        .match_score(scoreEvaluated)
+//                        .match_score(scoreEvaluated)
                         .isActive(true)
                         .createdAt(now)
                         .updatedAt(now)
@@ -1046,11 +1047,11 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                             : null
                             );
 
-                            propEntity.setEstimatedPriceGrowth(
-                                    mDTO != null
-                                            ? mDTO.getEstimatedPriceGrowth()
-                                            : null
-                            );
+//                            propEntity.setEstimatedPriceGrowth(
+//                                    mDTO != null
+//                                            ? mDTO.getEstimatedPriceGrowth()
+//                                            : null
+//                            );
 
                             propEntity.setMonthlyRentalCashflow(
                                     mDTO != null
@@ -1096,1071 +1097,390 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     }
     private InvestmentPlanDTO callExternalAIServiceToPlan(
             InvestmentPlanRequest request,
-            Investor investor
+            Strategy strategy
     ) throws Exception {
 
-        long totalCapital =
-                request.getEquity() + request.getLoanCapital();
+        long totalCapital = request.getEquity() + request.getLoanCapital();
 
-        long equityCapital =
-                request.getEquity();
+        List<InvestmentCriteriaDTOV2> criteriaList = new ArrayList<>();
+        List<Map<String, Object>> aiCriteria = new ArrayList<>();
 
-        List<InvestmentCriteriaDTOV2> criteriaDTOV2List =
-                new ArrayList<>();
+        for (var crit : request.getCriteriaList()) {
 
-        List<Map<String, Object>> criteriaForAiPrompt =
-                new ArrayList<>();
+            List<ProposedPropertyDTO> properties = new ArrayList<>();
+            List<Map<String, Object>> aiProperties = new ArrayList<>();
 
-        if (request.getCriteriaList() != null) {
+            // 1. Tìm BĐS theo Tổng vốn
+            List<Listing> totalListings = listingRepository.findListingsByCriteria(
+                    crit.getPropertyTypeId(),
+                    request.getWardNames(),
+                    totalCapital
+            );
 
-            for (var crit : request.getCriteriaList()) {
-
-                List<ProposedPropertyDTO> proposedPropertyDTOList =
-                        new ArrayList<>();
-
-                List<Map<String, Object>> propertiesForAi =
-                        new ArrayList<>();
-
-                List<Listing> listingsByTotal =
-                        listingRepository.findListingsByCriteria(
-                                crit.getPropertyTypeId(),
-                                request.getWardNames(),
-                                totalCapital
-                        );
-
-                if (!listingsByTotal.isEmpty()) {
-
-                    Listing l1 = listingsByTotal.get(0);
-                    Property p1 = l1.getProperty();
-
-                    String conditionName =
-                            p1 != null
-                                    && p1.getPropertyCondition() != null
-                                    ? p1.getPropertyCondition().getName()
-                                    : "Standard Condition";
-
-                    String finalDesc =
-                            "[" + conditionName + "] - "
-                                    + (l1.getDescription() != null
-                                    ? l1.getDescription()
-                                    : "");
-
-                    String propertyTypeName =
-                            p1 != null
-                                    && p1.getPropertyType() != null
-                                    ? p1.getPropertyType().getName()
-                                    : "Căn hộ chung cư";
-
-                    ProposedPropertyDTO prop1 =
-                            ProposedPropertyDTO.builder()
-                                    .listingId(l1.getListingId())
-                                    .proposalType("TOTAL_CAPITAL_BASED")
-                                    .propertyProjectName(
-                                            p1 != null
-                                                    ? p1.getTitle()
-                                                    : null
-                                    )
-                                    .area(
-                                            p1 != null
-                                                    && p1.getArea() != null
-                                                    ? p1.getArea().intValue()
-                                                    : 0
-                                    )
-                                    .valuePrice(
-                                            l1.getPrice() != null
-                                                    ? l1.getPrice().doubleValue()
-                                                    : 0.0
-                                    )
-                                    .description(finalDesc)
-                                    .build();
-
-                    proposedPropertyDTOList.add(prop1);
-
-                    Map<String, Object> aiMap1 =
-                            new HashMap<>();
-
-                    aiMap1.put(
-                            "listingId",
-                            l1.getListingId()
-                    );
-
-                    aiMap1.put(
-                            "title",
-                            l1.getTitle()
-                    );
-
-                    aiMap1.put(
-                            "price",
-                            l1.getPrice()
-                    );
-
-                    aiMap1.put(
-                            "address",
-                            p1 != null
-                                    ? p1.getAddressParticular()
-                                    : ""
-                    );
-
-                    aiMap1.put(
-                            "area",
-                            p1 != null
-                                    ? p1.getArea()
-                                    : 0.0
-                    );
-
-                    aiMap1.put(
-                            "proposalType",
-                            "TOTAL_CAPITAL_BASED"
-                    );
-
-                    aiMap1.put(
-                            "propertyTypeName",
-                            propertyTypeName
-                    );
-
-                    propertiesForAi.add(aiMap1);
-                }
-
-                List<Listing> listingsByEquity =
-                        listingRepository.findListingsByCriteria(
-                                crit.getPropertyTypeId(),
-                                request.getWardNames(),
-                                equityCapital
-                        );
-
-                Listing l2 = null;
-
-                for (Listing candidate : listingsByEquity) {
-
-                    boolean isDifferent =
-                            propertiesForAi.isEmpty()
-                                    || candidate.getListingId()
-                                    != ((Number) propertiesForAi
-                                    .get(0)
-                                    .get("listingId"))
-                                    .intValue();
-
-                    if (isDifferent) {
-                        l2 = candidate;
-                        break;
-                    }
-                }
-
-                if (l2 == null && listingsByTotal.size() > 1) {
-                    l2 = listingsByTotal.get(1);
-                }
-
-                if (l2 != null) {
-
-                    Property p2 = l2.getProperty();
-
-                    String proposalType =
-                            l2.getPrice() <= equityCapital
-                                    ? "EQUITY_BASED"
-                                    : "ALTERNATIVE_STRATEGY";
-
-                    String conditionName =
-                            p2 != null
-                                    && p2.getPropertyCondition() != null
-                                    ? p2.getPropertyCondition().getName()
-                                    : "Standard Condition";
-
-                    String finalDesc =
-                            "[" + conditionName + "] - "
-                                    + (l2.getDescription() != null
-                                    ? l2.getDescription()
-                                    : "");
-
-                    String propertyTypeName =
-                            p2 != null
-                                    && p2.getPropertyType() != null
-                                    ? p2.getPropertyType().getName()
-                                    : "Căn hộ chung cư";
-
-                    ProposedPropertyDTO prop2 =
-                            ProposedPropertyDTO.builder()
-                                    .listingId(l2.getListingId())
-                                    .proposalType(proposalType)
-                                    .propertyProjectName(
-                                            p2 != null
-                                                    ? p2.getTitle()
-                                                    : null
-                                    )
-                                    .area(
-                                            p2 != null
-                                                    && p2.getArea() != null
-                                                    ? p2.getArea().intValue()
-                                                    : 0
-                                    )
-                                    .valuePrice(
-                                            l2.getPrice() != null
-                                                    ? l2.getPrice().doubleValue()
-                                                    : 0.0
-                                    )
-                                    .description(finalDesc)
-                                    .build();
-
-                    proposedPropertyDTOList.add(prop2);
-
-                    Map<String, Object> aiMap2 =
-                            new HashMap<>();
-
-                    aiMap2.put(
-                            "listingId",
-                            l2.getListingId()
-                    );
-
-                    aiMap2.put(
-                            "title",
-                            l2.getTitle()
-                    );
-
-                    aiMap2.put(
-                            "price",
-                            l2.getPrice()
-                    );
-
-                    aiMap2.put(
-                            "address",
-                            p2 != null
-                                    ? p2.getAddressParticular()
-                                    : ""
-                    );
-
-                    aiMap2.put(
-                            "area",
-                            p2 != null
-                                    ? p2.getArea()
-                                    : 0.0
-                    );
-
-                    aiMap2.put(
-                            "proposalType",
-                            proposalType
-                    );
-
-                    aiMap2.put(
-                            "propertyTypeName",
-                            propertyTypeName
-                    );
-
-                    propertiesForAi.add(aiMap2);
-                }
-
-                criteriaDTOV2List.add(
-                        InvestmentCriteriaDTOV2.builder()
-                                .proposedPropertyDTOList(
-                                        proposedPropertyDTOList
-                                )
-                                .build()
-                );
-
-                Map<String, Object> critAiNode =
-                        new HashMap<>();
-
-                critAiNode.put(
-                        "propertyTypeId",
-                        crit.getPropertyTypeId()
-                );
-
-                critAiNode.put(
-                        "properties",
-                        propertiesForAi
-                );
-
-                criteriaForAiPrompt.add(
-                        critAiNode
+            if (!totalListings.isEmpty()) {
+                addProperty(
+                        totalListings.get(0),
+                        "TOTAL_CAPITAL_BASED",
+                        properties,
+                        aiProperties
                 );
             }
-        }
 
-        Map<String, Object> investorSurveyData =
-                new HashMap<>();
+            Integer firstListingId = !totalListings.isEmpty() ? totalListings.get(0).getListingId() : null;
 
-        if (investor != null) {
-
-            investorSurveyData.put(
-                    "investmentExperience",
-                    investor.getInvestmentExperience()
+            // 2. Tìm BĐS theo Vốn tự có
+            List<Listing> equityListings = listingRepository.findListingsByCriteria(
+                    crit.getPropertyTypeId(),
+                    request.getWardNames(),
+                    request.getEquity()
             );
 
-            investorSurveyData.put(
-                    "stableIncome",
-                    investor.getStableIncome()
+            // Filter tránh trùng với BĐS 1 & Fallback an toàn
+            Listing secondListing = equityListings.stream()
+                    .filter(l -> !Objects.equals(l.getListingId(), firstListingId))
+                    .findFirst()
+                    .orElseGet(() -> totalListings.stream()
+                            .filter(l -> !Objects.equals(l.getListingId(), firstListingId))
+                            .findFirst()
+                            .orElse(null)
+                    );
+
+            if (secondListing != null) {
+                String proposalType = (secondListing.getPrice() <= request.getEquity())
+                        ? "EQUITY_BASED"
+                        : "ALTERNATIVE_STRATEGY";
+
+                addProperty(
+                        secondListing,
+                        proposalType,
+                        properties,
+                        aiProperties
+                );
+            }
+
+            criteriaList.add(
+                    InvestmentCriteriaDTOV2.builder()
+                            .proposedPropertyDTOList(properties)
+                            .build()
             );
 
-            investorSurveyData.put(
-                    "investmentGoal",
-                    investor.getInvestmentGoal()
-            );
-
-            investorSurveyData.put(
-                    "investmentPriority",
-                    investor.getInvestmentPriority()
-            );
-
-            investorSurveyData.put(
-                    "investmentStyle",
-                    investor.getInvestmentStyle()
-            );
-
-            investorSurveyData.put(
-                    "returnExpectation",
-                    investor.getReturnExpectation()
-            );
-
-            investorSurveyData.put(
-                    "propertyPreference",
-                    investor.getPropertyPreference()
-            );
-
-            investorSurveyData.put(
-                    "managementAbility",
-                    investor.getManagementAbility()
+            aiCriteria.add(
+                    Map.of(
+                            "propertyTypeId", crit.getPropertyTypeId(),
+                            "properties", aiProperties
+                    )
             );
         }
 
-        Map<String, Object> strategyDetail =
-                request.getInvestmentStrategyDetail();
+        String strategyName = (strategy != null && strategy.getName() != null)
+                ? strategy.getName()
+                : "";
 
-        String strategyCode =
-                "BDS_DONG_TIEN";
-
-        int minDurationMonths =
-                36;
-
-        int maxDurationMonths =
-                60;
-
-        double minProfitRate =
-                0.04;
-
-        double maxProfitRate =
-                0.06;
-
-        String profitUnit =
-                "PER_YEAR";
-
-        if (strategyDetail != null) {
-
-            if (strategyDetail.get("strategyCode") != null) {
-                strategyCode =
-                        strategyDetail
-                                .get("strategyCode")
-                                .toString();
-            }
-
-            if (strategyDetail.get("minDurationMonths") != null) {
-                minDurationMonths =
-                        ((Number) strategyDetail
-                                .get("minDurationMonths"))
-                                .intValue();
-            }
-
-            if (strategyDetail.get("maxDurationMonths") != null) {
-                maxDurationMonths =
-                        ((Number) strategyDetail
-                                .get("maxDurationMonths"))
-                                .intValue();
-            }
-
-            if (strategyDetail.get("minExpectedProfitRate") != null) {
-                minProfitRate =
-                        ((Number) strategyDetail
-                                .get("minExpectedProfitRate"))
-                                .doubleValue();
-            }
-
-            if (strategyDetail.get("maxExpectedProfitRate") != null) {
-                maxProfitRate =
-                        ((Number) strategyDetail
-                                .get("maxExpectedProfitRate"))
-                                .doubleValue();
-            }
-
-            if (strategyDetail.get("profitUnit") != null) {
-                profitUnit =
-                        strategyDetail
-                                .get("profitUnit")
-                                .toString();
-            }
-        }
-
-        String inputPropertiesJson =
-                objectMapper.writeValueAsString(
-                        criteriaForAiPrompt
-                );
-
-        String investorJson =
-                objectMapper.writeValueAsString(
-                        investorSurveyData
-                );
-
-        String marketSourcesAndFormulas =
-                "--- OFFICIAL MARKET BENCHMARK SOURCES ---\n"
-                        + "AI MUST match propertyTypeName with the following rental yield categories.\n\n"
-                        + "1. HIGH-YIELD CATEGORY (4.5% - 6.5%)\n"
-                        + "Types: 'Căn hộ chung cư', 'Officetel', 'Condotel', "
-                        + "'Căn hộ cho thuê', 'Phòng trọ', 'Văn phòng cho thuê', 'Văn phòng'.\n\n"
-                        + "2. MEDIUM-YIELD CATEGORY (2.5% - 4.5%)\n"
-                        + "Types: 'Nhà riêng', 'Nhà liền kề', 'Shophouse', "
-                        + "'Mặt bằng kinh doanh', 'Cửa hàng', 'Nhà cho thuê', 'Mặt bằng cho thuê'.\n\n"
-                        + "3. INDUSTRIAL LOGISTICS CATEGORY (5.0% - 7.0%)\n"
-                        + "Types: 'Nhà xưởng', 'Kho bãi', 'Kho xưởng cho thuê'.\n\n"
-                        + "4. LOW-YIELD / APPRECIATION CATEGORY (1.0% - 2.5%)\n"
-                        + "Types: 'Biệt thự', 'Đất thổ cư', 'Đất nền dự án', "
-                        + "'Đất thương mại dịch vụ', 'Biệt thự nghỉ dưỡng', 'Resort'.\n\n"
-                        + "5. ZERO-YIELD CATEGORY (0.0%)\n"
-                        + "Types: 'Đất nông nghiệp'.\n\n"
-                        + "--- FORMULAS ---\n"
-                        + "monthlyRentalCashflow = (Property Price * Selected Yield Percentage) / 12\n"
-                        + "estimatedPriceGrowth must be a decimal rate.\n"
-                        + "STRICT RULE: "
-                        + minProfitRate
-                        + " <= estimatedPriceGrowth <= "
-                        + maxProfitRate
-                        + "\n";
+        String propertiesJson = objectMapper.writeValueAsString(aiCriteria);
 
         String prompt =
-                "You are an expert financial and real estate analyst AI.\n\n"
-                        + marketSourcesAndFormulas
-                        + "\n--- INPUT STRATEGY RULES ---\n"
-                        + "Strategy Applied: "
-                        + strategyCode
-                        + "\n"
-                        + "Profit Frequency Rule: "
-                        + profitUnit
-                        + "\n"
-                        + "Minimum Holding Duration: "
-                        + minDurationMonths
-                        + " Months\n"
-                        + "Maximum Holding Duration: "
-                        + maxDurationMonths
-                        + " Months\n"
-                        + "Minimum Expected Profit Rate: "
-                        + minProfitRate
-                        + "\n"
-                        + "Maximum Expected Profit Rate: "
-                        + maxProfitRate
-                        + "\n\n"
-                        + "--- DATASET INPUT ---\n"
-                        + "Investor Profile: "
-                        + investorJson
-                        + "\n"
-                        + "Fixed Selected Properties from Database: "
-                        + inputPropertiesJson
-                        + "\n\n"
-                        + "YOUR TASK:\n"
-                        + "1. Evaluate a global compatibility score from 0 to 100.\n"
-                        + "2. Generate exactly 3 market scenarios.\n"
-                        + "3. The scenario types MUST be exactly:\n"
-                        + "xu hướng tăng\n"
-                        + "trung bình\n"
-                        + "xu hướng giảm\n"
-                        + "4. Each scenario must appear exactly once.\n"
-                        + "5. Scenario order MUST be exactly:\n"
-                        + "xu hướng tăng, trung bình, xu hướng giảm.\n"
-                        + "6. Calculate monthlyRentalCashflow for every property.\n"
-                        + "7. estimatedPriceGrowth MUST be a decimal rate such as 0.04, 0.052 or 0.06.\n"
-                        + "8. estimatedPriceGrowth MUST satisfy the configured minimum and maximum values.\n"
-                        + "9. Do not return price gain as estimatedPriceGrowth.\n"
-                        + "10. Return one valid JSON object containing data.\n";
-
-        Schema financialMetricsSchema =
-                Schema.builder()
-                        .type("OBJECT")
-                        .properties(
-                                Map.of(
-                                        "monthlyRentalCashflow",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build(),
-
-                                        "estimatedPriceGrowth",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build()
-                                )
-                        )
-                        .required(
-                                List.of(
-                                        "monthlyRentalCashflow",
-                                        "estimatedPriceGrowth"
-                                )
-                        )
-                        .build();
-
-        Schema proposedPropertySchema =
-                Schema.builder()
-                        .type("OBJECT")
-                        .properties(
-                                Map.of(
-                                        "listingId",
-                                        Schema.builder()
-                                                .type("INTEGER")
-                                                .build(),
-
-                                        "financialMetrics",
-                                        financialMetricsSchema
-                                )
-                        )
-                        .required(
-                                List.of(
-                                        "listingId",
-                                        "financialMetrics"
-                                )
-                        )
-                        .build();
-
-        Schema investmentCriteriaSchema =
-                Schema.builder()
-                        .type("OBJECT")
-                        .properties(
-                                Map.of(
-                                        "proposedPropertyDTOList",
-                                        Schema.builder()
-                                                .type("ARRAY")
-                                                .items(
-                                                        proposedPropertySchema
-                                                )
-                                                .build()
-                                )
-                        )
-                        .required(
-                                List.of(
-                                        "proposedPropertyDTOList"
-                                )
-                        )
-                        .build();
-
-        Schema scenarioSchema =
-                Schema.builder()
-                        .type("OBJECT")
-                        .properties(
-                                Map.of(
-                                        "pkInvestmentScenarioId",
-                                        Schema.builder()
-                                                .type("INTEGER")
-                                                .build(),
-
-                                        "enumScenarioType",
-                                        Schema.builder()
-                                                .type("STRING")
-                                                .build(),
-
-                                        "decimprofitYield",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build(),
-
-                                        "decimmonthlyCashflow",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build(),
-
-                                        "decimprobability",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build(),
-
-                                        "textMarketNote",
-                                        Schema.builder()
-                                                .type("STRING")
-                                                .build(),
-
-                                        "durationMonths",
-                                        Schema.builder()
-                                                .type("INTEGER")
-                                                .build(),
-
-                                        "decimpriceGrowthMin",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build(),
-
-                                        "decimpriceGrowthMax",
-                                        Schema.builder()
-                                                .type("NUMBER")
-                                                .build()
-                                )
-                        )
-                        .required(
-                                List.of(
-                                        "enumScenarioType",
-                                        "decimprofitYield",
-                                        "decimmonthlyCashflow",
-                                        "decimprobability",
-                                        "textMarketNote",
-                                        "durationMonths",
-                                        "decimpriceGrowthMin",
-                                        "decimpriceGrowthMax"
-                                )
-                        )
-                        .build();
-
-        Schema dataSchema =
-                Schema.builder()
-                        .type("OBJECT")
-                        .properties(
-                                Map.of(
-                                        "score",
-                                        Schema.builder()
-                                                .type("INTEGER")
-                                                .build(),
-
-                                        "scenarios",
-                                        Schema.builder()
-                                                .type("ARRAY")
-                                                .minItems(3L)
-                                                .maxItems(3L)
-                                                .items(scenarioSchema)
-                                                .build(),
-
-                                        "investmentCriteriaDTOV2s",
-                                        Schema.builder()
-                                                .type("ARRAY")
-                                                .items(
-                                                        investmentCriteriaSchema
-                                                )
-                                                .build()
-                                )
-                        )
-                        .required(
-                                List.of(
-                                        "score",
-                                        "scenarios",
-                                        "investmentCriteriaDTOV2s"
-                                )
-                        )
-                        .build();
-
-        Schema rootSchema =
-                Schema.builder()
-                        .type("OBJECT")
-                        .properties(
-                                Map.of(
-                                        "data",
-                                        dataSchema
-                                )
-                        )
-                        .required(
-                                List.of("data")
-                        )
-                        .build();
-
-        GenerateContentConfig config =
-                GenerateContentConfig.builder()
-                        .responseMimeType("application/json")
-                        .responseSchema(rootSchema)
-                        .build();
-
-        var response =
-                geminiClient.models.generateContent(
-                        "gemini-2.5-flash",
-                        prompt,
-                        config
+                """
+                Bạn là chuyên gia phân tích tài chính và bất động sản tại TP.HCM.
+                Hãy thực hiện tính toán tài chính chi tiết dựa trên các quy tắc chiến lược được quy định bên dưới và trả về đúng định dạng JSON theo schema đã cho.
+    
+                QUY TẮC THỜI GIAN, CHI PHÍ VÀ LỢI NHUẬN THEO CHIẾN LƯỢC:
+    
+                1. Chiến lược "Đầu Cơ Lướt Sóng":
+                   - Thời gian đầu tư: 1–3 tháng.
+                   - Lợi nhuận kỳ vọng cố định: selectedProfitRate = 0.15 (15%% / thương vụ).
+                   - Dòng tiền thuê: Không có (monthlyRentalCashflow = 0).
+                   - Chi phí phát sinh: Không có (additionalCost = 0).
+                   - Công thức tính lợi nhuận: estimatedProfit = valuePrice * 0.15.
+    
+                2. Chiến lược "Mua Sửa Bán":
+                   - Thời gian đầu tư: 6–9 tháng.
+                   - Lợi nhuận kỳ vọng cố định: selectedProfitRate = 0.20 (20%% / thương vụ).
+                   - Dòng tiền thuê: Không có (monthlyRentalCashflow = 0).
+                   - Chi phí cải tạo/sửa chữa mặc định: additionalCost = valuePrice * 0.05 (5%% giá trị BĐS).
+                   - Công thức tính lợi nhuận: estimatedProfit = (valuePrice * 0.20) - additionalCost.
+    
+                3. Chiến lược "BĐS Dòng Tiền":
+                   - Thời gian đầu tư cố định: 3 năm (investmentYears = 3).
+                   - Lợi nhuận tăng giá cố định: selectedProfitRate = 0.05 (5%% / năm).
+                   - Thu nhập thuê năm: annualRentalIncome = monthlyRentalCashflow * 12.
+                   - Công thức tính lợi nhuận tổng 3 năm: estimatedProfit = valuePrice * ((1 + 0.05 + (annualRentalIncome / valuePrice)) ^ 3 - 1).
+    
+                CHIẾN LƯỢC ĐANG ÁP DỤNG (CURRENT STRATEGY):
+                %s
+    
+                QUY TẮC TÍNH TOÁN TÀI CHÍNH TỔNG QUÁT:
+    
+                1. Dòng Tiền Cho Thuê Hàng Tháng (monthlyRentalCashflow):
+                   - ĐÁNH GIÁ VÀ ĐỐI CHIẾU TỶ SUẤT CHO THUÊ NĂM (Annual Rental Yield) dựa vào bộ tiêu chí: hiện trạng bất động sản (propertyCondition), vị trí địa lý (wardName) và giá trị bất động sản (valuePrice).
+                   - NGUỒN DỮ LIỆU THAM CHIẾU (Thị trường TP.HCM): CBRE, Savills, Batdongsan.com.vn, VARS.
+                   - MA TRẬN TỶ SUẤT THUÊ NĂM CHUẨN (Dành cho TP.HCM):
+                     * BĐS mới / Đủ nội thất / Chất lượng tốt (propertyCondition = "Mới", "Tốt", "Hoàn thiện"): Tỷ suất 4.5%% - 5.5%% / năm.
+                     * BĐS cũ / Cần sửa chữa / Bình thường (propertyCondition = "Cũ", "Cần sửa chữa", "Bình thường"): Tỷ suất 3.0%% - 4.0%% / năm.
+                     * Vị trí Phường trung tâm (wardName thuộc Q1, Q3, Thảo Điền...): Tỷ suất 2.5%% - 3.5%% / năm do giá trị BĐS (valuePrice) cao.
+                     * Vị trí Phường tập trung đông nhu cầu thuê (wardName thuộc Bình Thạnh, Q7, Q10, Tân Bình...): Tỷ suất 4.5%% - 5.5%% / năm.
+                   - CÔNG THỨC: monthlyRentalCashflow = (valuePrice * Annual Rental Yield) / 12. (Nếu là chiến lược "Đầu Cơ Lướt Sóng" hoặc "Mua Sửa Bán" thì gán thẳng = 0).
+    
+                2. Tiền Trả Gốc Và Lãi Hàng Tháng (monthlyPrincipalInterest):
+                   - Công thức khoản vay (Amortization): P * [r * (1 + r)^n] / [(1 + r)^n - 1]
+                     Trong đó: P = loanCapital (nếu loanCapital <= 0 thì monthlyPrincipalInterest = 0), r = (lãi suất năm trung bình ngân hàng Big4 năm 2026 / 12), n = 240 tháng.
+    
+                3. Dòng Tiền Ròng Hàng Tháng (netCashflow):
+                   - Với chiến lược "BĐS Dòng Tiền": netCashflow = monthlyRentalCashflow - monthlyPrincipalInterest.
+                   - Với "Đầu Cơ Lướt Sóng" và "Mua Sửa Bán": netCashflow = 0.
+    
+                4. Tỷ Lệ ROI (roiPercentage):
+                   - roiPercentage = (estimatedProfit / valuePrice) * 100.
+    
+                RÀNG BUỘC OUTPUT:
+                - Không tính estimatedPriceGrowth.
+                - Không trả về điểm tương thích (match score).
+                - Phải tạo đúng 3 kịch bản theo thứ tự tên enumScenarioType: "xu hướng tăng", "trung bình", "xu hướng giảm".
+                - CHỈ TRẢ VỀ JSON HỢP LỆ.
+    
+                DANH SÁCH BẤT ĐỘNG SẢN ĐƯỢC CHỌN (SELECTED PROPERTIES):
+                %s
+                """.formatted(
+                        strategyName,
+                        propertiesJson
                 );
 
-        String jsonResponse =
-                response.text();
+        Schema financialMetricsSchema = Schema.builder()
+                .type("OBJECT")
+                .properties(Map.of(
+                        "estimatedProfit", Schema.builder().type("NUMBER").build(),
+                        "monthlyRentalCashflow", Schema.builder().type("NUMBER").build(),
+                        "monthlyPrincipalInterest", Schema.builder().type("NUMBER").build(),
+                        "netCashflow", Schema.builder().type("NUMBER").build(),
+                        "roiPercentage", Schema.builder().type("NUMBER").build()
+                ))
+                .required(List.of(
+                        "estimatedProfit",
+                        "monthlyRentalCashflow",
+                        "monthlyPrincipalInterest",
+                        "netCashflow",
+                        "roiPercentage"
+                ))
+                .build();
 
-        if (jsonResponse == null
-                || jsonResponse.isBlank()) {
+        Schema propertySchema = Schema.builder()
+                .type("OBJECT")
+                .properties(Map.of(
+                        "listingId", Schema.builder().type("INTEGER").build(),
+                        "financialMetrics", financialMetricsSchema
+                ))
+                .required(List.of("listingId", "financialMetrics"))
+                .build();
 
-            throw new IllegalStateException(
-                    "AI returned an empty response."
-            );
+        Schema criteriaSchema = Schema.builder()
+                .type("OBJECT")
+                .properties(Map.of(
+                        "proposedPropertyDTOList", Schema.builder().type("ARRAY").items(propertySchema).build()
+                ))
+                .required(List.of("proposedPropertyDTOList"))
+                .build();
+
+        Schema scenarioSchema = Schema.builder()
+                .type("OBJECT")
+                .properties(Map.of(
+                        "enumScenarioType", Schema.builder().type("STRING").build(),
+                        "decimprofitYield", Schema.builder().type("NUMBER").build(),
+                        "decimmonthlyCashflow", Schema.builder().type("NUMBER").build(),
+                        "decimprobability", Schema.builder().type("NUMBER").build(),
+                        "textMarketNote", Schema.builder().type("STRING").build(),
+                        "durationMonths", Schema.builder().type("INTEGER").build()
+                ))
+                .required(List.of(
+                        "enumScenarioType",
+                        "decimprofitYield",
+                        "decimmonthlyCashflow",
+                        "decimprobability",
+                        "textMarketNote",
+                        "durationMonths"
+                ))
+                .build();
+
+        Schema dataSchema = Schema.builder()
+                .type("OBJECT")
+                .properties(Map.of(
+                        "scenarios", Schema.builder().type("ARRAY").minItems(3L).maxItems(3L).items(scenarioSchema).build(),
+                        "investmentCriteriaDTOV2s", Schema.builder().type("ARRAY").items(criteriaSchema).build()
+                ))
+                .required(List.of("scenarios", "investmentCriteriaDTOV2s"))
+                .build();
+
+        Schema rootSchema = Schema.builder()
+                .type("OBJECT")
+                .properties(Map.of("data", dataSchema))
+                .required(List.of("data"))
+                .build();
+
+        GenerateContentConfig config = GenerateContentConfig.builder()
+                .responseMimeType("application/json")
+                .responseSchema(rootSchema)
+                .build();
+
+        GenerateContentResponse response = geminiClient.models.generateContent(
+                "gemini-2.5-flash",
+                prompt,
+                config
+        );
+
+        String json = response.text();
+
+        if (json == null || json.isBlank()) {
+            throw new IllegalStateException("AI returned an empty response.");
         }
 
-        jsonResponse =
-                jsonResponse.trim();
-
-        if (jsonResponse.startsWith("```json")) {
-            jsonResponse =
-                    jsonResponse.substring(7);
-        } else if (jsonResponse.startsWith("```")) {
-            jsonResponse =
-                    jsonResponse.substring(3);
+        json = json.trim();
+        if (json.startsWith("```json")) {
+            json = json.substring(7);
+        } else if (json.startsWith("```")) {
+            json = json.substring(3);
+        }
+        if (json.endsWith("```")) {
+            json = json.substring(0, json.length() - 3);
         }
 
-        if (jsonResponse.endsWith("```")) {
-            jsonResponse =
-                    jsonResponse.substring(
-                            0,
-                            jsonResponse.length() - 3
-                    );
-        }
+        JsonNode root = objectMapper.readTree(json.trim());
+        JsonNode data = root.has("data") ? root.path("data") : root;
+        JsonNode aiCriteriaV2 = data.path("investmentCriteriaDTOV2s");
 
-        jsonResponse =
-                jsonResponse.trim();
+        for (int i = 0; i < criteriaList.size(); i++) {
 
-        JsonNode rootNode =
-                objectMapper.readTree(
-                        jsonResponse
-                );
+            var hardCriteria = criteriaList.get(i);
+            JsonNode aiCrit = aiCriteriaV2.path(i);
+            JsonNode aiPropertiesNode = aiCrit.path("proposedPropertyDTOList");
 
-        JsonNode dataNode =
-                rootNode.has("data")
-                        ? rootNode.path("data")
-                        : rootNode;
+            List<ProposedPropertyDTO> resultProperties = new ArrayList<>();
 
-        int score =
-                dataNode
-                        .path("score")
-                        .asInt(85);
+            for (int j = 0; j < aiPropertiesNode.size(); j++) {
 
-        JsonNode aiCriteriaArray =
-                dataNode.path(
-                        "investmentCriteriaDTOV2s"
-                );
+                JsonNode propNode = aiPropertiesNode.get(j);
+                Long listingId = propNode.path("listingId").asLong();
 
-        int calculatedDurationMonths =
-                maxDurationMonths;
+                ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
+                        .filter(p -> p.getListingId().equals(listingId))
+                        .findFirst()
+                        .orElse(null);
 
-        for (int i = 0;
-             i < criteriaDTOV2List.size();
-             i++) {
+                if (matchedDto != null) {
+                    JsonNode metrics = propNode.path("financialMetrics");
 
-            InvestmentCriteriaDTOV2 hardCriteria =
-                    criteriaDTOV2List.get(i);
-
-            JsonNode aiCritNode =
-                    aiCriteriaArray.path(i);
-
-            JsonNode aiPropsArray =
-                    aiCritNode.path(
-                            "proposedPropertyDTOList"
+                    matchedDto.setFinancialMetrics(
+                            FinancialMetricsDTO.builder()
+                                    .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
+                                    .monthlyRentalCashflow(Math.round(metrics.path("monthlyRentalCashflow").asDouble(0)))
+                                    .monthlyPrincipalInterest(Math.round(metrics.path("monthlyPrincipalInterest").asDouble(0)))
+                                    .netCashflow(Math.round(metrics.path("netCashflow").asDouble(0)))
+                                    .roiPercentage(metrics.path("roiPercentage").asDouble(0))
+                                    .build()
                     );
 
-            for (int j = 0;
-                 j < hardCriteria
-                         .getProposedPropertyDTOList()
-                         .size();
-                 j++) {
-
-                ProposedPropertyDTO hardProp =
-                        hardCriteria
-                                .getProposedPropertyDTOList()
-                                .get(j);
-
-                JsonNode aiPropNode =
-                        aiPropsArray.path(j);
-
-                JsonNode metricsNode =
-                        aiPropNode.path(
-                                "financialMetrics"
-                        );
-
-                long propProposedPrice =
-                        totalCapital;
-
-                Optional<Listing> optL =
-                        listingRepository.findById(
-                                hardProp.getListingId()
-                        );
-
-                if (optL.isPresent()
-                        && optL.get().getPrice() != null) {
-
-                    propProposedPrice =
-                            optL.get().getPrice();
+                    resultProperties.add(matchedDto);
                 }
-
-                long estimatedRental =
-                        Math.round(
-                                metricsNode
-                                        .path(
-                                                "monthlyRentalCashflow"
-                                        )
-                                        .asDouble(0)
-                        );
-
-                long loanPrincipal =
-                        "EQUITY_BASED".equals(
-                                hardProp.getProposalType()
-                        )
-                                ? 0
-                                : request.getLoanCapital();
-
-                double monthlyInterestRate =
-                        0.095 / 12.0;
-
-                int totalLoanMonths =
-                        180;
-
-                long monthlyPrincipalInterest =
-                        0;
-
-                if (loanPrincipal > 0) {
-
-                    double powered =
-                            Math.pow(
-                                    1 + monthlyInterestRate,
-                                    totalLoanMonths
-                            );
-
-                    double monthlyPayment =
-                            loanPrincipal
-                                    * (
-                                    monthlyInterestRate
-                                            * powered
-                            )
-                                    / (
-                                    powered - 1
-                            );
-
-                    monthlyPrincipalInterest =
-                            Math.round(
-                                    monthlyPayment
-                            );
-                }
-
-                long netCashflow =
-                        estimatedRental
-                                - monthlyPrincipalInterest;
-
-                double estimatedGrowth =
-                        metricsNode
-                                .path(
-                                        "estimatedPriceGrowth"
-                                )
-                                .asDouble(
-                                        minProfitRate
-                                );
-
-                if (estimatedGrowth < minProfitRate) {
-                    estimatedGrowth =
-                            minProfitRate;
-                }
-
-                if (estimatedGrowth > maxProfitRate) {
-                    estimatedGrowth =
-                            maxProfitRate;
-                }
-
-                long priceGain =
-                        Math.round(
-                                propProposedPrice
-                                        * estimatedGrowth
-                        );
-
-                long estimatedProfit;
-
-                if ("PER_DEAL".equalsIgnoreCase(
-                        profitUnit
-                )) {
-
-                    estimatedProfit =
-                            priceGain
-                                    + (
-                                    netCashflow
-                                            * calculatedDurationMonths
-                            );
-
-                } else {
-
-                    estimatedProfit =
-                            priceGain
-                                    + (
-                                    netCashflow * 12
-                            );
-                }
-
-                double roiPercentage =
-                        propProposedPrice > 0
-                                ? (
-                                (double) estimatedProfit
-                                        * 100.0
-                        ) / propProposedPrice
-                                : 0.0;
-
-                FinancialMetricsDTO metricsDTO =
-                        FinancialMetricsDTO.builder()
-                                .estimatedProfit(
-                                        estimatedProfit
-                                )
-                                .estimatedPriceGrowth(
-                                        priceGain
-                                )
-                                .monthlyRentalCashflow(
-                                        estimatedRental
-                                )
-                                .monthlyPrincipalInterest(
-                                        monthlyPrincipalInterest
-                                )
-                                .netCashflow(
-                                        netCashflow
-                                )
-                                .roiPercentage(
-                                        roiPercentage
-                                )
-                                .build();
-
-                hardProp.setFinancialMetrics(
-                        metricsDTO
-                );
             }
+
+            hardCriteria.setProposedPropertyDTOList(resultProperties);
         }
 
-        List<InvestmentScenarioDTO> scenarioDTOList =
-                new ArrayList<>();
+        List<InvestmentScenarioDTO> scenarios = new ArrayList<>();
+        JsonNode scenarioArray = data.path("scenarios");
 
-        JsonNode scenarioArray =
-                dataNode.path(
-                        "scenarios"
-                );
-
-        if (!scenarioArray.isArray()
-                || scenarioArray.size() != 3) {
-
-            throw new IllegalStateException(
-                    "AI must return exactly 3 investment scenarios."
-            );
+        if (!scenarioArray.isArray() || scenarioArray.size() != 3) {
+            throw new IllegalStateException("AI must return exactly 3 investment scenarios.");
         }
 
-        List<String> requiredScenarioOrder =
-                List.of(
-                        "xu hướng tăng",
-                        "trung bình",
-                        "xu hướng giảm"
-                );
+        List<String> scenarioOrder = List.of("xu hướng tăng", "trung bình", "xu hướng giảm");
 
-        Set<String> actualScenarioTypes =
-                new HashSet<>();
+        for (int i = 0; i < 3; i++) {
+            JsonNode node = scenarioArray.get(i);
+            String type = node.path("enumScenarioType").asText();
 
-        for (int i = 0;
-             i < scenarioArray.size();
-             i++) {
-
-            JsonNode sceneNode =
-                    scenarioArray.get(i);
-
-            String scenarioType =
-                    sceneNode
-                            .path(
-                                    "enumScenarioType"
-                            )
-                            .asText();
-
-            if (!requiredScenarioOrder.contains(
-                    scenarioType
-            )) {
-
-                throw new IllegalStateException(
-                        "Invalid investment scenario type: "
-                                + scenarioType
-                );
+            if (!scenarioOrder.get(i).equals(type)) {
+                throw new IllegalStateException("Invalid investment scenario order.");
             }
 
-            if (!actualScenarioTypes.add(
-                    scenarioType
-            )) {
-
-                throw new IllegalStateException(
-                        "Duplicate investment scenario type: "
-                                + scenarioType
-                );
-            }
-
-            if (!requiredScenarioOrder
-                    .get(i)
-                    .equals(scenarioType)) {
-
-                throw new IllegalStateException(
-                        "Invalid investment scenario order."
-                );
-            }
-
-            InvestmentScenarioDTO sceneDTO =
+            scenarios.add(
                     InvestmentScenarioDTO.builder()
-                            .enumScenarioType(
-                                    scenarioType
-                            )
-                            .decimprofitYield(
-                                    sceneNode
-                                            .path(
-                                                    "decimprofitYield"
-                                            )
-                                            .asDouble(0)
-                            )
-                            .decimprobability(
-                                    sceneNode
-                                            .path(
-                                                    "decimprobability"
-                                            )
-                                            .asDouble(0)
-                            )
-                            .textMarketNote(
-                                    sceneNode
-                                            .path(
-                                                    "textMarketNote"
-                                            )
-                                            .asText("")
-                            )
-                            .decimmonthlyCashflow(
-                                    sceneNode
-                                            .path(
-                                                    "decimmonthlyCashflow"
-                                            )
-                                            .asDouble(0)
-                            )
-                            .durationMonths(
-                                    sceneNode
-                                            .path(
-                                                    "durationMonths"
-                                            )
-                                            .asInt(
-                                                    calculatedDurationMonths
-                                            )
-                            )
-                            .decimpriceGrowthMin(
-                                    sceneNode
-                                            .path(
-                                                    "decimpriceGrowthMin"
-                                            )
-                                            .asDouble(
-                                                    minProfitRate
-                                            )
-                            )
-                            .decimpriceGrowthMax(
-                                    sceneNode
-                                            .path(
-                                                    "decimpriceGrowthMax"
-                                            )
-                                            .asDouble(
-                                                    maxProfitRate
-                                            )
-                            )
-                            .build();
-
-            scenarioDTOList.add(
-                    sceneDTO
-            );
-        }
-
-        if (!actualScenarioTypes.equals(
-                new HashSet<>(
-                        requiredScenarioOrder
-                )
-        )) {
-
-            throw new IllegalStateException(
-                    "AI must return exactly the required 3 scenario types."
+                            .enumScenarioType(type)
+                            .decimprofitYield(node.path("decimprofitYield").asDouble(0))
+                            .decimmonthlyCashflow(node.path("decimmonthlyCashflow").asDouble(0))
+                            .decimprobability(node.path("decimprobability").asDouble(0))
+                            .textMarketNote(node.path("textMarketNote").asText(""))
+                            .durationMonths(node.path("durationMonths").asInt(0))
+                            .build()
             );
         }
 
         return InvestmentPlanDTO.builder()
-                .score(score)
                 .totalCapital(totalCapital)
-                .investmentCriteriaDTOV2s(
-                        criteriaDTOV2List
-                )
-                .scenarios(
-                        scenarioDTOList
-                )
+                .investmentCriteriaDTOV2s(criteriaList)
+                .scenarios(scenarios)
                 .build();
     }
 
+    private void addProperty(
+            Listing listing,
+            String proposalType,
+            List<ProposedPropertyDTO> properties,
+            List<Map<String, Object>> aiProperties
+    ) {
+        Property property = listing.getProperty();
+
+        String condition =
+                property != null
+                        && property.getPropertyCondition() != null
+                        ? property.getPropertyCondition().getName()
+                        : "Unknown";
+
+        String ward =
+                property != null
+                        && property.getLocation() != null
+                        && property.getLocation().getWard() != null
+                        ? property.getLocation().getWard().getName()
+                        : "Unknown";
+
+        properties.add(
+                ProposedPropertyDTO.builder()
+                        .listingId(listing.getListingId())
+                        .proposalType(proposalType)
+                        .propertyProjectName(listing.getTitle())
+                        .area(
+                                property != null
+                                        && property.getArea() != null
+                                        ? property.getArea().intValue()
+                                        : 0
+                        )
+                        .valuePrice(
+                                listing.getPrice() != null
+                                        ? listing.getPrice().doubleValue()
+                                        : 0.0
+                        )
+                        .description(listing.getDescription())
+                        .build()
+        );
+
+        aiProperties.add(
+                Map.of(
+                        "listingId",
+                        listing.getListingId(),
+                        "title",
+                        listing.getTitle(),
+                        "valuePrice",
+                        listing.getPrice() != null ? listing.getPrice() : 0,
+                        "area",
+                        property != null && property.getArea() != null
+                                ? property.getArea()
+                                : 0.0,
+                        "propertyCondition",
+                        condition,
+                        "wardName",
+                        ward,
+                        "proposalType",
+                        proposalType
+                )
+        );
+    }
 
 //    @Override
 //    @Transactional

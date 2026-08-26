@@ -53,13 +53,13 @@ public class InvestmentProfileVersion {
     private List<String> wards;
 
 //    private Long expectedRoi;
-    private Long minProfit;
-    private String riskToleranceLevel;
+    private Long expectedProfit;
+//    private String riskToleranceLevel;
 //    private Long durationYear;
-    private LocalDate startDate;
-    private String investmentType;
+//    private LocalDate startDate;
+//    private String investmentType;
 
-    private int match_score;
+//    private int match_score;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "investment_strategy_detail", columnDefinition = "json")
