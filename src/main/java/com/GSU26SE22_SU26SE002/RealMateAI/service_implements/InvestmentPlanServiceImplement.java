@@ -1164,6 +1164,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                             .build()
             );
 
+
             aiCriteria.add(
                     Map.of(
                             "propertyTypeId", crit.getPropertyTypeId(),
