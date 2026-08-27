@@ -993,7 +993,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             List<ProposedPropertyDTO> properties = new ArrayList<>();
             List<Map<String, Object>> aiProperties = new ArrayList<>();
 
-            // 1. Tìm BĐS theo Tổng vốn
             List<Listing> totalListings = listingRepository.findListingsByCriteria(
                     crit.getPropertyTypeId(),
                     request.getWardNames(),
@@ -1011,14 +1010,12 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             Integer firstListingId = !totalListings.isEmpty() ? totalListings.get(0).getListingId() : null;
 
-            // 2. Tìm BĐS theo Vốn tự có
             List<Listing> equityListings = listingRepository.findListingsByCriteria(
                     crit.getPropertyTypeId(),
                     request.getWardNames(),
                     request.getEquity()
             );
 
-            // Filter tránh trùng với BĐS 1 & Fallback an toàn
             Listing secondListing = equityListings.stream()
                     .filter(l -> !Objects.equals(l.getListingId(), firstListingId))
                     .findFirst()
@@ -1047,7 +1044,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                             .build()
             );
 
-
             aiCriteria.add(
                     Map.of(
                             "propertyTypeId", crit.getPropertyTypeId(),
@@ -1067,19 +1063,21 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 Bạn là chuyên gia phân tích tài chính và bất động sản tại TP.HCM.
                 Hãy thực hiện tính toán tài chính chi tiết dựa trên các quy tắc chiến lược được quy định bên dưới và trả về đúng định dạng JSON theo schema đã cho.
     
+                THÔNG TIN TÀI CHÍNH ĐẦU VÀO:
+                - Vốn vay ngân hàng (loanCapital): %d VNĐ
+                - Chiến lược đang áp dụng: %s
+    
                 QUY TẮC THỜI GIAN, CHI PHÍ VÀ LỢI NHUẬN THEO CHIẾN LƯỢC:
     
                 1. Chiến lược "Đầu Cơ Lướt Sóng":
                    - Thời gian đầu tư: 1–3 tháng.
                    - Lợi nhuận kỳ vọng cố định: selectedProfitRate = 0.15 (15%% / thương vụ).
-                   - Dòng tiền thuê: Không có (monthlyRentalCashflow = 0).
                    - Chi phí phát sinh: Không có (additionalCost = 0).
                    - Công thức tính lợi nhuận: estimatedProfit = valuePrice * 0.15.
     
                 2. Chiến lược "Mua Sửa Bán":
                    - Thời gian đầu tư: 6–9 tháng.
                    - Lợi nhuận kỳ vọng cố định: selectedProfitRate = 0.20 (20%% / thương vụ).
-                   - Dòng tiền thuê: Không có (monthlyRentalCashflow = 0).
                    - Chi phí cải tạo/sửa chữa mặc định: additionalCost = valuePrice * 0.05 (5%% giá trị BĐS).
                    - Công thức tính lợi nhuận: estimatedProfit = (valuePrice * 0.20) - additionalCost.
     
@@ -1089,31 +1087,36 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                    - Thu nhập thuê năm: annualRentalIncome = monthlyRentalCashflow * 12.
                    - Công thức tính lợi nhuận tổng 3 năm: estimatedProfit = valuePrice * ((1 + 0.05 + (annualRentalIncome / valuePrice)) ^ 3 - 1).
     
-                CHIẾN LƯỢC ĐANG ÁP DỤNG (CURRENT STRATEGY):
-                %s
+                QUY TẮC DÒNG TIỀN CHO THUÊ HÀNG THÁNG (monthlyRentalCashflow) - TRÍCH DẪN NGUỒN CHÍNH THỨC:
+                Xác định Tỷ suất cho thuê năm (Annual Rental Yield) dựa trên propertyTypeName của BĐS theo các nguồn dữ liệu uy tín:
     
-                QUY TẮC TÍNH TOÁN TÀI CHÍNH TỔNG QUÁT:
+                - Nhóm Đất trống (Đất thổ cư, Đất nền dự án, Đất nông nghiệp, Đất thương mại dịch vụ):
+                  * Yield = 0.0%% (Nguồn: Báo cáo Tổng kết Thị trường BĐS - VARS).
+                - Nhóm Nhà ở đất liền (Nhà riêng, Nhà liền kề, Biệt thự):
+                  * Yield = 0.028 (2.8%%/năm) (Nguồn: Savills Vietnam Market Report - Phân khúc Nhà phố/Biệt thự).
+                - Nhóm Căn hộ & Thương mại (Căn hộ chung cư, Căn hộ cho thuê, Shophouse, Officetel, Cửa hàng, Condotel, Biệt thự nghỉ dưỡng, Resort):
+                  * Yield = 0.050 (5.0%%/năm) (Nguồn: CBRE Vietnam & Batdongsan.com.vn Report - Phân khúc Căn hộ).
+                - Nhóm Dòng tiền dịch vụ (Phòng trọ, Nhà cho thuê, Văn phòng, Mặt bằng kinh doanh, Mặt bằng cho thuê):
+                  * Yield = 0.060 (6.0%%/năm) (Nguồn: Chợ Tốt Nhà & Knight Frank - Phân khúc Cho thuê thương mại).
+                - Nhóm Công nghiệp & Logistics (Nhà xưởng, Kho bãi, Kho xưởng cho thuê):
+                  * Yield = 0.075 (7.5%%/năm) (Nguồn: JLL Vietnam & Savills Industrial Report).
     
-                1. Dòng Tiền Cho Thuê Hàng Tháng (monthlyRentalCashflow):
-                   - ĐÁNH GIÁ VÀ ĐỐI CHIẾU TỶ SUẤT CHO THUÊ NĂM (Annual Rental Yield) dựa vào bộ tiêu chí: hiện trạng bất động sản (propertyCondition), vị trí địa lý (wardName) và giá trị bất động sản (valuePrice).
-                   - NGUỒN DỮ LIỆU THAM CHIẾU (Thị trường TP.HCM): CBRE, Savills, Batdongsan.com.vn, VARS.
-                   - MA TRẬN TỶ SUẤT THUÊ NĂM CHUẨN (Dành cho TP.HCM):
-                     * BĐS mới / Đủ nội thất / Chất lượng tốt (propertyCondition = "Mới", "Tốt", "Hoàn thiện"): Tỷ suất 4.5%% - 5.5%% / năm.
-                     * BĐS cũ / Cần sửa chữa / Bình thường (propertyCondition = "Cũ", "Cần sửa chữa", "Bình thường"): Tỷ suất 3.0%% - 4.0%% / năm.
-                     * Vị trí Phường trung tâm (wardName thuộc Q1, Q3, Thảo Điền...): Tỷ suất 2.5%% - 3.5%% / năm do giá trị BĐS (valuePrice) cao.
-                     * Vị trí Phường tập trung đông nhu cầu thuê (wardName thuộc Bình Thạnh, Q7, Q10, Tân Bình...): Tỷ suất 4.5%% - 5.5%% / năm.
-                   - CÔNG THỨC: monthlyRentalCashflow = (valuePrice * Annual Rental Yield) / 12. (Nếu là chiến lược "Đầu Cơ Lướt Sóng" hoặc "Mua Sửa Bán" thì gán thẳng = 0).
+                * NGOẠI LỆ: Nếu loại hình không khớp các nhóm trên, bắt buộc lấy tỷ suất mặc định thị trường là 4.0%% / năm (0.04). Tuyệt đối không gán bằng 0 trừ nhóm Đất trống.
+                * CÔNG THỨC TÍNH: monthlyRentalCashflow = (valuePrice * Annual Rental Yield) / 12.
     
-                2. Tiền Trả Gốc Và Lãi Hàng Tháng (monthlyPrincipalInterest):
-                   - Công thức khoản vay (Amortization): P * [r * (1 + r)^n] / [(1 + r)^n - 1]
-                     Trong đó: P = loanCapital (nếu loanCapital <= 0 thì monthlyPrincipalInterest = 0), r = (lãi suất năm trung bình ngân hàng Big4 năm 2026 / 12), n = 240 tháng.
+                QUY TẮC TÍNH TOÁN TÀI CHÍNH TỔNG QUÁT KHÁC:
     
-                3. Dòng Tiền Ròng Hàng Tháng (netCashflow):
-                   - Với chiến lược "BĐS Dòng Tiền": netCashflow = monthlyRentalCashflow - monthlyPrincipalInterest.
-                   - Với "Đầu Cơ Lướt Sóng" và "Mua Sửa Bán": netCashflow = 0.
+                1. Tiền Trả Gốc Và Lãi Hàng Tháng (monthlyPrincipalInterest):
+                   - Số tiền vay P = %d VNĐ (loanCapital).
+                   - Nếu P <= 0 thì monthlyPrincipalInterest = 0.
+                   - Nếu P > 0, tính theo công thức Amortization: monthlyPrincipalInterest = P * [r * (1 + r)^n] / [(1 + r)^n - 1]
+                     Trong đó: r = 0.095 / 12, n = 240 tháng.
     
-                4. Tỷ Lệ ROI (roiPercentage):
-                   - roiPercentage = (estimatedProfit / valuePrice) * 100.
+                2. Dòng Tiền Ròng Hàng Tháng (netCashflow):
+                   - CÔNG THỨC: netCashflow = monthlyRentalCashflow - monthlyPrincipalInterest.
+    
+                3. Tỷ Lệ ROI (roiPercentage):
+                   - CÔNG THỨC: roiPercentage = (estimatedProfit / valuePrice) * 100.
     
                 RÀNG BUỘC OUTPUT:
                 - Không tính estimatedPriceGrowth.
@@ -1124,7 +1127,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 DANH SÁCH BẤT ĐỘNG SẢN ĐƯỢC CHỌN (SELECTED PROPERTIES):
                 %s
                 """.formatted(
+                        request.getLoanCapital(),
                         strategyName,
+                        request.getLoanCapital(),
                         propertiesJson
                 );
 
@@ -1238,57 +1243,46 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             List<ProposedPropertyDTO> resultProperties = new ArrayList<>();
 
             for (int j = 0; j < aiPropertiesNode.size(); j++) {
+                JsonNode propNode = aiPropertiesNode.get(j);
+                long aiListingId = propNode.path("listingId").asLong();
 
-//                JsonNode propNode = aiPropertiesNode.get(j);
-//                Long listingId = propNode.path("listingId").asLong();
-//
-//                ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
-//                        .filter(p -> p.getListingId().equals(listingId))
-//                        .findFirst()
-//                        .orElse(null);
-                for (int k = 0; k < aiPropertiesNode.size(); k++) {
+                ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
+                        .filter(p -> p.getListingId() != null && p.getListingId().longValue() == aiListingId)
+                        .findFirst()
+                        .orElse(null);
 
-                    JsonNode propNode = aiPropertiesNode.get(k);
-                    long aiListingId = propNode.path("listingId").asLong();
+                if (matchedDto != null) {
+                    JsonNode metrics = propNode.path("financialMetrics");
 
-                    ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
-                            // Ép kiểu longValue() để so sánh giá trị primitive thay vì Object.equals()
-                            .filter(p -> p.getListingId() != null && p.getListingId().longValue() == aiListingId)
-                            .findFirst()
-                            .orElse(null);
+                    double rentalCashflow = metrics.path("monthlyRentalCashflow").asDouble(0);
+                    double valuePrice = matchedDto.getValuePrice() != null ? matchedDto.getValuePrice() : 0.0;
 
-                    if (matchedDto != null) {
-                        JsonNode metrics = propNode.path("financialMetrics");
-
-                        matchedDto.setFinancialMetrics(
-                                FinancialMetricsDTO.builder()
-                                        .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
-                                        .monthlyRentalCashflow(Math.round(metrics.path("monthlyRentalCashflow").asDouble(0)))
-                                        .monthlyPrincipalInterest(Math.round(metrics.path("monthlyPrincipalInterest").asDouble(0)))
-                                        .netCashflow(Math.round(metrics.path("netCashflow").asDouble(0)))
-                                        .roiPercentage(metrics.path("roiPercentage").asDouble(0))
-                                        .build()
-                        );
-
-                        resultProperties.add(matchedDto);
+                    if (rentalCashflow <= 0 && valuePrice > 0) {
+                        rentalCashflow = (valuePrice * 0.04) / 12.0;
                     }
-                }
 
-//                if (matchedDto != null) {
-//                    JsonNode metrics = propNode.path("financialMetrics");
-//
-//                    matchedDto.setFinancialMetrics(
-//                            FinancialMetricsDTO.builder()
-//                                    .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
-//                                    .monthlyRentalCashflow(Math.round(metrics.path("monthlyRentalCashflow").asDouble(0)))
-//                                    .monthlyPrincipalInterest(Math.round(metrics.path("monthlyPrincipalInterest").asDouble(0)))
-//                                    .netCashflow(Math.round(metrics.path("netCashflow").asDouble(0)))
-//                                    .roiPercentage(metrics.path("roiPercentage").asDouble(0))
-//                                    .build()
-//                    );
-//
-//                    resultProperties.add(matchedDto);
-//                }
+                    double loanCapital = request.getLoanCapital() != null ? request.getLoanCapital() : 0.0;
+                    double monthlyPI = metrics.path("monthlyPrincipalInterest").asDouble(0);
+                    if (monthlyPI <= 0 && loanCapital > 0) {
+                        double r = 0.095 / 12;
+                        int n = 240;
+                        monthlyPI = loanCapital * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                    }
+
+                    double netCashflow = rentalCashflow - monthlyPI;
+
+                    matchedDto.setFinancialMetrics(
+                            FinancialMetricsDTO.builder()
+                                    .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
+                                    .monthlyRentalCashflow(Math.round(rentalCashflow))
+                                    .monthlyPrincipalInterest(Math.round(monthlyPI))
+                                    .netCashflow(Math.round(netCashflow))
+                                    .roiPercentage(metrics.path("roiPercentage").asDouble(0))
+                                    .build()
+                    );
+
+                    resultProperties.add(matchedDto);
+                }
             }
 
             hardCriteria.setProposedPropertyDTOList(resultProperties);
@@ -1332,7 +1326,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .scenarios(scenarios)
                 .build();
     }
-
     private void addProperty(
             Listing listing,
             String proposalType,
