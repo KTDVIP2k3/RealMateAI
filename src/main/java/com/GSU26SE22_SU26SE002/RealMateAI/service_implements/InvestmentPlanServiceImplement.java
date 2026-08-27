@@ -1239,29 +1239,56 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             for (int j = 0; j < aiPropertiesNode.size(); j++) {
 
-                JsonNode propNode = aiPropertiesNode.get(j);
-                Long listingId = propNode.path("listingId").asLong();
+//                JsonNode propNode = aiPropertiesNode.get(j);
+//                Long listingId = propNode.path("listingId").asLong();
+//
+//                ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
+//                        .filter(p -> p.getListingId().equals(listingId))
+//                        .findFirst()
+//                        .orElse(null);
+                for (int k = 0; k < aiPropertiesNode.size(); k++) {
 
-                ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
-                        .filter(p -> p.getListingId().equals(listingId))
-                        .findFirst()
-                        .orElse(null);
+                    JsonNode propNode = aiPropertiesNode.get(k);
+                    long aiListingId = propNode.path("listingId").asLong();
 
-                if (matchedDto != null) {
-                    JsonNode metrics = propNode.path("financialMetrics");
+                    ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
+                            // Ép kiểu longValue() để so sánh giá trị primitive thay vì Object.equals()
+                            .filter(p -> p.getListingId() != null && p.getListingId().longValue() == aiListingId)
+                            .findFirst()
+                            .orElse(null);
 
-                    matchedDto.setFinancialMetrics(
-                            FinancialMetricsDTO.builder()
-                                    .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
-                                    .monthlyRentalCashflow(Math.round(metrics.path("monthlyRentalCashflow").asDouble(0)))
-                                    .monthlyPrincipalInterest(Math.round(metrics.path("monthlyPrincipalInterest").asDouble(0)))
-                                    .netCashflow(Math.round(metrics.path("netCashflow").asDouble(0)))
-                                    .roiPercentage(metrics.path("roiPercentage").asDouble(0))
-                                    .build()
-                    );
+                    if (matchedDto != null) {
+                        JsonNode metrics = propNode.path("financialMetrics");
 
-                    resultProperties.add(matchedDto);
+                        matchedDto.setFinancialMetrics(
+                                FinancialMetricsDTO.builder()
+                                        .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
+                                        .monthlyRentalCashflow(Math.round(metrics.path("monthlyRentalCashflow").asDouble(0)))
+                                        .monthlyPrincipalInterest(Math.round(metrics.path("monthlyPrincipalInterest").asDouble(0)))
+                                        .netCashflow(Math.round(metrics.path("netCashflow").asDouble(0)))
+                                        .roiPercentage(metrics.path("roiPercentage").asDouble(0))
+                                        .build()
+                        );
+
+                        resultProperties.add(matchedDto);
+                    }
                 }
+
+//                if (matchedDto != null) {
+//                    JsonNode metrics = propNode.path("financialMetrics");
+//
+//                    matchedDto.setFinancialMetrics(
+//                            FinancialMetricsDTO.builder()
+//                                    .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
+//                                    .monthlyRentalCashflow(Math.round(metrics.path("monthlyRentalCashflow").asDouble(0)))
+//                                    .monthlyPrincipalInterest(Math.round(metrics.path("monthlyPrincipalInterest").asDouble(0)))
+//                                    .netCashflow(Math.round(metrics.path("netCashflow").asDouble(0)))
+//                                    .roiPercentage(metrics.path("roiPercentage").asDouble(0))
+//                                    .build()
+//                    );
+//
+//                    resultProperties.add(matchedDto);
+//                }
             }
 
             hardCriteria.setProposedPropertyDTOList(resultProperties);
