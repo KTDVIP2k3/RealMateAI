@@ -14,15 +14,12 @@ import java.util.List;
 @AllArgsConstructor
 public class ProfileVersionDTO {
     private Integer investmentProfileVersionId;
-//    private Integer matchScore;
     private Long totalCapital;
     private String name;
     private String consciousName;
     private List<String> wardName;
     private Boolean isActive;
     private Long equity;
-//    private Long expectedRoi;
-//    private Long durationYear;
     private String strategyName;
     private LocalDateTime createdAt;
 }

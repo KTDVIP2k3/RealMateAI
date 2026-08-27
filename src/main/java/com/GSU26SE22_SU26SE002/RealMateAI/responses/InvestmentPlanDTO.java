@@ -10,10 +10,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestmentPlanDTO {
-//    private Integer score;
     private Long totalCapital;
-//    private List<InvestmentPortfolioDTO> investmentPortfolios;
+    private Long loanCapital;
+    private Long equity;
+    private String strategyName;
     private List<InvestmentCriteriaDTOV2> investmentCriteriaDTOV2s;
     private List<InvestmentScenarioDTO> scenarios;
-//    private ExecutionPlanDTO executionPlan;
 }
