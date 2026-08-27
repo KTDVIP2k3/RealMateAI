@@ -16,16 +16,12 @@ import java.util.List;
 public class ProfileSimpleDTO {
     private Integer investmentProfileId;
     private Integer latestVersionId;
-    private Integer matchScore;
     private Long totalCapital;
     private String name;
     private String consciousName;
     private List<String> wardName;
     private Boolean isActive;
     private Long equity;
-//    private Long expectedRoi;
-//    private Long durationYear;
     private String strategyName;
-//    private List<InvestmentPortfolioRequest> investmentPortfolioRequests;
     private LocalDateTime createdAt;
 }

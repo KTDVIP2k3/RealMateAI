@@ -15,7 +15,6 @@ import java.util.Map;
 @AllArgsConstructor
 public class InvestmentProfileVersionDTO {
     private Integer investmentProfileVersionId;
-    private Integer matchScore;
     private String strategyName;
     private String name;
     private Long equity;
@@ -23,15 +22,7 @@ public class InvestmentProfileVersionDTO {
     private Long currentCashflow;
     private String consciousName;
     private List<String> wardName;
-    private Long expectedRoi;
-//    private Long minProfit;
-    private String riskToleranceLevel;
-    private Long durationYear;
-    private LocalDate startDate;
-//    private String investmentType;
     private Map<String, Object> investmentStrategyDetail;
-//    private List<String> legalStatus;
-    private String version;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
