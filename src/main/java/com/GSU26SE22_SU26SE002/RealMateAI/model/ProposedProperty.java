@@ -4,6 +4,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.InvestmentCriteria;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "proposed_property")
@@ -60,4 +62,9 @@ public class ProposedProperty {
     @Column(name = "created_at")
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+
+    @OneToMany(mappedBy = "proposedProperty", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<PropertyScenario> scenarios = new ArrayList<>();
 }

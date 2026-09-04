@@ -54,6 +54,7 @@ public class InvestmentProfileVersion {
 
 //    private Long expectedRoi;
     private Long expectedProfit;
+    private Integer holdingMonths;
 //    private String riskToleranceLevel;
 //    private Long durationYear;
 //    private LocalDate startDate;
@@ -83,10 +84,10 @@ public class InvestmentProfileVersion {
     @Builder.Default
     private List<InvestmentCriteria> investmentCriterias = new ArrayList<>();
 
-    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @Builder.Default
-    @JsonIgnore
-    private List<InvestmentScenario> investmentScenarios = new ArrayList<>();
+//    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//    @Builder.Default
+//    @JsonIgnore
+//    private List<InvestmentScenario> investmentScenarios = new ArrayList<>();
 
 //    @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 //    @Builder.Default

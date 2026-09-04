@@ -15,5 +15,4 @@ public class InvestmentPlanDTO {
     private Long equity;
     private String strategyName;
     private List<InvestmentCriteriaDTOV2> investmentCriteriaDTOV2s;
-    private List<InvestmentScenarioDTO> scenarios;
 }
