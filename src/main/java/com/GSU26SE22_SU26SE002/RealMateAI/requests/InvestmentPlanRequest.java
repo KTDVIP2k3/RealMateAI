@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -21,9 +20,8 @@ public class InvestmentPlanRequest {
     private Long currentCashFlow;
     private String consciousName;
     private List<String> wardNames;
-//    private String riskToleranceLevel;
-//    private LocalDate startDate;
     private Integer strategyId;
+    private Integer holdingMonths;
     private Map<String, Object> investmentStrategyDetail;
     private List<CriteriaRequest> criteriaList;
 }

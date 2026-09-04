@@ -168,6 +168,46 @@ public interface ListingRepository extends JpaRepository<Listing, Integer>, JpaS
             @Param("maxBudget") Long maxBudget
     );
 
+    @Query("""
+        SELECT l
+        FROM Listing l
+        JOIN l.property p
+        JOIN p.location loc
+        JOIN loc.ward w
+        WHERE p.propertyType.propertyTypeId = :propertyTypeId
+          AND w.name IN :wardNames
+          AND l.price > :equity
+          AND l.price <= :totalCapital
+          AND l.isActive = true
+          AND l.status = com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.ACTIVE
+        ORDER BY l.price DESC
+    """)
+    List<Listing> findListingsByTotalCapitalRange(
+            @Param("propertyTypeId") Integer propertyTypeId,
+            @Param("wardNames") List<String> wardNames,
+            @Param("equity") Long equity,
+            @Param("totalCapital") Long totalCapital
+    );
+
+    @Query("""
+        SELECT l
+        FROM Listing l
+        JOIN l.property p
+        JOIN p.location loc
+        JOIN loc.ward w
+        WHERE p.propertyType.propertyTypeId = :propertyTypeId
+          AND w.name IN :wardNames
+          AND l.price <= :equity
+          AND l.isActive = true
+          AND l.status = com.GSU26SE22_SU26SE002.RealMateAI.enums.SellerListingStatusEnum.ACTIVE
+        ORDER BY l.price DESC
+    """)
+    List<Listing> findListingsByEquityBudget(
+            @Param("propertyTypeId") Integer propertyTypeId,
+            @Param("wardNames") List<String> wardNames,
+            @Param("equity") Long equity
+    );
+
     /**
      * Seller xem chi tiết 1 listing của chính mình (kể cả chưa duyệt, kể cả HIDDEN).
      * Ownership được xác thực ngay trong query (AND l.seller.sellerId = :sellerId).

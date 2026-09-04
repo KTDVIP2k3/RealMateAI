@@ -18,6 +18,7 @@ public class InvestmentProfileVersionDTO {
     private String strategyName;
     private String name;
     private Long equity;
+    private Integer holdingMonths;
     private Long loanCapital;
     private Long currentCashflow;
     private String consciousName;
