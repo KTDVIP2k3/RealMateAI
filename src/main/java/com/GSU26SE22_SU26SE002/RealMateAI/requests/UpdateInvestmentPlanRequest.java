@@ -21,7 +21,6 @@ public class UpdateInvestmentPlanRequest {
     private String consciousName;
     private int longTermYear;
     private List<String> wardNames;
-    private Integer holdingMonths;
     private Map<String, Object> investmentStrategyDetail;
     private List<CriteriaRequest> criteriaList;
 }
