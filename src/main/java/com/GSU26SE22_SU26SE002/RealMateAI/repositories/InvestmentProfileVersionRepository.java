@@ -13,4 +13,5 @@ public interface InvestmentProfileVersionRepository extends JpaRepository<Invest
 
     List<InvestmentProfileVersion> findByBaseVersion_ProfileVersionIdOrderByCreatedAtDesc(Integer baseVersionId);
     long countByInvestmentProfile_InvestmentProfileId(Integer investmentProfileId);
+    boolean existsByInvestmentProfile_InvestmentProfileIdAndIsActiveTrue(Integer investmentProfileId);
 }

@@ -10,6 +10,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestmentPlanDTO {
+    private Integer investmentProfileId;
+    private Integer investmentProfileVersionId;
     private Long totalCapital;
     private Long loanCapital;
     private Long equity;

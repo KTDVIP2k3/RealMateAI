@@ -19,6 +19,7 @@ public class UpdateInvestmentPlanRequest {
     private Long loanCapital;
     private Long currentCashFlow;
     private String consciousName;
+    private int longTermYear;
     private List<String> wardNames;
     private Integer holdingMonths;
     private Map<String, Object> investmentStrategyDetail;
