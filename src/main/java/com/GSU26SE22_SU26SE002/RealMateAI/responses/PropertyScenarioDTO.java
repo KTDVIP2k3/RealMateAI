@@ -12,14 +12,14 @@ import lombok.NoArgsConstructor;
 public class PropertyScenarioDTO {
 
     private String scenarioType;
-    private double interestRate;
-    private double occupancyRate;
-    private long monthlyPayment;
-    private long monthlyCashflowIn;
-    private long netCashflow;
-    private long survivalCashflow;
-    private long totalNetProfit;
-    private double roiPercentage;
+    private Double interestRate;
+    private Double occupancyRate;
+    private Long monthlyPayment;
+    private Long monthlyCashflowIn;
+    private Long netCashflow;
+    private Long survivalCashflow;
+    private Long totalNetProfit;
+    private Double roiPercentage;
     private String riskLabel;
     private Boolean isWorthInvesting;
 }

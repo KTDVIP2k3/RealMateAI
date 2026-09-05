@@ -277,7 +277,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                                                         .occupancyRate(s.getOccupancyRate())
                                                                         .monthlyPayment(s.getMonthlyPayment())
                                                                         .monthlyCashflowIn(s.getMonthlyCashflowIn())
-                                                                        .netCashflow(s.getNetCashflow() != null && s.getNetCashflow() != 0 ? s.getNetCashflow() : null)
+                                                                        .netCashflow(s.getNetCashflow())
                                                                         .survivalCashflow(s.getSurvivalCashflow())
                                                                         .totalNetProfit(s.getTotalNetProfit())
                                                                         .roiPercentage(s.getRoiPercentage())
