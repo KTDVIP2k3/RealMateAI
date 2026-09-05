@@ -16,6 +16,7 @@ public class ProfileVersionDTO {
     private Integer investmentProfileVersionId;
     private Long totalCapital;
     private String name;
+    private int longTermYear;
     private String consciousName;
     private List<String> wardName;
     private Boolean isActive;

@@ -35,6 +35,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     private static final double GAIN_RATE_OPTIMISTIC = 0.15;
     private static final double SAVING_INTEREST_RATE_PER_YEAR = 0.06;
     private static final int LOAN_MONTHS = 240;
+    private static final int HOLDING_MONTHS_LUOT_SONG = 3;
+    private static final int HOLDING_MONTHS_MUA_SUA_BAN = 9;
+    private static final int HOLDING_MONTHS_DONG_TIEN = 60;
 
     @Autowired
     private Client geminiClient;
@@ -109,6 +112,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .latestVersionId(latestVersion.getProfileVersionId())
                         .totalCapital(latestVersion.getTotalCapital() != null ? latestVersion.getTotalCapital() : 0)
                         .name(profile.getName())
+                        .longTermYear(latestVersion.getLongTermYear())
                         .consciousName(latestVersion.getConscious())
                         .wardName(latestVersion.getWards() != null ? latestVersion.getWards() : new ArrayList<>())
                         .isActive(latestVersion.getIsActive())
@@ -158,6 +162,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                             .investmentProfileVersionId(version.getProfileVersionId())
                             .totalCapital(version.getTotalCapital())
                             .name(version.getProfileVersionName())
+                            .longTermYear(version.getLongTermYear())
                             .consciousName(version.getConscious())
                             .wardName(version.getWards() != null ? version.getWards() : new ArrayList<>())
                             .isActive(version.getIsActive())
@@ -208,8 +213,8 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .name(profileVersion.getProfileVersionName())
                     .equity(profileVersion.getEquity())
                     .loanCapital(profileVersion.getLoanCapital())
+                    .longTermYear(profileVersion.getLongTermYear())
                     .currentCashflow(profileVersion.getCurrentCashflow())
-                    .holdingMonths(profileVersion.getHoldingMonths())
                     .consciousName(profileVersion.getConscious())
                     .wardName(profileVersion.getWards() != null ? profileVersion.getWards() : new ArrayList<>())
                     .investmentStrategyDetail(profileVersion.getInvestmentStrategyDetail())
@@ -260,9 +265,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                                         .description(prop.getDescription())
                                                         .financialMetrics(FinancialMetricsDTO.builder()
                                                                 .estimatedProfit(prop.getEstimatedProfit())
-                                                                .monthlyRentalCashflow(prop.getMonthlyRentalCashflow())
+                                                                .monthlyRentalCashflow(prop.getMonthlyRentalCashflow() != null && prop.getMonthlyRentalCashflow() != 0 ? prop.getMonthlyRentalCashflow() : null)
                                                                 .monthlyPrincipalInterest(prop.getMonthlyPrincipalInterest())
-                                                                .netCashflow(prop.getNetCashflow())
+                                                                .netCashflow(prop.getNetCashflow() != null && prop.getNetCashflow() != 0 ? prop.getNetCashflow() : null)
                                                                 .roiPercentage(prop.getRoiPercentage())
                                                                 .build())
                                                         .scenarios(prop.getScenarios() != null ? prop.getScenarios().stream()
@@ -272,7 +277,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                                                         .occupancyRate(s.getOccupancyRate())
                                                                         .monthlyPayment(s.getMonthlyPayment())
                                                                         .monthlyCashflowIn(s.getMonthlyCashflowIn())
-                                                                        .netCashflow(s.getNetCashflow())
+                                                                        .netCashflow(s.getNetCashflow() != null && s.getNetCashflow() != 0 ? s.getNetCashflow() : null)
                                                                         .survivalCashflow(s.getSurvivalCashflow())
                                                                         .totalNetProfit(s.getTotalNetProfit())
                                                                         .roiPercentage(s.getRoiPercentage())
@@ -286,7 +291,11 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .collect(Collectors.toList());
             }
 
+            InvestmentProfile profile = profileVersion.getInvestmentProfile();
+
             InvestmentPlanDTO finalOutput = InvestmentPlanDTO.builder()
+                    .investmentProfileId(profile != null ? profile.getInvestmentProfileId() : null)
+                    .investmentProfileVersionId(profileVersion.getProfileVersionId())
                     .totalCapital(totalCapital)
                     .loanCapital(profileVersion.getLoanCapital())
                     .equity(profileVersion.getEquity())
@@ -351,7 +360,12 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             InvestmentPlanDTO finalOutput = buildInvestmentPlan(request, strategy);
 
-            saveNewInvestmentPlan(investor, request, finalOutput, strategy);
+            InvestmentProfileVersion savedVersion = saveNewInvestmentPlan(investor, request, finalOutput, strategy);
+
+            if (savedVersion != null && savedVersion.getInvestmentProfile() != null) {
+                finalOutput.setInvestmentProfileId(savedVersion.getInvestmentProfile().getInvestmentProfileId());
+                finalOutput.setInvestmentProfileVersionId(savedVersion.getProfileVersionId());
+            }
 
             int remainingQuantity = activeSubscription.getQuantity_using() - 1;
             activeSubscription.setQuantity_using(remainingQuantity);
@@ -434,14 +448,20 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     .currentCashFlow(request.getCurrentCashFlow())
                     .consciousName(request.getConsciousName())
                     .wardNames(request.getWardNames())
+                    .longTermYear(request.getLongTermYear())
+                    .strategyId(request.getStrategyId())
                     .investmentStrategyDetail(request.getInvestmentStrategyDetail())
                     .criteriaList(request.getCriteriaList())
-                    .holdingMonths(request.getHoldingMonths())
                     .build();
 
             InvestmentPlanDTO finalOutput = buildInvestmentPlan(convertedRequest, strategy);
 
-            saveUpdateInvestmentPlan(existingProfile, convertedRequest, finalOutput, strategy);
+            InvestmentProfileVersion savedVersion = saveUpdateInvestmentPlan(existingProfile, convertedRequest, finalOutput, strategy);
+
+            if (savedVersion != null && savedVersion.getInvestmentProfile() != null) {
+                finalOutput.setInvestmentProfileId(savedVersion.getInvestmentProfile().getInvestmentProfileId());
+                finalOutput.setInvestmentProfileVersionId(savedVersion.getProfileVersionId());
+            }
 
             int remainingQuantity = activeSubscription.getQuantity_using() - 1;
             activeSubscription.setQuantity_using(remainingQuantity);
@@ -484,10 +504,16 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         .body(ApiResponse.fail("INVESTOR_NOT_FOUND", "Investor profile not found."));
             }
 
-            saveNewInvestmentPlan(investor, saveRequest.getInputRequest(), saveRequest.getAiOutputData(), strategy);
+            InvestmentPlanDTO outputData = saveRequest.getAiOutputData();
+            InvestmentProfileVersion savedVersion = saveNewInvestmentPlan(investor, saveRequest.getInputRequest(), outputData, strategy);
+
+            if (savedVersion != null && savedVersion.getInvestmentProfile() != null) {
+                outputData.setInvestmentProfileId(savedVersion.getInvestmentProfile().getInvestmentProfileId());
+                outputData.setInvestmentProfileVersionId(savedVersion.getProfileVersionId());
+            }
 
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(saveRequest.getAiOutputData(), "Investment plan logged and saved successfully"));
+                    .body(ApiResponse.success(outputData, "Investment plan logged and saved successfully"));
 
         } catch (Exception e) {
             log.error("Error in savePlanToDatabaseDirectly", e);
@@ -500,233 +526,636 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         long totalCapital = request.getEquity() + request.getLoanCapital();
         String strategyName = strategy.getName() != null ? strategy.getName() : "";
 
-        List<InvestmentCriteriaDTOV2> criteriaList = new ArrayList<>();
-        List<Map<String, Object>> aiCriteria = new ArrayList<>();
+        String stNameLower = strategyName.toLowerCase();
+        boolean isDongTien = stNameLower.contains("dòng tiền") || stNameLower.contains("dong tien");
+        boolean isMuaSuaBan = stNameLower.contains("sửa") || stNameLower.contains("sua");
+        boolean isLuotSong = stNameLower.contains("lướt") || stNameLower.contains("luot");
+
+        int holdingMonths = getDefaultHoldingMonths(strategyName);
+
+        int loanTermYears = request.getLongTermYear() > 0
+                ? request.getLongTermYear()
+                : 20;
+
+        long additionalCostReq = 0L;
+
+        if (request.getInvestmentStrategyDetail() != null
+                && request.getInvestmentStrategyDetail().get("additionalCost") != null) {
+
+            Object addCostObj =
+                    request.getInvestmentStrategyDetail().get("additionalCost");
+
+            if (addCostObj instanceof Number) {
+                additionalCostReq =
+                        ((Number) addCostObj).longValue();
+            }
+        }
+
+        List<InvestmentCriteriaDTOV2> criteriaList =
+                new ArrayList<>();
+
+        List<Map<String, Object>> aiCriteria =
+                new ArrayList<>();
 
         for (var crit : request.getCriteriaList()) {
-            List<ProposedPropertyDTO> properties = new ArrayList<>();
-            List<Map<String, Object>> aiProperties = new ArrayList<>();
 
-            boolean hasLoan = request.getLoanCapital() != null && request.getLoanCapital() > 0;
+            List<ProposedPropertyDTO> properties =
+                    new ArrayList<>();
+
+            List<Map<String, Object>> aiProperties =
+                    new ArrayList<>();
+
+            boolean hasLoan =
+                    request.getLoanCapital() != null
+                            && request.getLoanCapital() > 0;
 
             if (hasLoan) {
-                List<Listing> totalCapitalListings = listingRepository.findListingsByTotalCapitalRange(
-                        crit.getPropertyTypeId(), request.getWardNames(), request.getEquity(), totalCapital);
 
-                Listing firstListing = !totalCapitalListings.isEmpty() ? totalCapitalListings.get(0) : null;
-                Integer firstListingId = firstListing != null ? firstListing.getListingId() : null;
+                List<Listing> totalCapitalListings =
+                        listingRepository.findListingsByTotalCapitalRange(
+                                crit.getPropertyTypeId(),
+                                request.getWardNames(),
+                                request.getEquity(),
+                                totalCapital
+                        );
+
+                Listing firstListing =
+                        !totalCapitalListings.isEmpty()
+                                ? totalCapitalListings.get(0)
+                                : null;
+
+                Integer firstListingId =
+                        firstListing != null
+                                ? firstListing.getListingId()
+                                : null;
 
                 if (firstListing != null) {
-                    addProperty(firstListing, "TOTAL_CAPITAL_BASED", properties, aiProperties);
+                    addProperty(
+                            firstListing,
+                            "TOTAL_CAPITAL_BASED",
+                            properties,
+                            aiProperties
+                    );
                 }
 
-                List<Listing> equityListings = listingRepository.findListingsByEquityBudget(
-                        crit.getPropertyTypeId(), request.getWardNames(), request.getEquity());
+                List<Listing> equityListings =
+                        listingRepository.findListingsByEquityBudget(
+                                crit.getPropertyTypeId(),
+                                request.getWardNames(),
+                                request.getEquity()
+                        );
 
-                Listing secondListing = equityListings.stream()
-                        .filter(l -> !Objects.equals(l.getListingId(), firstListingId))
-                        .findFirst()
-                        .orElse(null);
+                Listing secondListing =
+                        equityListings.stream()
+                                .filter(l ->
+                                        !Objects.equals(
+                                                l.getListingId(),
+                                                firstListingId
+                                        )
+                                )
+                                .findFirst()
+                                .orElse(null);
 
                 if (secondListing != null) {
-                    addProperty(secondListing, "EQUITY_BASED", properties, aiProperties);
+                    addProperty(
+                            secondListing,
+                            "EQUITY_BASED",
+                            properties,
+                            aiProperties
+                    );
                 }
+
             } else {
-                List<Listing> equityListings = listingRepository.findListingsByEquityBudget(
-                        crit.getPropertyTypeId(), request.getWardNames(), request.getEquity());
+
+                List<Listing> equityListings =
+                        listingRepository.findListingsByEquityBudget(
+                                crit.getPropertyTypeId(),
+                                request.getWardNames(),
+                                request.getEquity()
+                        );
 
                 if (!equityListings.isEmpty()) {
-                    addProperty(equityListings.get(0), "EQUITY_BASED", properties, aiProperties);
+                    addProperty(
+                            equityListings.get(0),
+                            "EQUITY_BASED",
+                            properties,
+                            aiProperties
+                    );
                 }
             }
 
-            criteriaList.add(InvestmentCriteriaDTOV2.builder()
-                    .proposedPropertyDTOList(properties)
-                    .build());
+            criteriaList.add(
+                    InvestmentCriteriaDTOV2.builder()
+                            .proposedPropertyDTOList(properties)
+                            .build()
+            );
 
-            aiCriteria.add(Map.of(
-                    "propertyTypeId", crit.getPropertyTypeId(),
-                    "properties", aiProperties
-            ));
+            aiCriteria.add(
+                    Map.of(
+                            "propertyTypeId",
+                            crit.getPropertyTypeId(),
+                            "properties",
+                            aiProperties
+                    )
+            );
         }
 
-        String propertiesJson = objectMapper.writeValueAsString(aiCriteria);
+        String propertiesJson =
+                objectMapper.writeValueAsString(aiCriteria);
 
         String prompt = """
-            Bạn là chuyên gia phân tích tài chính và bất động sản tại TP.HCM.
-            Hãy thực hiện tính toán tài chính chi tiết dựa trên các quy tắc chiến lược được quy định bên dưới và trả về đúng định dạng JSON theo schema đã cho.
+        Bạn là chuyên gia phân tích tài chính và bất động sản tại TP.HCM.
+        Hãy thực hiện tính toán tài chính chi tiết dựa trên các quy tắc chiến lược được quy định bên dưới và trả về đúng định dạng JSON theo schema đã cho.
 
-            THÔNG TIN TÀI CHÍNH ĐẦU VÀO:
-            - Vốn vay ngân hàng (loanCapital): %d VNĐ
-            - Chiến lược đang áp dụng: %s
+        THÔNG TIN TÀI CHÍNH ĐẦU VÀO:
+        - Vốn vay ngân hàng (loanCapital): %d VNĐ
+        - Thời hạn vay (longTermYear): %d năm
+        - Chi phí phát sinh (additionalCost): %d VNĐ
+        - Chiến lược đang áp dụng: %s
 
-            QUY TẮC THỜI GIAN, CHI PHÍ VÀ LỢI NHUẬN THEO CHIẾN LƯỢC:
+        QUY TẮC CÔNG THỨC TRẢ GỐC LÃI HÀNG THÁNG (monthlyPrincipalInterest):
+        - P = loanCapital. Nếu P <= 0 thì monthlyPrincipalInterest = 0.
+        - Lãi suất Big4: r = 0.07 / 12, số tháng vay: n = longTermYear * 12.
+        - Công thức: monthlyPrincipalInterest = P * [r * (1 + r)^n] / [(1 + r)^n - 1]
 
-            1. Chiến lược "Đầu Cơ Lướt Sóng":
-               - Thời gian đầu tư: 1–3 tháng.
-               - Lợi nhuận kỳ vọng cố định: selectedProfitRate = 0.15 (15%% / thương vụ).
-               - Chi phí phát sinh: Không có (additionalCost = 0).
-               - Công thức tính lợi nhuận: estimatedProfit = valuePrice * 0.15.
+        QUY TẮC TÍNH TOÁN DÒNG TIỀN VÀ LỢI NHUẬN THEO CHIẾN LƯỢC:
 
-            2. Chiến lược "Mua Sửa Bán":
-               - Thời gian đầu tư: 6–9 tháng.
-               - Lợi nhuận kỳ vọng cố định: selectedProfitRate = 0.20 (20%% / thương vụ).
-               - Chi phí cải tạo/sửa chữa mặc định: additionalCost = valuePrice * 0.05 (5%% giá trị BĐS).
-               - Công thức tính lợi nhuận: estimatedProfit = (valuePrice * 0.20) - additionalCost.
+        1. Chiến lược "Đầu Cơ Lướt Sóng" (strategy_id = 1):
+           - monthlyRentalCashflow = 0
+           - netCashflow = 0
+           - estimatedProfit = valuePrice * (1 + 0.08)^0.25 - valuePrice
 
-            3. Chiến lược "BĐS Dòng Tiền":
-               - Thời gian đầu tư cố định: 3 năm (investmentYears = 3).
-               - Lợi nhuận tăng giá cố định: selectedProfitRate = 0.05 (5%% / năm).
-               - Thu nhập thuê năm: annualRentalIncome = monthlyRentalCashflow * 12.
-               - Công thức tính lợi nhuận tổng 3 năm: estimatedProfit = valuePrice * ((1 + 0.05 + (annualRentalIncome / valuePrice)) ^ 3 - 1).
+        2. Chiến lược "Mua Sửa Bán" (strategy_id = 2):
+           - monthlyRentalCashflow = 0
+           - netCashflow = 0
+           - additionalCost: Lấy từ request (nếu = 0 thì mặc định valuePrice * 0.05)
+           - estimatedProfit = [valuePrice * (1 + 0.20)^0.75 - valuePrice] - additionalCost
 
-            QUY TẮC DÒNG TIỀN CHO THUÊ HÀNG THÁNG (monthlyRentalCashflow):
-            - Nhóm Đất trống: Yield = 0.0%%
-            - Nhóm Nhà ở đất liền (Nhà riêng, Nhà liền kề, Biệt thự): Yield = 0.028
-            - Nhóm Căn hộ & Thương mại (Căn hộ chung cư, Shophouse, Officetel, Condotel): Yield = 0.050
-            - Nhóm Dòng tiền dịch vụ (Phòng trọ, Nhà cho thuê, Văn phòng, Mặt bằng): Yield = 0.060
-            - Nhóm Công nghiệp & Logistics (Nhà xưởng, Kho bãi): Yield = 0.075
-            - Ngoại lệ không khớp nhóm nào: Yield = 0.04
-            - Công thức: monthlyRentalCashflow = (valuePrice * Yield) / 12
+        3. Chiến lược "BĐS Dòng Tiền" (strategy_id = 3):
+           - Yield cho thuê theo property_type_id:
+             + property_type_id = 1: Yield = 0.028
+             + property_type_id = 2: Yield = 0.0
+             + property_type_id = 3: Yield = 0.050
+             + property_type_id = 4: Yield = 0.075
+             + property_type_id = 5: Yield = 0.040
+             + property_type_id = 6: Yield = 0.060
+             + Khác: Yield = 0.040
+           - monthlyRentalCashflow = (valuePrice * Yield) / 12
+           - netCashflow = monthlyRentalCashflow - monthlyPrincipalInterest
+           - estimatedProfit = valuePrice * (1 + 0.07 + Yield)^5 - valuePrice
 
-            QUY TẮC TÍNH TOÁN TÀI CHÍNH TỔNG QUÁT:
+        DANH SÁCH BẤT ĐỘNG SẢN:
+        %s
+        """.formatted(
+                request.getLoanCapital(),
+                loanTermYears,
+                additionalCostReq,
+                strategyName,
+                propertiesJson
+        );
 
-            1. Tiền Trả Gốc Và Lãi Hàng Tháng (monthlyPrincipalInterest):
-               - P = %d VNĐ (loanCapital). Nếu P <= 0 thì monthlyPrincipalInterest = 0.
-               - Nếu P > 0: monthlyPrincipalInterest = P * [r * (1 + r)^n] / [(1 + r)^n - 1], r = 0.095 / 12, n = 240.
+        Schema financialMetricsSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "estimatedProfit",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
 
-            2. Dòng Tiền Ròng (netCashflow): netCashflow = monthlyRentalCashflow - monthlyPrincipalInterest.
+                                        "monthlyRentalCashflow",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
 
-            3. ROI: roiPercentage = (estimatedProfit / valuePrice) * 100.
+                                        "monthlyPrincipalInterest",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
 
-            RÀNG BUỘC: Chỉ trả về JSON hợp lệ.
+                                        "netCashflow",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build(),
 
-            DANH SÁCH BẤT ĐỘNG SẢN:
-            %s
-            """.formatted(request.getLoanCapital(), strategyName, request.getLoanCapital(), propertiesJson);
+                                        "roiPercentage",
+                                        Schema.builder()
+                                                .type("NUMBER")
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "estimatedProfit",
+                                        "monthlyRentalCashflow",
+                                        "monthlyPrincipalInterest",
+                                        "netCashflow",
+                                        "roiPercentage"
+                                )
+                        )
+                        .build();
 
-        Schema financialMetricsSchema = Schema.builder()
-                .type("OBJECT")
-                .properties(Map.of(
-                        "estimatedProfit", Schema.builder().type("NUMBER").build(),
-                        "monthlyRentalCashflow", Schema.builder().type("NUMBER").build(),
-                        "monthlyPrincipalInterest", Schema.builder().type("NUMBER").build(),
-                        "netCashflow", Schema.builder().type("NUMBER").build(),
-                        "roiPercentage", Schema.builder().type("NUMBER").build()
-                ))
-                .required(List.of("estimatedProfit", "monthlyRentalCashflow", "monthlyPrincipalInterest", "netCashflow", "roiPercentage"))
-                .build();
+        Schema propertySchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "listingId",
+                                        Schema.builder()
+                                                .type("INTEGER")
+                                                .build(),
 
-        Schema propertySchema = Schema.builder()
-                .type("OBJECT")
-                .properties(Map.of(
-                        "listingId", Schema.builder().type("INTEGER").build(),
-                        "financialMetrics", financialMetricsSchema
-                ))
-                .required(List.of("listingId", "financialMetrics"))
-                .build();
+                                        "financialMetrics",
+                                        financialMetricsSchema
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "listingId",
+                                        "financialMetrics"
+                                )
+                        )
+                        .build();
 
-        Schema criteriaSchema = Schema.builder()
-                .type("OBJECT")
-                .properties(Map.of(
-                        "proposedPropertyDTOList", Schema.builder().type("ARRAY").items(propertySchema).build()
-                ))
-                .required(List.of("proposedPropertyDTOList"))
-                .build();
+        Schema criteriaSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "proposedPropertyDTOList",
+                                        Schema.builder()
+                                                .type("ARRAY")
+                                                .items(propertySchema)
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "proposedPropertyDTOList"
+                                )
+                        )
+                        .build();
 
-        Schema dataSchema = Schema.builder()
-                .type("OBJECT")
-                .properties(Map.of(
-                        "investmentCriteriaDTOV2s", Schema.builder().type("ARRAY").items(criteriaSchema).build()
-                ))
-                .required(List.of("investmentCriteriaDTOV2s"))
-                .build();
+        Schema dataSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "investmentCriteriaDTOV2s",
+                                        Schema.builder()
+                                                .type("ARRAY")
+                                                .items(criteriaSchema)
+                                                .build()
+                                )
+                        )
+                        .required(
+                                List.of(
+                                        "investmentCriteriaDTOV2s"
+                                )
+                        )
+                        .build();
 
-        Schema rootSchema = Schema.builder()
-                .type("OBJECT")
-                .properties(Map.of("data", dataSchema))
-                .required(List.of("data"))
-                .build();
+        Schema rootSchema =
+                Schema.builder()
+                        .type("OBJECT")
+                        .properties(
+                                Map.of(
+                                        "data",
+                                        dataSchema
+                                )
+                        )
+                        .required(
+                                List.of("data")
+                        )
+                        .build();
 
-        GenerateContentConfig config = GenerateContentConfig.builder()
-                .responseMimeType("application/json")
-                .responseSchema(rootSchema)
-                .build();
+        GenerateContentConfig config =
+                GenerateContentConfig.builder()
+                        .responseMimeType("application/json")
+                        .responseSchema(rootSchema)
+                        .build();
 
-        GenerateContentResponse response = geminiClient.models.generateContent("gemini-2.5-flash", prompt, config);
+        GenerateContentResponse response =
+                geminiClient.models.generateContent(
+                        "gemini-2.5-flash",
+                        prompt,
+                        config
+                );
 
         String json = response.text();
+
         if (json == null || json.isBlank()) {
-            throw new IllegalStateException("AI returned an empty response.");
+            throw new IllegalStateException(
+                    "AI returned an empty response."
+            );
         }
 
         json = json.trim();
-        if (json.startsWith("```json")) json = json.substring(7);
-        else if (json.startsWith("```")) json = json.substring(3);
-        if (json.endsWith("```")) json = json.substring(0, json.length() - 3);
 
-        JsonNode root = objectMapper.readTree(json.trim());
-        JsonNode data = root.has("data") ? root.path("data") : root;
-        JsonNode aiCriteriaV2 = data.path("investmentCriteriaDTOV2s");
+        if (json.startsWith("```json")) {
+            json = json.substring(7);
+        } else if (json.startsWith("```")) {
+            json = json.substring(3);
+        }
+
+        if (json.endsWith("```")) {
+            json =
+                    json.substring(
+                            0,
+                            json.length() - 3
+                    );
+        }
+
+        JsonNode root =
+                objectMapper.readTree(json.trim());
+
+        JsonNode data =
+                root.has("data")
+                        ? root.path("data")
+                        : root;
+
+        JsonNode aiCriteriaV2 =
+                data.path(
+                        "investmentCriteriaDTOV2s"
+                );
 
         for (int i = 0; i < criteriaList.size(); i++) {
-            var hardCriteria = criteriaList.get(i);
-            JsonNode aiCrit = aiCriteriaV2.path(i);
-            JsonNode aiPropertiesNode = aiCrit.path("proposedPropertyDTOList");
 
-            List<ProposedPropertyDTO> resultProperties = new ArrayList<>();
+            var hardCriteria =
+                    criteriaList.get(i);
 
-            for (int j = 0; j < aiPropertiesNode.size(); j++) {
-                JsonNode propNode = aiPropertiesNode.get(j);
-                long aiListingId = propNode.path("listingId").asLong();
+            var reqCriteria =
+                    request.getCriteriaList().get(i);
 
-                ProposedPropertyDTO matchedDto = hardCriteria.getProposedPropertyDTOList().stream()
-                        .filter(p -> p.getListingId() != null && p.getListingId().longValue() == aiListingId)
-                        .findFirst()
-                        .orElse(null);
+            JsonNode aiCrit =
+                    aiCriteriaV2.path(i);
+
+            JsonNode aiPropertiesNode =
+                    aiCrit.path(
+                            "proposedPropertyDTOList"
+                    );
+
+            List<ProposedPropertyDTO> resultProperties =
+                    new ArrayList<>();
+
+            for (
+                    int j = 0;
+                    j < aiPropertiesNode.size();
+                    j++
+            ) {
+
+                JsonNode propNode =
+                        aiPropertiesNode.get(j);
+
+                long aiListingId =
+                        propNode
+                                .path("listingId")
+                                .asLong();
+
+                ProposedPropertyDTO matchedDto =
+                        hardCriteria
+                                .getProposedPropertyDTOList()
+                                .stream()
+                                .filter(
+                                        p ->
+                                                p.getListingId() != null
+                                                        && p.getListingId()
+                                                        .longValue()
+                                                        == aiListingId
+                                )
+                                .findFirst()
+                                .orElse(null);
 
                 if (matchedDto != null) {
-                    JsonNode metrics = propNode.path("financialMetrics");
 
-                    double valuePrice = matchedDto.getValuePrice() != null ? matchedDto.getValuePrice() : 0.0;
-                    double loanCapitalD = request.getLoanCapital() != null ? request.getLoanCapital() : 0.0;
+                    JsonNode metrics =
+                            propNode.path(
+                                    "financialMetrics"
+                            );
 
-                    double rentalCashflow = metrics.path("monthlyRentalCashflow").asDouble(0);
-                    if (rentalCashflow <= 0 && valuePrice > 0) {
-                        rentalCashflow = (valuePrice * 0.04) / 12.0;
+                    double valuePrice =
+                            matchedDto.getValuePrice() != null
+                                    ? matchedDto.getValuePrice()
+                                    : 0.0;
+
+                    double loanCapitalD =
+                            request.getLoanCapital() != null
+                                    ? request.getLoanCapital()
+                                    : 0.0;
+
+                    int loanTermMonths =
+                            loanTermYears * 12;
+
+                    double monthlyPI = 0.0;
+
+                    if (loanCapitalD > 0) {
+
+                        double r =
+                                0.07 / 12.0;
+
+                        monthlyPI =
+                                loanCapitalD
+                                        * (
+                                        r
+                                                * Math.pow(
+                                                1 + r,
+                                                loanTermMonths
+                                        )
+                                )
+                                        / (
+                                        Math.pow(
+                                                1 + r,
+                                                loanTermMonths
+                                        ) - 1
+                                );
                     }
 
-                    double monthlyPI = metrics.path("monthlyPrincipalInterest").asDouble(0);
-                    if (monthlyPI <= 0 && loanCapitalD > 0) {
-                        double r = 0.095 / 12;
-                        int n = 240;
-                        monthlyPI = loanCapitalD * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                    double rentalCashflow = 0.0;
+                    double netCashflow = 0.0;
+                    double estimatedProfit = 0.0;
+
+                    if (isDongTien) {
+
+                        rentalCashflow =
+                                metrics
+                                        .path(
+                                                "monthlyRentalCashflow"
+                                        )
+                                        .asDouble(0);
+
+                        if (
+                                rentalCashflow <= 0
+                                        && valuePrice > 0
+                        ) {
+
+                            int propTypeId =
+                                    reqCriteria.getPropertyTypeId() != null
+                                            ? reqCriteria.getPropertyTypeId()
+                                            : 0;
+
+                            double yield =
+                                    switch (propTypeId) {
+                                        case 1 -> 0.028;
+                                        case 2 -> 0.0;
+                                        case 3 -> 0.050;
+                                        case 4 -> 0.075;
+                                        case 5 -> 0.040;
+                                        case 6 -> 0.060;
+                                        default -> 0.040;
+                                    };
+
+                            rentalCashflow =
+                                    (valuePrice * yield)
+                                            / 12.0;
+                        }
+
+                        netCashflow =
+                                rentalCashflow
+                                        - monthlyPI;
+
+                        double yield =
+                                valuePrice > 0
+                                        ? (
+                                        rentalCashflow
+                                                * 12.0
+                                )
+                                        / valuePrice
+                                        : 0.04;
+
+                        estimatedProfit =
+                                valuePrice
+                                        * Math.pow(
+                                        1 + 0.07 + yield,
+                                        5
+                                )
+                                        - valuePrice;
+
+                    } else if (isMuaSuaBan) {
+
+                        rentalCashflow = 0.0;
+                        netCashflow = 0.0;
+
+                        double additionalCost =
+                                additionalCostReq > 0
+                                        ? additionalCostReq
+                                        : valuePrice * 0.05;
+
+                        estimatedProfit =
+                                (
+                                        valuePrice
+                                                * Math.pow(
+                                                1 + 0.20,
+                                                0.75
+                                        )
+                                                - valuePrice
+                                )
+                                        - additionalCost;
+
+                    } else {
+
+                        rentalCashflow = 0.0;
+                        netCashflow = 0.0;
+
+                        estimatedProfit =
+                                valuePrice
+                                        * Math.pow(
+                                        1 + 0.08,
+                                        0.25
+                                )
+                                        - valuePrice;
                     }
 
-                    double netCashflow = rentalCashflow - monthlyPI;
+                    double roiPercentage =
+                            valuePrice > 0
+                                    ? (
+                                    estimatedProfit
+                                            / valuePrice
+                            )
+                                    * 100.0
+                                    : 0.0;
 
-                    matchedDto.setFinancialMetrics(FinancialMetricsDTO.builder()
-                            .estimatedProfit(Math.round(metrics.path("estimatedProfit").asDouble(0)))
-                            .monthlyRentalCashflow(Math.round(rentalCashflow))
-                            .monthlyPrincipalInterest(Math.round(monthlyPI))
-                            .netCashflow(Math.round(netCashflow))
-                            .roiPercentage(metrics.path("roiPercentage").asDouble(0))
-                            .build());
+                    long roundedRentalCashflow =
+                            Math.round(
+                                    rentalCashflow
+                            );
 
-                    List<PropertyScenarioDTO> scenarios = calculatePropertyScenarios(
-                            matchedDto,
-                            request.getLoanCapital(),
-                            request.getCurrentCashFlow() != null ? request.getCurrentCashFlow() : 0L,
-                            request.getHoldingMonths(),
-                            strategyName
+                    long roundedNetCashflow =
+                            Math.round(
+                                    netCashflow
+                            );
+
+                    matchedDto.setFinancialMetrics(
+                            FinancialMetricsDTO.builder()
+                                    .estimatedProfit(
+                                            Math.round(
+                                                    estimatedProfit
+                                            )
+                                    )
+                                    .monthlyRentalCashflow(
+                                            roundedRentalCashflow != 0
+                                                    ? roundedRentalCashflow
+                                                    : null
+                                    )
+                                    .monthlyPrincipalInterest(
+                                            Math.round(
+                                                    monthlyPI
+                                            )
+                                    )
+                                    .netCashflow(
+                                            roundedNetCashflow != 0
+                                                    ? roundedNetCashflow
+                                                    : null
+                                    )
+                                    .roiPercentage(
+                                            Math.round(
+                                                    roiPercentage
+                                                            * 100.0
+                                            )
+                                                    / 100.0
+                                    )
+                                    .build()
                     );
-                    matchedDto.setScenarios(scenarios);
 
-                    resultProperties.add(matchedDto);
+                    double propertyEquity =
+                            Math.min(
+                                    request.getEquity() != null
+                                            ? request.getEquity()
+                                            : 0L,
+                                    valuePrice
+                            );
+
+                    double propertyLoan =
+                            Math.max(
+                                    valuePrice - propertyEquity,
+                                    0.0
+                            );
+
+                    matchedDto.setScenarios(
+                            buildPropertyScenarios(
+                                    valuePrice,
+                                    propertyLoan,
+                                    propertyEquity,
+                                    loanTermYears,
+                                    rentalCashflow,
+                                    request.getCurrentCashFlow(),
+                                    additionalCostReq,
+                                    isDongTien,
+                                    isMuaSuaBan,
+                                    isLuotSong,
+                                    holdingMonths
+                            )
+                    );
+
+                    resultProperties.add(
+                            matchedDto
+                    );
                 }
             }
 
-            hardCriteria.setProposedPropertyDTOList(resultProperties);
+            hardCriteria.setProposedPropertyDTOList(
+                    resultProperties
+            );
         }
 
         return InvestmentPlanDTO.builder()
@@ -738,103 +1167,344 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .build();
     }
 
-    private List<PropertyScenarioDTO> calculatePropertyScenarios(
-            ProposedPropertyDTO prop,
-            long loanCapital,
-            long iUser,
-            Integer holdingMonths,
-            String strategyName
+    private List<PropertyScenarioDTO> buildPropertyScenarios(
+            double valuePrice,
+            double propertyLoan,
+            double propertyEquity,
+            int loanTermYears,
+            double rentalIncome,
+            Long currentCashFlow,
+            long additionalCost,
+            boolean isDongTien,
+            boolean isMuaSuaBan,
+            boolean isLuotSong,
+            int holdingMonths
     ) {
-        double valuePrice = prop.getValuePrice() != null ? prop.getValuePrice() : 0.0;
-        double monthlyRentalBase = prop.getFinancialMetrics() != null
-                ? prop.getFinancialMetrics().getMonthlyRentalCashflow() : 0;
 
-        long equity = (long) Math.max(valuePrice - loanCapital, 0);
-        boolean isDongTien = strategyName != null && strategyName.toLowerCase().contains("dòng tiền");
-        boolean isMuaSuaBan = strategyName != null
-                && (strategyName.toLowerCase().contains("sửa") || strategyName.toLowerCase().contains("sua"));
-        double capex = isMuaSuaBan ? valuePrice * CAPEX_RATE : 0;
+        List<PropertyScenarioDTO> scenarios =
+                new ArrayList<>();
 
-        int n = LOAN_MONTHS;
-        List<PropertyScenarioDTO> result = new ArrayList<>();
+        PropertyScenarioDTO greenScenario =
+                calculatePropertyScenario(
+                        "XANH",
+                        valuePrice,
+                        propertyLoan,
+                        propertyEquity,
+                        loanTermYears,
+                        rentalIncome,
+                        currentCashFlow,
+                        additionalCost,
+                        isDongTien,
+                        isMuaSuaBan,
+                        isLuotSong,
+                        holdingMonths,
+                        OPTIMISTIC_INTEREST_RATE,
+                        1.0,
+                        GAIN_RATE_OPTIMISTIC,
+                        1.0
+                );
 
-        double[][] configs = {
-                {OPTIMISTIC_INTEREST_RATE, 1.0},
-                {PESSIMISTIC_INTEREST_RATE, 0.5}
-        };
-        String[] labels = {"XANH", "DO"};
+        PropertyScenarioDTO redScenario =
+                calculatePropertyScenario(
+                        "DO",
+                        valuePrice,
+                        propertyLoan,
+                        propertyEquity,
+                        loanTermYears,
+                        rentalIncome,
+                        currentCashFlow,
+                        additionalCost,
+                        isDongTien,
+                        isMuaSuaBan,
+                        isLuotSong,
+                        holdingMonths * 2,
+                        PESSIMISTIC_INTEREST_RATE,
+                        0.5,
+                        0.0,
+                        1.30
+                );
 
-        for (int i = 0; i < configs.length; i++) {
-            double annualRate = configs[i][0];
-            double occupancy = configs[i][1];
-            double r = annualRate / 12.0;
+        scenarios.add(greenScenario);
+        scenarios.add(redScenario);
 
-            long monthlyPayment = 0;
-            if (loanCapital > 0) {
-                double factor = Math.pow(1 + r, n);
-                monthlyPayment = Math.round(loanCapital * (r * factor) / (factor - 1));
-            }
-
-            long cFin = isDongTien ? Math.round(monthlyRentalBase * occupancy) : 0;
-
-            long ncf = isDongTien ? (cFin - monthlyPayment) : -monthlyPayment;
-
-            long survivalCf = isDongTien ? (iUser + ncf) : (iUser - monthlyPayment);
-
-            double gainRate = (i == 0) ? GAIN_RATE_OPTIMISTIC : 0.0;
-            double sellPrice = valuePrice * (1 + gainRate);
-            long gain = Math.round(sellPrice - valuePrice - (sellPrice * TRANSACTION_COST_RATE));
-
-            int thold;
-            if (holdingMonths != null && holdingMonths > 0) {
-                thold = holdingMonths;
-            } else {
-                if (isDongTien) {
-                    thold = 36;
-                } else if (isMuaSuaBan) {
-                    thold = i == 0 ? 9 : 24;
-                } else {
-                    thold = i == 0 ? 6 : 18;
-                }
-            }
-
-            long capexScenario = isMuaSuaBan && i == 1
-                    ? Math.round(capex * 1.3)
-                    : Math.round(capex);
-
-            long totalNetProfit;
-            if (isDongTien) {
-                totalNetProfit = gain + (ncf * thold) - capexScenario;
-            } else {
-                totalNetProfit = gain - (monthlyPayment * thold) - capexScenario;
-            }
-
-            String riskLabel = survivalCf >= 0 ? "SAFE" : "DANGER";
-
-            double savingBenchmark = SAVING_INTEREST_RATE_PER_YEAR * (thold / 12.0) * equity;
-            boolean isWorthInvesting = totalNetProfit > savingBenchmark;
-
-            double roiPct = equity > 0 ? Math.round((totalNetProfit / (double) equity) * 10000.0) / 100.0 : 0.0;
-
-            result.add(PropertyScenarioDTO.builder()
-                    .scenarioType(labels[i])
-                    .interestRate(annualRate)
-                    .occupancyRate(occupancy)
-                    .monthlyPayment(monthlyPayment)
-                    .monthlyCashflowIn(cFin)
-                    .netCashflow(ncf)
-                    .survivalCashflow(survivalCf)
-                    .totalNetProfit(totalNetProfit)
-                    .roiPercentage(roiPct)
-                    .riskLabel(riskLabel)
-                    .isWorthInvesting(isWorthInvesting)
-                    .build());
-        }
-
-        return result;
+        return scenarios;
     }
 
-    private void saveNewInvestmentPlan(Investor investor, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
+    private PropertyScenarioDTO calculatePropertyScenario(
+            String scenarioType,
+            double valuePrice,
+            double propertyLoan,
+            double propertyEquity,
+            int loanTermYears,
+            double rentalIncome,
+            Long currentCashFlow,
+            long additionalCost,
+            boolean isDongTien,
+            boolean isMuaSuaBan,
+            boolean isLuotSong,
+            int holdingMonths,
+            double annualInterestRate,
+            double occupancyRate,
+            double priceGrowthRate,
+            double capexMultiplier
+    ) {
+
+        int loanTermMonths =
+                loanTermYears * 12;
+
+        double monthlyPayment =
+                calculateMonthlyPayment(
+                        propertyLoan,
+                        annualInterestRate,
+                        loanTermMonths
+                );
+
+        double monthlyCashflowIn = 0.0;
+        double netCashflow = 0.0;
+        double survivalCashflow = 0.0;
+        double capex = 0.0;
+
+        double userIncome =
+                currentCashFlow != null
+                        ? currentCashFlow
+                        : 0.0;
+
+        if (isLuotSong) {
+
+            monthlyCashflowIn = 0.0;
+
+            capex = 0.0;
+
+            netCashflow =
+                    -monthlyPayment;
+
+            survivalCashflow =
+                    userIncome
+                            - monthlyPayment;
+        }
+
+        if (isMuaSuaBan) {
+
+            monthlyCashflowIn = 0.0;
+
+            double baseCapex =
+                    additionalCost > 0
+                            ? additionalCost
+                            : valuePrice * CAPEX_RATE;
+
+            capex =
+                    baseCapex
+                            * capexMultiplier;
+
+            netCashflow =
+                    -monthlyPayment;
+
+            survivalCashflow =
+                    userIncome
+                            - monthlyPayment;
+        }
+
+        if (isDongTien) {
+
+            monthlyCashflowIn =
+                    rentalIncome
+                            * occupancyRate;
+
+            netCashflow =
+                    monthlyCashflowIn
+                            - monthlyPayment;
+
+            survivalCashflow =
+                    userIncome
+                            + netCashflow;
+
+            capex = 0.0;
+        }
+
+        double sellingPrice =
+                valuePrice
+                        * (
+                        1 + priceGrowthRate
+                );
+
+        double gain =
+                sellingPrice
+                        - valuePrice
+                        - (
+                        sellingPrice
+                                * TRANSACTION_COST_RATE
+                );
+
+        double totalNetProfit = 0.0;
+
+        if (isLuotSong) {
+
+            totalNetProfit =
+                    gain
+                            - (
+                            monthlyPayment
+                                    * holdingMonths
+                    );
+        }
+
+        if (isMuaSuaBan) {
+
+            totalNetProfit =
+                    gain
+                            - capex
+                            - (
+                            monthlyPayment
+                                    * holdingMonths
+                    );
+        }
+
+        if (isDongTien) {
+
+            totalNetProfit =
+                    gain
+                            + (
+                            netCashflow
+                                    * holdingMonths
+                    )
+                            - capex;
+        }
+
+        double roePercentage =
+                propertyEquity > 0
+                        ? (
+                        totalNetProfit
+                                / propertyEquity
+                )
+                        * 100.0
+                        : 0.0;
+
+        String riskLabel =
+                survivalCashflow >= 0
+                        ? "SAFE"
+                        : "DANGER";
+
+        double savingBenchmark =
+                SAVING_INTEREST_RATE_PER_YEAR
+                        * (
+                        (double) holdingMonths / 12.0
+                )
+                        * 100.0;
+
+        boolean isWorthInvesting =
+                roePercentage
+                        > savingBenchmark;
+
+        return PropertyScenarioDTO.builder()
+                .scenarioType(scenarioType)
+                .interestRate(
+                        annualInterestRate
+                                * 100.0
+                )
+                .occupancyRate(
+                        occupancyRate
+                                * 100.0
+                )
+                .monthlyPayment(
+                        Math.round(
+                                monthlyPayment
+                        )
+                )
+                .monthlyCashflowIn(
+                        Math.round(
+                                monthlyCashflowIn
+                        )
+                )
+                .netCashflow(
+                        Math.round(
+                                netCashflow
+                        )
+                )
+                .survivalCashflow(
+                        Math.round(
+                                survivalCashflow
+                        )
+                )
+                .totalNetProfit(
+                        Math.round(
+                                totalNetProfit
+                        )
+                )
+                .roiPercentage(
+                        Math.round(
+                                roePercentage
+                                        * 100.0
+                        )
+                                / 100.0
+                )
+                .riskLabel(riskLabel)
+                .isWorthInvesting(
+                        isWorthInvesting
+                )
+                .build();
+    }
+
+    private double calculateMonthlyPayment(
+            double principal,
+            double annualInterestRate,
+            int loanTermMonths
+    ) {
+
+        if (
+                principal <= 0
+                        || loanTermMonths <= 0
+        ) {
+            return 0.0;
+        }
+
+        double monthlyInterestRate =
+                annualInterestRate
+                        / 12.0;
+
+        double factor =
+                Math.pow(
+                        1 + monthlyInterestRate,
+                        loanTermMonths
+                );
+
+        return principal
+                * (
+                monthlyInterestRate
+                        * factor
+        )
+                / (
+                factor - 1
+        );
+    }
+
+    private int getDefaultHoldingMonths(String strategyName) {
+        if (strategyName == null) {
+            throw new IllegalArgumentException("Strategy name cannot be null");
+        }
+
+        String normalizedName = strategyName.trim().toLowerCase();
+
+        if (normalizedName.contains("đầu cơ lướt sóng")
+                || normalizedName.contains("dau co luot song")) {
+            return HOLDING_MONTHS_LUOT_SONG;
+        }
+
+        if (normalizedName.contains("mua sửa bán")
+                || normalizedName.contains("mua sua ban")) {
+            return HOLDING_MONTHS_MUA_SUA_BAN;
+        }
+
+        if (normalizedName.contains("bđs dòng tiền")
+                || normalizedName.contains("bds dong tien")
+                || normalizedName.contains("dòng tiền")) {
+            return HOLDING_MONTHS_DONG_TIEN;
+        }
+
+        throw new IllegalArgumentException(
+                "Unsupported investment strategy: " + strategyName
+        );
+    }
+
+    private InvestmentProfileVersion saveNewInvestmentPlan(Investor investor, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
         String wardInfo = request.getWardNames() != null && !request.getWardNames().isEmpty()
@@ -852,10 +1522,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         InvestmentProfile savedProfile = investmentProfileRepository.save(profile);
 
-        saveProfileVersion(savedProfile, baseProfileName + " - Phiên bản 1", request, output, strategy, now);
+        return saveProfileVersion(savedProfile, baseProfileName + " - Phiên bản 1", request, output, strategy, now);
     }
 
-    private void saveUpdateInvestmentPlan(InvestmentProfile existingProfile, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
+    private InvestmentProfileVersion saveUpdateInvestmentPlan(InvestmentProfile existingProfile, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy) throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
         long currentVersionsCount = investmentProfileVersionRepository
@@ -864,10 +1534,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         String baseProfileName = existingProfile.getName() != null ? existingProfile.getName() : "Kế hoạch " + strategy.getName();
         String autoVersionName = baseProfileName + " - Phiên bản " + (currentVersionsCount + 1);
 
-        saveProfileVersion(existingProfile, autoVersionName, request, output, strategy, now);
+        return saveProfileVersion(existingProfile, autoVersionName, request, output, strategy, now);
     }
 
-    private void saveProfileVersion(InvestmentProfile profile, String versionName, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy, LocalDateTime now) throws Exception {
+    private InvestmentProfileVersion saveProfileVersion(InvestmentProfile profile, String versionName, InvestmentPlanRequest request, InvestmentPlanDTO output, Strategy strategy, LocalDateTime now) throws Exception {
         long totalCapitalCalculated = request.getEquity() + request.getLoanCapital();
 
         InvestmentProfileVersion versionEntity = InvestmentProfileVersion.builder()
@@ -878,6 +1548,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 .loanCapital(request.getLoanCapital())
                 .currentCashflow(request.getCurrentCashFlow())
                 .conscious(request.getConsciousName())
+                .longTermYear(request.getLongTermYear())
                 .wards(request.getWardNames() != null ? request.getWardNames() : new ArrayList<>())
                 .totalCapital(totalCapitalCalculated)
                 .investmentStrategyDetail(request.getInvestmentStrategyDetail())
@@ -956,8 +1627,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 }
             }
         }
-    }
 
+        return savedVersion;
+    }
     private void addProperty(Listing listing, String proposalType, List<ProposedPropertyDTO> properties, List<Map<String, Object>> aiProperties) {
         Property property = listing.getProperty();
 
@@ -1005,6 +1677,20 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
             version.setIsActive(false);
             version.setUpdatedAt(LocalDateTime.now());
             investmentProfileVersionRepository.save(version);
+
+            InvestmentProfile profile = version.getInvestmentProfile();
+
+            if (profile != null) {
+                boolean hasActiveVersion = investmentProfileVersionRepository
+                        .existsByInvestmentProfile_InvestmentProfileIdAndIsActiveTrue(
+                                profile.getInvestmentProfileId()
+                        );
+                if (!hasActiveVersion) {
+                    profile.setIsActive(false);
+                    profile.setUpdatedAt(LocalDateTime.now());
+                    investmentProfileRepository.save(profile);
+                }
+            }
 
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(null, "Xóa phiên bản kế hoạch đầu tư thành công"));

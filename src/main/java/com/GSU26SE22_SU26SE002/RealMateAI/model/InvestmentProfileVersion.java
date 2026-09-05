@@ -54,7 +54,8 @@ public class InvestmentProfileVersion {
 
 //    private Long expectedRoi;
     private Long expectedProfit;
-    private Integer holdingMonths;
+    int longTermYear;
+//    private Integer holdingMonths;
 //    private String riskToleranceLevel;
 //    private Long durationYear;
 //    private LocalDate startDate;
