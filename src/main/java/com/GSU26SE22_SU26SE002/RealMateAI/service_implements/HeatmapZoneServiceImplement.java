@@ -268,12 +268,18 @@ public class HeatmapZoneServiceImplement implements HeatmapZoneServiceInterface 
         double actualMaxLat = minLat.max(maxLat).doubleValue();
         double actualMinLong = minLong.min(maxLong).doubleValue();
         double actualMaxLong = minLong.max(maxLong).doubleValue();
+
         List<HeatmapZone> candidateZones = heatmapZoneRepository.findAll();
         if (candidateZones.isEmpty()) return Collections.emptyList();
-        return candidateZones.stream()
+
+        List<HeatmapZone> filteredZones = candidateZones.stream()
                 .filter(zone -> zone.getCenterLatitude() >= actualMinLat && zone.getCenterLatitude() <= actualMaxLat)
                 .filter(zone -> zone.getCenterLongitude() >= actualMinLong && zone.getCenterLongitude() <= actualMaxLong)
                 .collect(Collectors.toList());
+
+        calculateHeatLevelsForZoomLevel(filteredZones);
+
+        return filteredZones;
     }
 
     @Transactional(readOnly = true)
