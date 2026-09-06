@@ -52,9 +52,9 @@ public class InvestmentProfileVersion {
     @Column(name = "wards", columnDefinition = "json")
     private List<String> wards;
 
-//    private Long expectedRoi;
-    private Long expectedProfit;
-    int longTermYear;
+    //    private Long expectedRoi;
+//    private Long expectedProfit;
+    private int longTermYear;
 //    private Integer holdingMonths;
 //    private String riskToleranceLevel;
 //    private Long durationYear;
@@ -67,8 +67,8 @@ public class InvestmentProfileVersion {
     @Column(name = "investment_strategy_detail", columnDefinition = "json")
     private Map<String, Object> investmentStrategyDetail;
 
-//    private String legalStatus;
-    private String version;
+    //    private String legalStatus;
+//    private String version;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -78,8 +78,8 @@ public class InvestmentProfileVersion {
     @JsonIgnore
     private InvestmentProfileVersion baseVersion;
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "profit_summary", columnDefinition = "json")
-    private Map<String, Object> profitSummary;
+//    @Column(name = "profit_summary", columnDefinition = "json")
+//    private Map<String, Object> profitSummary;
 
     @OneToMany(mappedBy = "investmentProfileVersion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
