@@ -27,16 +27,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Định giá bất động sản THỦ CÔNG (Seller gửi yêu cầu → Staff kiểm tra thông
- * tin → đưa ra mức giá đề xuất). Dùng lại entity PropertyValuation có sẵn
- * trong schema (trước đó chưa có repository/service/controller nào) — xem
- * giải thích đầy đủ ở PropertyValuation.
- *
- * KHÁC với /ai/property-valuation (định giá TỰ ĐỘNG bằng XGBoost, tức thì,
- * không cần Staff can thiệp) — 2 tính năng độc lập, Seller có thể dùng cả 2.
- */
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -47,9 +37,6 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
     private final AuthenUntil authenUntil;
     private final NotificationService notificationService;
 
-    // ════════════════════════════════════════════════════════════════════════
-    // POST /seller/valuation-requests
-    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> submitValuationRequest(SubmitValuationRequest request) {
@@ -174,9 +161,6 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // PATCH /staff/valuation-requests/{id}/complete
-    // ════════════════════════════════════════════════════════════════════════
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> completeValuationRequest(Integer id, CompleteValuationRequest request) {
@@ -196,34 +180,29 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
                         "Yêu cầu này đã được xử lý trước đó (status=" + valuation.getPropertyValuationStatus() + ")"));
             }
 
-            valuation.setTotalValue(request.getTotalValue());
+            Long landPrice = request.getLandPrice() != null ? request.getLandPrice() : 0L;
+            Long constructionCost = request.getConstructionCost() != null ? request.getConstructionCost() : 0L;
+            Long totalValue = landPrice + constructionCost;
+
+            valuation.setLandPrice(landPrice);
+            valuation.setConstructionCost(constructionCost);
+            valuation.setTotalValue(totalValue);
             valuation.setReason(request.getReason());
-            valuation.setMarketUnitPrice(request.getMarketUnitPrice());
-            valuation.setLocationK(request.getLocationK());
-            valuation.setGfa(request.getGfa());
-            valuation.setConstructionNewPrice(request.getConstructionNewPrice());
-            valuation.setRemainingQuantity(request.getRemainingQuantity());
-            valuation.setLandPrice(request.getLandPrice());
-            valuation.setConstructionCost(request.getConstructionCost());
             valuation.setPropertyValuationStatus(PropertyValuationStatusEnum.COMPLETED);
             valuation.setAccount(currentUser);
             valuation.setReviewedAt(LocalDateTime.now());
             valuation.setUpdatedAt(LocalDateTime.now());
             propertyValuationRepository.save(valuation);
 
-            // MỚI: theo mục 5 (Cao) trong RealMateAI_API_Notification_Report.
-            // Lấy account người YÊU CẦU định giá qua Property -> Seller -> Account
-            // (KHÔNG dùng valuation.getAccount() — field đó vừa bị ghi đè thành
-            // currentUser = Staff vừa xử lý, không còn là người yêu cầu ban đầu).
             if (valuation.getProperty() != null && valuation.getProperty().getSeller() != null) {
                 Account requesterAccount = valuation.getProperty().getSeller().getAccount();
                 notificationService.notify(requesterAccount,
-                        "Yêu cầu định giá tài sản của bạn đã có kết quả, mức giá đề xuất: " + request.getTotalValue() + ".",
+                        "Yêu cầu định giá tài sản của bạn đã có kết quả, mức giá đề xuất: " + totalValue + ".",
                         NotificationTypeEnum.SYSTEM);
             }
 
             log.info("[PropertyValuationRequestService] Staff accountId={} hoàn tất định giá requestId={}, totalValue={}",
-                    currentUser.getAccountId(), id, request.getTotalValue());
+                    currentUser.getAccountId(), id, totalValue);
 
             return ResponseEntity.ok(ApiResponse.success(toResponse(valuation), "Đã đưa ra mức giá đề xuất cho Seller"));
 
@@ -260,7 +239,6 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
             valuation.setUpdatedAt(LocalDateTime.now());
             propertyValuationRepository.save(valuation);
 
-            // MỚI: theo mục 9 (Trung bình) trong RealMateAI_API_Notification_Report.
             if (valuation.getProperty() != null && valuation.getProperty().getSeller() != null) {
                 Account requesterAccount = valuation.getProperty().getSeller().getAccount();
                 notificationService.notify(requesterAccount,
@@ -276,8 +254,6 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────────
 
     private Seller getCurrentSellerOrThrow(Account currentUser) {
         if (currentUser == null) throw new RuntimeException("Unauthorized");
@@ -308,15 +284,10 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
                 .propertyTitle(v.getProperty().getTitle())
                 .status(v.getPropertyValuationStatus() != null ? v.getPropertyValuationStatus().name() : null)
                 .sellerNote(v.getSellerNote())
-                .totalValue(v.getTotalValue())
-                .reason(v.getReason())
-                .marketUnitPrice(v.getMarketUnitPrice())
-                .locationK(v.getLocationK())
-                .gfa(v.getGfa())
-                .constructionNewPrice(v.getConstructionNewPrice())
-                .remainingQuantity(v.getRemainingQuantity())
                 .landPrice(v.getLandPrice())
                 .constructionCost(v.getConstructionCost())
+                .totalValue(v.getTotalValue())
+                .reason(v.getReason())
                 .reviewedByName(v.getAccount() != null ? v.getAccount().getFull_name() : null)
                 .createdAt(v.getCreatedAt())
                 .reviewedAt(v.getReviewedAt())
