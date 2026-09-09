@@ -280,8 +280,9 @@ public class PropertyValuationRequestServiceImplement implements PropertyValuati
     private PropertyValuationResponse toResponse(PropertyValuation v) {
         return PropertyValuationResponse.builder()
                 .propertyValuationId(v.getPropertyValuationId())
-                .propertyId(v.getProperty().getPropertyId())
-                .propertyTitle(v.getProperty().getTitle())
+                .propertyId(v.getProperty() != null ? v.getProperty().getPropertyId() : null)
+                .propertyTitle(v.getProperty() != null ? v.getProperty().getTitle() : null)
+                .addressParticular(v.getProperty() != null ? v.getProperty().getAddressParticular() : null) // <-- Map trường addressParticular
                 .status(v.getPropertyValuationStatus() != null ? v.getPropertyValuationStatus().name() : null)
                 .sellerNote(v.getSellerNote())
                 .landPrice(v.getLandPrice())
