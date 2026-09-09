@@ -17,6 +17,7 @@ public class PropertyValuationResponse {
     private Integer propertyId;
     private String propertyTitle;
     private String status;
+    private String addressParticular;
     private String sellerNote;
 
     private Long landPrice;
