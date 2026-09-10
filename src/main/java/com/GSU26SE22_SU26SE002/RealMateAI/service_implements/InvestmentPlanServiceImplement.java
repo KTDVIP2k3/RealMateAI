@@ -522,7 +522,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         }
     }
 
-    private InvestmentPlanDTO buildInvestmentPlan(InvestmentPlanRequest request, Strategy strategy) throws Exception {
+    public InvestmentPlanDTO buildInvestmentPlan(InvestmentPlanRequest request, Strategy strategy) throws Exception {
         long totalCapital = request.getEquity() + request.getLoanCapital();
         String strategyName = strategy.getName() != null ? strategy.getName() : "";
 

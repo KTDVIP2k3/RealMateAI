@@ -19,6 +19,10 @@ public class ListingMapper {
                     .thenComparing(ListingImage::getDisplayOrder, Comparator.nullsLast(Comparator.naturalOrder()));
 
     public ListingDetailResponse toListingDetail(Listing l, Property p) {
+        return toListingDetail(l, p, null);
+    }
+
+    public ListingDetailResponse toListingDetail(Listing l, Property p, Long realViewCount) {
         List<ListingImageResponse> images = toListingImageResponses(l);
         PropertyDetailResponse propertyDetail = p != null ? toPropertyDetail(p, null) : null;
 
@@ -26,6 +30,10 @@ public class ListingMapper {
         Account sellerAccount = seller != null ? seller.getAccount() : null;
         Ward ward = (p != null && p.getLocation() != null) ? p.getLocation().getWard() : null;
         ListingVerification lv = l.getListingVerification();
+
+        int safeViewCount = realViewCount != null
+                ? realViewCount.intValue()
+                : (l.getViewCount() != null ? l.getViewCount() : 0);
 
         return ListingDetailResponse.builder()
                 .listingId(l.getListingId())
@@ -44,7 +52,7 @@ public class ListingMapper {
                 .sellerId(seller != null ? seller.getSellerId() : null)
                 .sellerName(sellerAccount != null ? sellerAccount.getFull_name() : null)
                 .sellerPhone(sellerAccount != null ? sellerAccount.getPhone() : null)
-                .viewCount(l.getViewCount() != null ? l.getViewCount() : 0)
+                .viewCount(safeViewCount)
                 .wardCode(ward != null ? ward.getWard_code() : null)
                 .email(l.getContactEmail() != null ? l.getContactEmail()
                         : (sellerAccount != null ? sellerAccount.getEmail() : null))
