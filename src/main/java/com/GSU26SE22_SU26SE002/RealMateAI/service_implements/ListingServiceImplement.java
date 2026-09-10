@@ -456,8 +456,16 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account viewer = authenUntil.getCurrentUSer();
             userEventTrackingService.recordSilently(viewer, UserEventTypeEnum.VIEW, listingId);
 
+            // SỬA (fix bug thật — viewCount không đồng nhất giữa Detail và
+            // Public list): tính viewCount THẬT từ ActiveLog (đúng ngay SAU
+            // khi ghi nhận lượt xem này ở trên, nên số trả về đã bao gồm
+            // luôn lượt xem hiện tại — khớp đúng ý nghĩa "tổng lượt xem" mà
+            // Public list đang hiển thị, không phải cột l.getViewCount() cũ
+            // không bao giờ được cập nhật).
+            long realViewCount = activeLogRepository.countByListingIdAndEventType(listingId, UserEventTypeEnum.VIEW);
+
             return ResponseEntity.ok(ApiResponse.success(
-                    listingMapper.toListingDetail(listing, listing.getProperty()), "Chi tiết tin đăng"));
+                    listingMapper.toListingDetail(listing, listing.getProperty(), realViewCount), "Chi tiết tin đăng"));
         } catch (Exception e) {
             log.error("[ListingService] getListingDetail lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -765,8 +773,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
                                 "Bài đăng không tồn tại hoặc không thuộc sở hữu của bạn: id=" + listingId));
             }
 
+            // SỬA (fix bug thật — viewCount không đồng nhất): Seller xem chi
+            // tiết tin CỦA MÌNH cũng phải thấy đúng số lượt xem thật (đây là
+            // nơi Seller quan tâm viewCount nhiều nhất), không phải cột cũ.
+            long realViewCount = activeLogRepository.countByListingIdAndEventType(listingId, UserEventTypeEnum.VIEW);
+
             return ResponseEntity.ok(ApiResponse.success(
-                    listingMapper.toListingDetail(listing, listing.getProperty()),
+                    listingMapper.toListingDetail(listing, listing.getProperty(), realViewCount),
                     "Chi tiết tin đăng của bạn"));
 
         } catch (RuntimeException e) {
@@ -1244,10 +1257,19 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .map(String::valueOf)
                     .toList();
 
+            // SỬA (fix bug thật — viewCount không đồng nhất): tính viewCount
+            // THẬT cho toàn bộ listing đang so sánh, 1 query duy nhất (tránh
+            // N+1 nếu gọi riêng từng listing).
+            List<Integer> foundIds = distinctIds.stream().filter(listingById::containsKey).toList();
+            Map<Integer, Long> compareViewCountByListingId = foundIds.isEmpty() ? Map.of()
+                    : activeLogRepository.countGroupedByListingId(foundIds, UserEventTypeEnum.VIEW).stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
             List<Object> content = distinctIds.stream()
                     .map(listingById::get)
                     .filter(java.util.Objects::nonNull)
-                    .map(l -> listingMapper.toListingDetail(l, l.getProperty()))
+                    .map(l -> listingMapper.toListingDetail(l, l.getProperty(),
+                            compareViewCountByListingId.get(l.getListingId())))
                     .collect(Collectors.toList());
 
             if (content.size() < 2) {

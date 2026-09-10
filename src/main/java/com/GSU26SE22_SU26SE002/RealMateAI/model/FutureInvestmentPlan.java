@@ -8,29 +8,10 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
-/**
- * FutureInvestmentPlan — bảng HOÀN TOÀN RIÊNG BIỆT cho "Kế hoạch tương lai",
- * KHÔNG còn tái sử dụng InvestmentProfileVersion (version="FUTURE_PLAN") như
- * thiết kế cũ nữa.
- *
- * Quan hệ:
- *  - {@link #investmentProfile}: Investment Profile (CHA) đã tạo ra kế hoạch
- *    tương lai này — GIỮ NGUYÊN như thiết kế cũ (vẫn lưu lại profile nào sinh
- *    ra future-plan này).
- *  - {@link #sourceVersion}: version GỐC (BÌNH THƯỜNG) làm baseline so sánh.
- *    Field này khai báo kiểu {@link InvestmentProfileVersion} — do
- *    InvestmentProfileVersion không còn đại diện cho future-plan nữa (future
- *    plan đã tách khỏi bảng này), nên KHÔNG THỂ trỏ field này vào 1
- *    FutureInvestmentPlan khác được nữa → "không tạo future từ future" được
- *    đảm bảo NGAY Ở TẦNG THIẾT KẾ DỮ LIỆU, không cần check thủ công.
- *
- * Version riêng: mỗi FutureInvestmentPlan là 1 bản ghi ĐỘC LẬP, không có khái
- * niệm "version number" nối tiếp nhau như InvestmentProfileVersion — nhiều
- * FutureInvestmentPlan có thể cùng trỏ về 1 sourceVersion (đại diện nhiều lần
- * investor cập nhật feedback thực tế khác nhau từ CÙNG 1 kế hoạch gốc).
- */
+
 @NoArgsConstructor @AllArgsConstructor @Getter
 @Setter @Builder
 @Entity @Table(name = "future_investment_plan")
@@ -48,10 +29,7 @@ public class FutureInvestmentPlan {
     @JsonIgnore
     private InvestmentProfile investmentProfile;
 
-    /**
-     * Version GỐC (BÌNH THƯỜNG, KHÔNG THỂ là future-plan khác — xem javadoc
-     * class ở trên) làm baseline so sánh ROI kỳ vọng vs thực tế.
-     */
+    /** Version InvestmentPlan GỐC (BÌNH THƯỜNG, không thể là 1 FutureInvestmentPlan khác) làm baseline so sánh. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_version_id", nullable = false)
     @JsonIgnore
@@ -62,27 +40,32 @@ public class FutureInvestmentPlan {
     @JsonIgnore
     private Strategy strategy;
 
-    // ── Snapshot các tham số tài chính — clone từ sourceVersion lúc tạo (KHỚP
-    // ĐÚNG kiểu dữ liệu với InvestmentProfileVersion để clone không cần ép kiểu) ──
     private Long equity;
     private Long loanCapital;
-    private Long reserveFund;
-    private Long expectedRoi;
-    private String riskToleranceLevel;
-    private Long durationYear;
-    private LocalDate startDate;
-    private String legalStatus;
-    private String ward;
+    private Long currentCashflow;
     private String conscious;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "wards", columnDefinition = "json")
+    private List<String> wards;
+
+    private Integer longTermYear;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "investment_strategy_detail", columnDefinition = "json")
     private Map<String, Object> investmentStrategyDetail;
 
-    /** Tổng hợp lợi nhuận đã tính (totalInvestedCapital, totalProfitPercentage, yieldDelta, aiComparisonNote...) — đọc lại khi GET, không tính lại. */
+    /**
+     * MỚI: snapshot ĐẦY ĐỦ kết quả phân tích (propertyAnalysisResults +
+     * aiOverallScore/Note/Recommendation) — lưu JSON, đọc lại nguyên vẹn khi
+     * GET, KHÔNG tính lại / KHÔNG gọi lại AI. Thay thế hoàn toàn khái niệm
+     * "profitSummary" cũ (chỉ lưu số tổng hợp) — giờ lưu ĐỦ chi tiết từng
+     * property luôn, vì Future Plan không còn nặng như trước (không có
+     * scenarios 3-kịch-bản/portfolio phức tạp).
+     */
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "profit_summary", columnDefinition = "json")
-    private Map<String, Object> profitSummary;
+    @Column(name = "analysis_snapshot", columnDefinition = "json")
+    private Map<String, Object> analysisSnapshot;
 
     private Boolean isActive;
     private LocalDateTime createdAt;
