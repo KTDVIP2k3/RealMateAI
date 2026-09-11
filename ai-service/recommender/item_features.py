@@ -8,16 +8,21 @@ logger = logging.getLogger(__name__)
 
 ITEM_FEATURES_QUERY = """
     SELECT
-        listing_id,
-        property_type,
-        price,
-        area,
-        num_bedrooms,
-        num_bathrooms,
-        province_name,
-        district_name
-    FROM listing
-    WHERE is_active = true
+        l.listing_id,
+        pt.name AS property_type,
+        p.price,
+        p.area,
+        p.bedroom AS num_bedrooms,
+        p.bathroom AS num_bathrooms,
+        pr.name AS province_name,
+        w.name AS district_name
+    FROM public.listing l
+    JOIN public.property p ON l.property_id = p.property_id
+    LEFT JOIN public.property_type pt ON p.property_type_id = pt.property_type_id
+    LEFT JOIN public.location loc ON p.location_id = loc.location_id
+    LEFT JOIN public.ward w ON loc.ward_code = w.ward_code
+    LEFT JOIN public.province pr ON w.province_code = pr.province_code
+    WHERE l.is_active = true
 """
 
 
