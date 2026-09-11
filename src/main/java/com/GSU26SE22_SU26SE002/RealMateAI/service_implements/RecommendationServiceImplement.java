@@ -1,14 +1,12 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.UserEventTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Investor;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.RecommendationResult;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.FavoriteListingRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.InvestorRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.RecommendationResultRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.RecommendationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
@@ -32,14 +30,13 @@ public class RecommendationServiceImplement implements RecommendationService {
     private final ListingMapper listingMapper;
     private final AuthenUntil authenUntil;
     private final InvestorRepository investorRepository;
+    private final ActiveLogRepository activeLogRepository;
     private final FavoriteListingRepository favoriteListingRepository;
 
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getRecommendationsForCurrentUser() {
         try {
-            // SỬA: lấy accountId từ TOKEN đăng nhập, không nhận qua tham số
-            // nữa — API này giờ CHỈ trả gợi ý của CHÍNH người đang gọi.
             Account currentUser = authenUntil.getCurrentUSer();
             if (currentUser == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -50,9 +47,6 @@ public class RecommendationServiceImplement implements RecommendationService {
             List<RecommendationResult> recs = recommendationResultRepository.findByAccountIdOrderByRankAsc(userId);
 
             if (recs.isEmpty()) {
-                // MỚI: cold-start / chưa train — trả về rỗng kèm message rõ ràng
-                // thay vì lỗi, để FE có thể fallback sang hiển thị "Tin mới nhất"
-                // hoặc "Phổ biến nhất" thay thế.
                 return ResponseEntity.ok(ApiResponse.success(
                         List.of(),
                         "Chưa có gợi ý cho bạn (có thể do chưa đủ dữ liệu tương tác, hoặc chưa chạy batch train gần đây)"));
@@ -62,9 +56,6 @@ public class RecommendationServiceImplement implements RecommendationService {
             Map<Integer, Listing> listingById = listingRepository.findAllByListingIdInWithDetails(listingIds)
                     .stream().collect(Collectors.toMap(Listing::getListingId, l -> l, (a, b) -> a));
 
-            // SỬA: trước đây hardcode isFavorited=false cho mọi listing — giờ
-            // tra đúng danh sách yêu thích THẬT của user hiện tại, đồng bộ với
-            // cách getMarketListings/getFeaturedListings đang làm.
             Set<Integer> favoritedIds = Collections.emptySet();
             Investor investor = investorRepository.findByAccount_AccountId(userId).orElse(null);
             if (investor != null) {
@@ -72,6 +63,9 @@ public class RecommendationServiceImplement implements RecommendationService {
                         favoriteListingRepository.findFavoritedListingIdsByInvestorId(investor.getInvestorId()));
             }
             final Set<Integer> favIds = favoritedIds;
+            Map<Integer, Long> recViewCountByListingId = listingIds.isEmpty() ? Map.of()
+                    : activeLogRepository.countGroupedByListingId(listingIds, UserEventTypeEnum.VIEW).stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
 
             List<Map<String, Object>> content = recs.stream()
                     .map(r -> {
@@ -80,10 +74,10 @@ public class RecommendationServiceImplement implements RecommendationService {
                         item.put("listingId", r.getListingId());
                         item.put("score", r.getScore());
                         item.put("rank", r.getRank());
-                        // Listing có thể đã bị ẩn/xoá sau khi batch job chạy —
-                        // trả null thay vì lỗi để không vỡ cả danh sách gợi ý.
+
                         item.put("listing", listing != null
-                                ? listingMapper.toListingSummary(listing, favIds.contains(listing.getListingId()))
+                                ? listingMapper.toListingSummary(listing, favIds.contains(listing.getListingId()),
+                                recViewCountByListingId.get(listing.getListingId()))
                                 : null);
                         return item;
                     })

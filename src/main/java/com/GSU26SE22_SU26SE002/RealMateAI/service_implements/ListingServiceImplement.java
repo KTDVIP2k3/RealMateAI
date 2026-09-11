@@ -18,10 +18,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.*;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -484,8 +482,13 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
             Page<Listing> listingPage = listingRepository.findBySellerId(seller.getSellerId(), pageable);
 
+            List<Integer> myListingIds = listingPage.getContent().stream().map(Listing::getListingId).toList();
+            Map<Integer, Long> myViewCountByListingId = myListingIds.isEmpty() ? Map.of()
+                    : activeLogRepository.countGroupedByListingId(myListingIds, UserEventTypeEnum.VIEW).stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
             List<ListingSummaryResponse> content = listingPage.getContent().stream()
-                    .map(l -> listingMapper.toListingSummary(l, false))
+                    .map(l -> listingMapper.toListingSummary(l, false, myViewCountByListingId.get(l.getListingId())))
                     .collect(Collectors.toList());
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -1110,27 +1113,54 @@ public class ListingServiceImplement implements ListingServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> searchListings(ListingSearchRequest request) {
         try {
-            Sort userSort = switch (request.getSortBy() == null ? ListingSortEnum.NEWEST : request.getSortBy()) {
-                case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
-                case PRICE_DESC -> Sort.by(Sort.Direction.DESC, "price");
-                case AREA_ASC -> Sort.by(Sort.Direction.ASC, "property.area");
-                case AREA_DESC -> Sort.by(Sort.Direction.DESC, "property.area");
-                case OLDEST -> Sort.by(Sort.Direction.ASC, "createdAt");
-                case MOST_VIEWED -> Sort.by(Sort.Direction.DESC, "viewCount");
-                case NEWEST -> Sort.by(Sort.Direction.DESC, "createdAt");
-            };
-            // Kim Cương=1 lên đầu, Tin Thường=4 xuống cuối): đổi DESC -> ASC.
-            Sort sort = Sort.by(Sort.Direction.ASC, "priority").and(userSort);
-
-            Pageable pageable = resolvePageable(request.getPage(), request.getSize(), sort);
-
+            ListingSortEnum sortBy = request.getSortBy() == null ? ListingSortEnum.NEWEST : request.getSortBy();
             Specification<Listing> spec = ListingSpecification.fromRequest(request);
-            Page<Listing> listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
-                    pageable,
-                    p -> listingRepository.findAll(spec, p).map(Listing::getListingId),
-                    listingRepository::findAllByListingIdInWithDetails,
-                    Listing::getListingId
-            );
+            Page<Listing> listingPage;
+
+            if (sortBy == ListingSortEnum.MOST_VIEWED) {
+                List<Listing> allMatching = listingRepository.findAll(spec);
+                List<Integer> allIds = allMatching.stream().map(Listing::getListingId).toList();
+                Map<Integer, Long> viewCountMapAll = allIds.isEmpty() ? Map.of()
+                        : activeLogRepository.countGroupedByListingId(allIds, UserEventTypeEnum.VIEW).stream()
+                        .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
+                List<Listing> sortedMatching = allMatching.stream()
+                        .sorted(Comparator
+                                .<Listing, Integer>comparing(l -> l.getPriority() != null ? l.getPriority() : Integer.MAX_VALUE)
+                                .thenComparing(l -> -viewCountMapAll.getOrDefault(l.getListingId(), 0L)))
+                        .toList();
+
+                Pageable rawPageable = resolvePageable(request.getPage(), request.getSize(), Sort.unsorted());
+                int total = sortedMatching.size();
+                int pageSize = rawPageable.getPageSize() > 0 ? rawPageable.getPageSize() : Math.max(total, 1);
+                int pageNumber = rawPageable.getPageNumber();
+                int fromIndex = Math.min(pageNumber * pageSize, total);
+                int toIndex = Math.min(fromIndex + pageSize, total);
+                Pageable effectivePageable = PageRequest.of(pageNumber, pageSize);
+
+                listingPage = new PageImpl<>(sortedMatching.subList(fromIndex, toIndex), effectivePageable, total);
+
+            } else {
+                Sort userSort = switch (sortBy) {
+                    case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
+                    case PRICE_DESC -> Sort.by(Sort.Direction.DESC, "price");
+                    case AREA_ASC -> Sort.by(Sort.Direction.ASC, "property.area");
+                    case AREA_DESC -> Sort.by(Sort.Direction.DESC, "property.area");
+                    case OLDEST -> Sort.by(Sort.Direction.ASC, "createdAt");
+                    case NEWEST -> Sort.by(Sort.Direction.DESC, "createdAt");
+                    case MOST_VIEWED -> Sort.unsorted(); // không bao giờ vào nhánh này — đã xử lý riêng ở trên
+                };
+                // Kim Cương=1 lên đầu, Tin Thường=4 xuống cuối): đổi DESC -> ASC.
+                Sort sort = Sort.by(Sort.Direction.ASC, "priority").and(userSort);
+                Pageable pageable = resolvePageable(request.getPage(), request.getSize(), sort);
+
+                listingPage = TwoStepPaginationUtil.<Integer, Listing>paginate(
+                        pageable,
+                        p -> listingRepository.findAll(spec, p).map(Listing::getListingId),
+                        listingRepository::findAllByListingIdInWithDetails,
+                        Listing::getListingId
+                );
+            }
 
             Account currentUser = authenUntil.getCurrentUSer();
             Set<Integer> favoritedIds = Collections.emptySet();
@@ -1147,9 +1177,15 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 recordSearchHistory(currentUser, request.getKeyword().trim());
             }
 
+            List<Integer> pageListingIds = listingPage.getContent().stream().map(Listing::getListingId).toList();
+            Map<Integer, Long> pageViewCountByListingId = pageListingIds.isEmpty() ? Map.of()
+                    : activeLogRepository.countGroupedByListingId(pageListingIds, UserEventTypeEnum.VIEW).stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
             final Set<Integer> favIds = favoritedIds;
             List<ListingSummaryResponse> content = listingPage.getContent().stream()
-                    .map(l -> listingMapper.toListingSummary(l, favIds.contains(l.getListingId())))
+                    .map(l -> listingMapper.toListingSummary(l, favIds.contains(l.getListingId()),
+                            pageViewCountByListingId.get(l.getListingId())))
                     .collect(Collectors.toList());
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -1206,8 +1242,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .filter(java.util.Objects::nonNull)
                     .map(l -> {
                         Map<String, Object> item = new LinkedHashMap<>();
-                        item.put("listing", listingMapper.toListingSummary(l, favIds.contains(l.getListingId())));
-                        item.put("viewCount", viewCountByListingId.get(l.getListingId()));
+                        item.put("listing", listingMapper.toListingSummary(l, favIds.contains(l.getListingId()),
+                                viewCountByListingId.get(l.getListingId())));
                         return item;
                     })
                     .collect(Collectors.toList());
@@ -1236,8 +1272,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .body(ApiResponse.fail("Bad_Request", "Vui lòng gửi danh sách listingId cần so sánh"));
             }
 
-            // Loại trùng nhưng GIỮ NGUYÊN thứ tự đầu tiên xuất hiện — Investor gửi
-            // trùng 1 id 2 lần thì chỉ so sánh 1 lần, không lỗi cứng vì lý do nhỏ này.
             List<Integer> distinctIds = listingIds.stream().distinct().toList();
 
             if (distinctIds.size() < 2) {
@@ -1257,9 +1291,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .map(String::valueOf)
                     .toList();
 
-            // SỬA (fix bug thật — viewCount không đồng nhất): tính viewCount
-            // THẬT cho toàn bộ listing đang so sánh, 1 query duy nhất (tránh
-            // N+1 nếu gọi riêng từng listing).
             List<Integer> foundIds = distinctIds.stream().filter(listingById::containsKey).toList();
             Map<Integer, Long> compareViewCountByListingId = foundIds.isEmpty() ? Map.of()
                     : activeLogRepository.countGroupedByListingId(foundIds, UserEventTypeEnum.VIEW).stream()

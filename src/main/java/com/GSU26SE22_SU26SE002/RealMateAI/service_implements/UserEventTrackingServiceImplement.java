@@ -5,10 +5,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.ActiveLog;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.AuditLog;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Listing;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ActiveLogRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AuditLogRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ViewedListingProjection;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.UserEventTrackingService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
@@ -55,21 +52,10 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
     private final ListingMapper listingMapper;
     private final AuthenUntil authenUntil;
 
-    // REQUIRES_NEW: ghi log là tác vụ PHỤ, không được làm rollback transaction
-    // nghiệp vụ chính (vd Investor vẫn phải xem được tin dù ghi log lỗi).
     @Override
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public void recordSilently(Account account, UserEventTypeEnum eventType, Integer listingId) {
-        // SỬA (fix bug đã báo cáo — "get listing detail không đếm count"): TRƯỚC
-        // ĐÂY bỏ qua HOÀN TOÀN nếu account=null ("khách ẩn danh không có giá trị
-        // thống kê") — nhưng thực tế phần LỚN traffic xem tin trên 1 trang BĐS
-        // công khai là KHÁCH VÃNG LAI CHƯA ĐĂNG NHẬP. Bỏ qua nhóm này khiến
-        // "Tin nổi bật" (GET /listings/featured, đếm từ ActiveLog) gần như
-        // luôn rỗng/sai lệch nặng trong thực tế test — nhìn như bug "không đếm
-        // count" dù code có chạy, chỉ là chỉ đếm được rất ít traffic (mỗi lượt
-        // xem của user đã đăng nhập). Nay vẫn ghi nhận cho khách ẩn danh
-        // (account=null -> lưu AuditLog.account=null, userName="ANONYMOUS",
-        // vẫn có ipAddress để tra soát nếu cần) — CHỈ bỏ qua khi thiếu eventType.
+
         if (eventType == null) {
             return;
         }
@@ -140,6 +126,17 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
             Map<Integer, Listing> listingById = listingRepository.findAllByListingIdInWithDetails(listingIds)
                     .stream().collect(Collectors.toMap(Listing::getListingId, l -> l, (a, b) -> a));
 
+            // SỬA (fix bug thật — viewCount không đồng nhất): field "listing"
+            // lồng bên trong mỗi item ĐANG dùng cột cũ (qua toListingSummary(l,
+            // false) — overload fallback khi không truyền viewCount). Tính
+            // viewCount THẬT 1 query cho cả batch, khớp đúng cách GET /listings
+            // đang tính. LƯU Ý: khác với field "viewCount" TOP-LEVEL của mỗi
+            // item (đó là ViewedListingProjection.getViewCount() — số lần
+            // CHÍNH account này đã xem tin, ý nghĩa khác hoàn toàn, KHÔNG sửa).
+            Map<Integer, Long> viewedListingRealViewCount = listingIds.isEmpty() ? Map.of()
+                    : activeLogRepository.countGroupedByListingId(listingIds, UserEventTypeEnum.VIEW).stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
             List<Map<String, Object>> content = viewedPage.getContent().stream()
                     .map(v -> {
                         Listing l = listingById.get(v.getListingId());
@@ -147,7 +144,9 @@ public class UserEventTrackingServiceImplement implements UserEventTrackingServi
                         item.put("listingId", v.getListingId());
                         item.put("lastViewedAt", v.getLastViewedAt());
                         item.put("viewCount", v.getViewCount());
-                        item.put("listing", l != null ? listingMapper.toListingSummary(l, false) : null);
+                        item.put("listing", l != null
+                                ? listingMapper.toListingSummary(l, false, viewedListingRealViewCount.get(l.getListingId()))
+                                : null);
                         return item;
                     })
                     .collect(Collectors.toList());
