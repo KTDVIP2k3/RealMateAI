@@ -62,10 +62,7 @@ def generate_for_all_users(model, dataset, item_features_matrix, user_features_m
 
     results = []
     for account_id, user_internal_id in user_id_map.items():
-        # Truyền user_features=user_features_matrix — PHẢI khớp với lúc train,
-        # nếu thiếu, model sẽ predict như thể user KHÔNG có đặc trưng gì (sai
-        # lệch so với lúc train), đặc biệt sai với đúng nhóm user cold-start
-        # mà tính năng này nhắm tới.
+        # Truyền user_features=user_features_matrix — PHẢI khớp với lúc train
         scores = model.predict(
             user_internal_id, all_item_indices,
             item_features=item_features_matrix,
@@ -80,7 +77,8 @@ def generate_for_all_users(model, dataset, item_features_matrix, user_features_m
             if listing_id in seen:
                 continue
             rank += 1
-            results.append((account_id, listing_id, float(scores[item_internal_id]), rank))
+            # ĐÃ SỬA: Ép kiểu int(), float() chuẩn của Python để tránh lỗi NumPy data type trên Postgres
+            results.append((int(account_id), int(listing_id), float(scores[item_internal_id]), int(rank)))
             if rank >= top_n:
                 break
 
@@ -94,16 +92,6 @@ def save_results(engine, results):
 
     with engine.begin() as conn:
         conn.execute(text(CREATE_TABLE_SQL))
-        # Bảng recommendation_result có thể đã được HIBERNATE tự tạo trước đó
-        # (khi Spring Boot quét entity RecommendationResult, ddl-auto=update)
-        # — bảng đó KHÔNG có UNIQUE constraint trên (account_id, listing_id)
-        # vì entity Java không khai báo. "CREATE TABLE IF NOT EXISTS" ở trên
-        # khi đó bị bỏ qua hoàn toàn (bảng đã tồn tại), nên KHÔNG dùng
-        # "ON CONFLICT" (sẽ lỗi "no unique or exclusion constraint").
-        #
-        # Cách xử lý: KHÔNG cần ON CONFLICT — DELETE toàn bộ bảng NGAY TRƯỚC
-        # KHI INSERT (trong CÙNG transaction) đã đảm bảo không bao giờ có
-        # xung đột thật để cần xử lý.
         conn.execute(text("DELETE FROM recommendation_result"))
         conn.execute(
             text("""
@@ -111,7 +99,13 @@ def save_results(engine, results):
                 VALUES (:account_id, :listing_id, :score, :rank, :generated_at)
             """),
             [
-                {"account_id": r[0], "listing_id": r[1], "score": r[2], "rank": r[3], "generated_at": now}
+                {
+                    "account_id": int(r[0]),
+                    "listing_id": int(r[1]),
+                    "score": float(r[2]),
+                    "rank": int(r[3]),
+                    "generated_at": now
+                }
                 for r in results
             ],
         )
@@ -132,7 +126,7 @@ def main():
     )
 
     results = generate_for_all_users(
-        model, dataset, item_features_matrix, user_features_matrix, already_interacted, config.TOP_N)
+        model, dataset, item_features_matrix, user_features_matrix, already_interacted, getattr(config, "TOP_N", 10))
     save_results(engine, results)
 
 
