@@ -1244,7 +1244,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         Map<String, Object> item = new LinkedHashMap<>();
                         item.put("listing", listingMapper.toListingSummary(l, favIds.contains(l.getListingId()),
                                 viewCountByListingId.get(l.getListingId())));
-                        item.put("viewCount", viewCountByListingId.get(l.getListingId()));
                         return item;
                     })
                     .collect(Collectors.toList());
@@ -1273,8 +1272,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .body(ApiResponse.fail("Bad_Request", "Vui lòng gửi danh sách listingId cần so sánh"));
             }
 
-            // Loại trùng nhưng GIỮ NGUYÊN thứ tự đầu tiên xuất hiện — Investor gửi
-            // trùng 1 id 2 lần thì chỉ so sánh 1 lần, không lỗi cứng vì lý do nhỏ này.
             List<Integer> distinctIds = listingIds.stream().distinct().toList();
 
             if (distinctIds.size() < 2) {
@@ -1294,9 +1291,6 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .map(String::valueOf)
                     .toList();
 
-            // SỬA (fix bug thật — viewCount không đồng nhất): tính viewCount
-            // THẬT cho toàn bộ listing đang so sánh, 1 query duy nhất (tránh
-            // N+1 nếu gọi riêng từng listing).
             List<Integer> foundIds = distinctIds.stream().filter(listingById::containsKey).toList();
             Map<Integer, Long> compareViewCountByListingId = foundIds.isEmpty() ? Map.of()
                     : activeLogRepository.countGroupedByListingId(foundIds, UserEventTypeEnum.VIEW).stream()

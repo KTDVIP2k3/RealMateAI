@@ -74,8 +74,7 @@ public class RecommendationServiceImplement implements RecommendationService {
                         item.put("listingId", r.getListingId());
                         item.put("score", r.getScore());
                         item.put("rank", r.getRank());
-                        // Listing có thể đã bị ẩn/xoá sau khi batch job chạy —
-                        // trả null thay vì lỗi để không vỡ cả danh sách gợi ý.
+
                         item.put("listing", listing != null
                                 ? listingMapper.toListingSummary(listing, favIds.contains(listing.getListingId()),
                                 recViewCountByListingId.get(listing.getListingId()))
