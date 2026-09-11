@@ -68,18 +68,18 @@ def main():
 
     logger.info("3/4. Huấn luyện LightFM model...")
     model = LightFM(
-        loss=config.LIGHTFM_LOSS,
-        no_components=config.LIGHTFM_NO_COMPONENTS,
-        learning_rate=config.LIGHTFM_LEARNING_RATE,
-        random_state=config.LIGHTFM_RANDOM_STATE,
+        loss=getattr(config, "LIGHTFM_LOSS", "warp"),
+        no_components=getattr(config, "LIGHTFM_NO_COMPONENTS", 32),
+        learning_rate=getattr(config, "LIGHTFM_LEARNING_RATE", 0.05),
+        random_state=getattr(config, "LIGHTFM_RANDOM_STATE", 42),
     )
     model.fit(
         interactions=interactions_matrix,
         sample_weight=weights_matrix,
         user_features=user_features_matrix,
         item_features=item_features_matrix,
-        epochs=config.LIGHTFM_EPOCHS,
-        num_threads=config.LIGHTFM_NUM_THREADS,
+        epochs=getattr(config, "LIGHTFM_EPOCHS", 30),
+        num_threads=getattr(config, "LIGHTFM_NUM_THREADS", 1),
     )
 
     logger.info("4/4. Lưu model và artifacts...")
