@@ -2,9 +2,7 @@ package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.UserEventTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.FavoriteListingRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.InvestorRepository;
-import com.GSU26SE22_SU26SE002.RealMateAI.repositories.ListingRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.AddFavoriteRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.FavoriteListingResponse;
@@ -31,6 +29,7 @@ import java.util.stream.Collectors;
 public class FavoriteListingServiceImplement  implements FavoriteListingServiceInterface {
 
     private final FavoriteListingRepository favoriteListingRepository;
+    private final ActiveLogRepository activeLogRepository;
     private final ListingRepository listingRepository;
     private final InvestorRepository investorRepository;
     private final AuthenUntil authenUntil;
@@ -106,10 +105,20 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
                         .body(ApiResponse.fail("Forbidden", "Chỉ Investor mới có thể sử dụng danh sách yêu thích"));
             }
 
-            List<FavoriteListingResponse> favorites = favoriteListingRepository
-                    .findByInvestorIdWithDetails(investor.getInvestorId())
-                    .stream()
-                    .map(this::toFavoriteResponse)
+            List<FavoriteListing> favList = favoriteListingRepository
+                    .findByInvestorIdWithDetails(investor.getInvestorId());
+
+            // SỬA (fix bug thật — viewCount không đồng nhất): tính viewCount
+            // THẬT cho toàn bộ listing trong danh sách yêu thích, 1 query duy
+            // nhất (tránh N+1), khớp đúng cách GET /listings đang tính.
+            List<Integer> favListingIds = favList.stream()
+                    .map(fl -> fl.getListing().getListingId()).distinct().toList();
+            Map<Integer, Long> favViewCountByListingId = favListingIds.isEmpty() ? Map.of()
+                    : activeLogRepository.countGroupedByListingId(favListingIds, UserEventTypeEnum.VIEW).stream()
+                    .collect(Collectors.toMap(FeaturedListingProjection::getListingId, FeaturedListingProjection::getViewCount));
+
+            List<FavoriteListingResponse> favorites = favList.stream()
+                    .map(fl -> toFavoriteResponse(fl, favViewCountByListingId.get(fl.getListing().getListingId())))
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(ApiResponse.success(favorites, "Danh sách yêu thích"));
@@ -178,7 +187,7 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
     //  Mapper
     // ════════════════════════════════════════════════════
 
-    private FavoriteListingResponse toFavoriteResponse(FavoriteListing fl) {
+    private FavoriteListingResponse toFavoriteResponse(FavoriteListing fl, Long realViewCount) {
         Listing l = fl.getListing();
         Property p = l.getProperty();
 
@@ -208,9 +217,9 @@ public class FavoriteListingServiceImplement  implements FavoriteListingServiceI
                 .isActive(l.getIsActive())
                 .latitude(p != null && p.getLocation() != null ? p.getLocation().getLatitude() : null)
                 .longitude(p != null && p.getLocation() != null ? p.getLocation().getLongitude() : null)
-                .viewCount(l.getViewCount())
+                .viewCount(realViewCount != null ? realViewCount.intValue() : 0)
                 .createdAt(l.getCreatedAt())
-                .isFavorited(true) // hiển nhiên true — đây là danh sách yêu thích
+                .isFavorited(true)
                 .build();
 
         return FavoriteListingResponse.builder()
