@@ -96,17 +96,30 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 }
             }
 
-            // ── BƯỚC 2 — Tính DÒNG TIỀN THỰC TẾ (Java thuần, KHÔNG AI, KHÔNG
-            // cần giá thẩm định) cho từng property, đối chiếu với kế hoạch gốc. ──
-            List<String> skippedItems = new ArrayList<>();
-            List<PropertyFutureAnalysisDTO> analysisResults = new ArrayList<>();
+            // ── BƯỚC 2 (SỬA THỨ TỰ): resolve effLoanCapital/effLongTermYear
+            // TRƯỚC vòng lặp — cần dùng làm fallback tính monthlyPrincipalInterest
+            // khi property KHÔNG có baseline kế hoạch gốc (xem bên dưới). ──
+            Long effLoanCapital = request.getLoanCapital() != null ? request.getLoanCapital() : sourceVersion.getLoanCapital();
+            Integer effLongTermYear = request.getLongTermYear() != null ? request.getLongTermYear() : sourceVersion.getLongTermYear();
 
+            // Lọc trước danh sách property HỢP LỆ (có actualPurchasePrice > 0)
+            // để biết chính xác SỐ LƯỢNG property sẽ chia đều loanCapital khi
+            // cần fallback (không thể biết trước nếu vừa lọc vừa xử lý tuần tự).
+            List<GenerateFuturePlanRequest.SelectedPropertyItem> validItems = new ArrayList<>();
+            List<String> skippedItems = new ArrayList<>();
             for (GenerateFuturePlanRequest.SelectedPropertyItem item : request.getSelectedProperties()) {
                 if (item.getActualPurchasePrice() == null || item.getActualPurchasePrice() <= 0) {
                     skippedItems.add(describeItem(item) + ": thiếu actualPurchasePrice (hoặc <= 0), không phân tích được property này");
-                    continue;
+                } else {
+                    validItems.add(item);
                 }
+            }
 
+            // ── BƯỚC 2 — Tính DÒNG TIỀN THỰC TẾ (Java thuần, KHÔNG AI, KHÔNG
+            // cần giá thẩm định) cho từng property, đối chiếu với kế hoạch gốc. ──
+            List<PropertyFutureAnalysisDTO> analysisResults = new ArrayList<>();
+
+            for (GenerateFuturePlanRequest.SelectedPropertyItem item : validItems) {
                 ProposedProperty planned = item.getListingId() != null ? plannedByListingId.get(item.getListingId()) : null;
                 if (planned == null) {
                     skippedItems.add(describeItem(item) + ": không tìm thấy trong kết quả Investment Plan gốc (có thể propertySource=MANUAL) — vẫn phân tích nhưng KHÔNG có baseline kế hoạch để so sánh");
@@ -116,8 +129,31 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
                 long actualMonthlyRevenue = item.getMonthlyRevenue() != null ? item.getMonthlyRevenue() : 0L;
                 long actualMonthlyOperatingCost = item.getMonthlyOperatingCost() != null ? item.getMonthlyOperatingCost() : 0L;
-                long actualMonthlyNetCashflow = actualMonthlyRevenue - actualMonthlyOperatingCost;
                 int actualHoldingMonths = item.getHoldingMonths() != null && item.getHoldingMonths() > 0 ? item.getHoldingMonths() : 1;
+
+                // SỬA (fix bug thật — thiếu trừ nợ ngân hàng khiến so sánh lệch
+                // chuẩn): plannedNetCashflow (kế hoạch gốc) ĐÃ TRỪ monthlyPrincipalInterest
+                // từ trước — nếu actualMonthlyNetCashflow KHÔNG trừ khoản này,
+                // dòng tiền thực tế sẽ bị đội lên ảo, khiến monthlyCashflowDelta
+                // dương giả và AI đánh giá sai lệch hoàn toàn.
+                // Ưu tiên 1: có baseline → dùng ĐÚNG monthlyPrincipalInterest đã
+                // tính sẵn cho ĐÚNG property này lúc lập kế hoạch gốc (chính xác
+                // nhất, vì đó là khoản vay THẬT sự phân bổ riêng cho property đó).
+                // Ưu tiên 2: không có baseline (property MANUAL) → áp dụng công
+                // thức PMT chuẩn, P = loanCapital của kế hoạch chia ĐỀU cho số
+                // property hợp lệ trong request (ước tính hợp lý khi không có
+                // số liệu phân bổ riêng).
+                long actualMonthlyPrincipalInterest;
+                if (planned != null && planned.getMonthlyPrincipalInterest() != null) {
+                    actualMonthlyPrincipalInterest = planned.getMonthlyPrincipalInterest();
+                } else {
+                    long loanShare = effLoanCapital != null
+                            ? effLoanCapital / Math.max(validItems.size(), 1) : 0L;
+                    actualMonthlyPrincipalInterest = Math.round(
+                            calculateMonthlyPrincipalInterest(loanShare, effLongTermYear));
+                }
+
+                long actualMonthlyNetCashflow = actualMonthlyRevenue - actualMonthlyOperatingCost - actualMonthlyPrincipalInterest;
 
                 double actualAnnualYield = ((double) actualMonthlyNetCashflow * 12 / item.getActualPurchasePrice()) * 100.0;
 
@@ -135,6 +171,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .actualPurchasePrice(item.getActualPurchasePrice())
                         .actualMonthlyRevenue(actualMonthlyRevenue)
                         .actualMonthlyOperatingCost(actualMonthlyOperatingCost)
+                        .actualMonthlyPrincipalInterest(actualMonthlyPrincipalInterest)
                         .actualMonthlyNetCashflow(actualMonthlyNetCashflow)
                         .actualHoldingMonths(actualHoldingMonths)
                         .actualAnnualCashflowYieldPercentage(Math.round(actualAnnualYield * 100.0) / 100.0)
@@ -148,13 +185,13 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             }
 
             // ── BƯỚC 3 — Effective values (bối cảnh tài chính hiện tại) — ưu
-            // tiên input mới investor nhập, fallback sourceVersion nếu để trống. ──
+            // tiên input mới investor nhập, fallback sourceVersion nếu để trống.
+            // (effLoanCapital/effLongTermYear đã resolve sẵn ở BƯỚC 2 phía trên
+            // — dùng lại, không tính lại tránh trùng lặp code.) ──
             Long effEquity = request.getEquity() != null ? request.getEquity() : sourceVersion.getEquity();
-            Long effLoanCapital = request.getLoanCapital() != null ? request.getLoanCapital() : sourceVersion.getLoanCapital();
             Long effCurrentCashFlow = request.getCurrentCashFlow() != null ? request.getCurrentCashFlow() : sourceVersion.getCurrentCashflow();
             String effConscious = request.getConsciousName() != null ? request.getConsciousName() : sourceVersion.getConscious();
             List<String> effWardNames = request.getWardNames() != null ? request.getWardNames() : sourceVersion.getWards();
-            Integer effLongTermYear = request.getLongTermYear() != null ? request.getLongTermYear() : sourceVersion.getLongTermYear();
             Map<String, Object> effInvestmentStrategyDetail = request.getInvestmentStrategyDetail() != null
                     ? request.getInvestmentStrategyDetail() : sourceVersion.getInvestmentStrategyDetail();
 
@@ -400,6 +437,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             actual.put("purchasePrice", r.getActualPurchasePrice());
             actual.put("monthlyRevenue", r.getActualMonthlyRevenue());
             actual.put("monthlyOperatingCost", r.getActualMonthlyOperatingCost());
+            actual.put("monthlyPrincipalInterest", r.getActualMonthlyPrincipalInterest());
             actual.put("monthlyNetCashflow", r.getActualMonthlyNetCashflow());
             actual.put("holdingMonths", r.getActualHoldingMonths());
             actual.put("annualCashflowYieldPercentage", r.getActualAnnualCashflowYieldPercentage());
@@ -413,7 +451,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
         String prompt = "Bạn là chuyên gia phân tích tài chính bất động sản tại Việt Nam.\n\n"
                 + "Nhà đầu tư ĐÃ MUA các bất động sản dưới đây theo 1 kế hoạch đầu tư đã lập trước đó (planned = số liệu AI dự tính khi lập kế hoạch), "
-                + "và đã nhập thông tin sử dụng THỰC TẾ sau một thời gian nắm giữ (actual = số liệu thực tế, ĐÃ được tính sẵn, không cần tính lại).\n\n"
+                + "và đã nhập thông tin sử dụng THỰC TẾ sau một thời gian nắm giữ (actual = số liệu thực tế, ĐÃ được tính sẵn, không cần tính lại — actual.monthlyNetCashflow ĐÃ TRỪ SẴN khoản actual.monthlyPrincipalInterest, tức khoản gốc+lãi trả ngân hàng hàng tháng, khớp cùng cách tính với planned.netCashflow).\n\n"
                 + "Bối cảnh tài chính hiện tại của nhà đầu tư: " + currentContextJson + "\n\n"
                 + "Danh sách bất động sản (kế hoạch vs thực tế): " + propertiesJson + "\n\n"
                 + "YÊU CẦU:\n"
@@ -512,6 +550,22 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     // HELPERS
     // =====================================================================
 
+    // MỚI (fix bug thật — thiếu trừ nợ ngân hàng): công thức PMT (trả góp gốc +
+    // lãi đều hàng tháng) — ĐÚNG công thức lãi Big4 dùng chung trong Investment
+    // Plan gốc (r=0.07/12, n=longTermYear*12), viết lại RIÊNG trong Future Plan
+    // Service (không gọi lại InvestmentPlanServiceImplement — giữ 2 module tách
+    // biệt hoàn toàn theo đúng kiến trúc đã thống nhất trước đó) để dùng làm
+    // fallback khi property KHÔNG có baseline kế hoạch gốc để tra cứu.
+    private static double calculateMonthlyPrincipalInterest(long loanCapital, Integer longTermYear) {
+        if (loanCapital <= 0 || longTermYear == null || longTermYear <= 0) {
+            return 0.0;
+        }
+        double r = 0.07 / 12.0;
+        int n = longTermYear * 12;
+        double factor = Math.pow(1 + r, n);
+        return loanCapital * (r * factor) / (factor - 1);
+    }
+
     private static String describeItem(GenerateFuturePlanRequest.SelectedPropertyItem item) {
         if (item.getListingId() != null) return "listingId=" + item.getListingId();
         if (item.getManualPropertyId() != null) return "manualPropertyId=" + item.getManualPropertyId();
@@ -547,6 +601,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         m.put("actualPurchasePrice", r.getActualPurchasePrice());
         m.put("actualMonthlyRevenue", r.getActualMonthlyRevenue());
         m.put("actualMonthlyOperatingCost", r.getActualMonthlyOperatingCost());
+        m.put("actualMonthlyPrincipalInterest", r.getActualMonthlyPrincipalInterest());
         m.put("actualMonthlyNetCashflow", r.getActualMonthlyNetCashflow());
         m.put("actualHoldingMonths", r.getActualHoldingMonths());
         m.put("actualAnnualCashflowYieldPercentage", r.getActualAnnualCashflowYieldPercentage());
@@ -569,6 +624,7 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 .actualPurchasePrice(toLongOrNull(m.get("actualPurchasePrice")))
                 .actualMonthlyRevenue(toLongOrNull(m.get("actualMonthlyRevenue")))
                 .actualMonthlyOperatingCost(toLongOrNull(m.get("actualMonthlyOperatingCost")))
+                .actualMonthlyPrincipalInterest(toLongOrNull(m.get("actualMonthlyPrincipalInterest")))
                 .actualMonthlyNetCashflow(toLongOrNull(m.get("actualMonthlyNetCashflow")))
                 .actualHoldingMonths(toIntegerOrNull(m.get("actualHoldingMonths")))
                 .actualAnnualCashflowYieldPercentage(toDoubleOrNull(m.get("actualAnnualCashflowYieldPercentage")))

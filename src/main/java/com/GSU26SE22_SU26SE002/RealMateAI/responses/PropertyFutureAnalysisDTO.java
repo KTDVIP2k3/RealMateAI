@@ -24,6 +24,9 @@ public class PropertyFutureAnalysisDTO {
     private Long actualPurchasePrice;
     private Long actualMonthlyRevenue;
     private Long actualMonthlyOperatingCost;
+
+    private Long actualMonthlyPrincipalInterest;
+
     private Long actualMonthlyNetCashflow;
     private Integer actualHoldingMonths;
 
