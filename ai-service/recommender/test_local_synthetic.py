@@ -97,38 +97,34 @@ def run_user_features_tests():
         "investment_method": [None, None],
     })
     profile_df = pd.DataFrame({
-        "account_id": [1, 1, 2],  # user 1 co 2 profile (2 dong)
-        "risk_tolerance_level": ["Medium", "High", "Low"],
-        "ward": ["WardA", "WardB", "WardC"],
+        "account_id": [1, 1, 2],
+        "wards": ["[\"WardA\"]", "[\"WardB\"]", "[\"WardC\"]"],
         "strategy_name": ["DONG_TIEN", "LUOT_SONG", None],
     })
 
     tags = build_user_feature_tags(survey_df, profile_df)
 
-    assert 1 in tags and 2 in tags, "Ca 2 user phai co tag"
+    assert 1 in tags and 2 in tags, "Cả 2 user phải có tag"
     assert "investment_experience:Beginner" in tags[1]
     assert "investment_goal:CashFlow" in tags[1]
-    # user 1 co 2 profile -> phai gom CA 2 risk_tolerance_level (khong ghi de)
-    assert "risk_tolerance_level:Medium" in tags[1]
-    assert "risk_tolerance_level:High" in tags[1]
+    assert "strategy_name:DONG_TIEN" in tags[1]
+    assert "strategy_name:LUOT_SONG" in tags[1]
     print(f"  user 1 tags: {tags[1]}")
 
-    # user 2: investment_experience=None -> KHONG duoc co tag nay
     assert not any(t.startswith("investment_experience:") for t in tags[2])
-    # user 2: strategy_name=None (do LEFT JOIN strategy khong khop) -> khong co tag strategy
     assert not any(t.startswith("strategy_name:") for t in tags[2])
     print(f"  user 2 tags: {tags[2]}")
-    print("OK — gop dung, bo qua None/NaN, khong ghi de khi co nhieu profile.\n")
+    print("OK — gộp đúng, bỏ qua None/NaN, không ghi đè khi có nhiều profile.\n")
 
-    print("=== TEST 7: User hoan toan chua khao sat/chua co ho so -> khong loi, tra dict rong ===")
+    print("=== TEST 7: User hoàn toàn chưa khảo sát/chưa có hồ sơ -> không lỗi, trả dict rỗng ===")
     empty_survey = pd.DataFrame(columns=survey_df.columns)
     empty_profile = pd.DataFrame(columns=profile_df.columns)
     empty_tags = build_user_feature_tags(empty_survey, empty_profile)
     assert empty_tags == {}
-    print("OK — DataFrame rong tra ve dict rong, khong crash.\n")
+    print("OK — DataFrame rỗng trả về dict rỗng, không crash.\n")
 
     print("=" * 60)
-    print("TAT CA TEST USER FEATURES PASS.")
+    print("TẤT CẢ TEST USER FEATURES PASS.")
     print("=" * 60)
 
 
@@ -136,8 +132,5 @@ if __name__ == "__main__":
     run()
     run_user_features_tests()
     print("\n" + "=" * 60)
-    print("TOAN BO 7 TEST PASS. Logic dung, san sang train voi DB that.")
-    print("Buoc tiep theo:")
-    print("  1. python -m recommender.train")
-    print("  2. python -m recommender.generate_recommendations")
+    print("TOÀN BỘ TEST PASS.")
     print("=" * 60)

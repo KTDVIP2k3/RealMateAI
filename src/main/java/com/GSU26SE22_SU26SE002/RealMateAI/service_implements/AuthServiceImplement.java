@@ -327,7 +327,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
             if (!account.getIsActive()) {
                 emailServiceVerificationImplement.sendVerificationEmail(account);
                 httpSession.setAttribute("accountId", account.getAccountId());
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.fail("Forbidden", "Account not activated. OTP sent to email."));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.fail("Forbidden", "Account not activated."));
             }
 
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword()));
