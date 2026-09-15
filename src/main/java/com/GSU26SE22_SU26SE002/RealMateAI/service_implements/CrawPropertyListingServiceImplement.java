@@ -71,7 +71,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         this.currentDailyCrawledCount = Math.max(this.currentDailyCrawledCount, actualTodayInDb);
 
         if (this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS) {
-            System.out.println("[SCHEDULE] 🛑 Đã cào đủ quota hôm nay (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ 00:00 ngày mai!");
+            System.out.println("[SCHEDULE]  Đã cào đủ quota hôm nay (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ 00:00 ngày mai!");
             return;
         }
 
@@ -185,7 +185,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                         page.mouse().move(150, 200);
                         page.mouse().move(350, 450);
                     } catch (TimeoutError te) {
-                        System.out.println("⚠️ [TIMEOUT] Trang " + pageNum + " phản hồi quá lâu (>45s). Đánh dấu dừng cào!");
+                        System.out.println(" [TIMEOUT] Trang " + pageNum + " phản hồi quá lâu (>45s). Đánh dấu dừng cào!");
                         reachedEndOfSource = true;
                         break;
                     }
@@ -194,14 +194,14 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     String currentUrl = page.url();
                     if (pageNum > 1 && !currentUrl.contains("/p" + pageNum)) {
-                        System.out.println(" 🛑 [HẾT TRANG] Website tự chuyển hướng về trang gốc. Đã quét đến cuối nguồn!");
+                        System.out.println(" [HẾT TRANG] Website tự chuyển hướng về trang gốc. Đã quét đến cuối nguồn!");
                         reachedEndOfSource = true;
                         break;
                     }
 
                     String pageTitle = page.title();
                     if (pageTitle.contains("Just a moment") || pageTitle.contains("Attention Required") || pageTitle.contains("Access Denied") || pageTitle.contains("Thực hiện xác minh bảo mật")) {
-                        System.out.println(" ⚠️ [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại: " + targetUrl);
+                        System.out.println(" [CLOUDFLARE BLOCK] IP hoặc trình duyệt bị Cloudflare chặn tại: " + targetUrl);
                         break;
                     }
 
@@ -209,7 +209,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     Elements propertyCards = doc.select(".re__card-full, .js__card");
 
                     if (propertyCards.isEmpty()) {
-                        System.out.println(" 🛑 [HẾT TRANG] Trang " + pageNum + " không tìm thấy card bất động sản nào. Đã hết nguồn!");
+                        System.out.println(" [HẾT TRANG] Trang " + pageNum + " không tìm thấy card bất động sản nào. Đã hết nguồn!");
                         reachedEndOfSource = true;
                         break;
                     }
@@ -219,7 +219,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     for (Element card : propertyCards) {
                         if ((this.currentDailyCrawledCount + totalCrawledInBatch + freshCandidates.size()) >= DAILY_TARGET_LISTINGS) {
-                            System.out.println(" 🎯 [QUOTA ALERT] Đã đủ danh sách tin cần cào! Ngừng gom tin thêm.");
+                            System.out.println(" [QUOTA ALERT] Đã đủ danh sách tin cần cào! Ngừng gom tin thêm.");
                             break;
                         }
 
@@ -241,7 +241,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     List<CrawPropertyListing> pageResultList = new ArrayList<>();
                     for (CrawPropertyListing candidate : freshCandidates) {
                         if ((this.currentDailyCrawledCount + totalCrawledInBatch) >= DAILY_TARGET_LISTINGS) {
-                            System.out.println(" 🎯 [STOP CRAWL DETAILED] Đã đạt chính xác " + DAILY_TARGET_LISTINGS + " tin!");
+                            System.out.println(" [STOP CRAWL DETAILED] Đã đạt chính xác " + DAILY_TARGET_LISTINGS + " tin!");
                             break;
                         }
 
@@ -271,7 +271,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             } catch (Exception ignored) {}
 
                             if (isWater) {
-                                System.out.println(String.format("   👉 🚫 [WATER REJECT] Phát hiện tọa độ [%s, %s] nằm ngoài sông/biển/rạch. CHẶN LƯU TIN!",
+                                System.out.println(String.format("   [WATER REJECT] Phát hiện tọa độ [%s, %s] nằm ngoài sông/biển/rạch. CHẶN LƯU TIN!",
                                         fullListing.getLatitude(), fullListing.getLongitude()));
                                 System.out.flush();
                             } else {
@@ -288,7 +288,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     }
 
                     if ((this.currentDailyCrawledCount + totalCrawledInBatch) >= DAILY_TARGET_LISTINGS) {
-                        System.out.println("\n🎯 [TARGET REACHED] Đã cào đủ quota " + DAILY_TARGET_LISTINGS + " tin hôm nay!");
+                        System.out.println("\n [TARGET REACHED] Đã cào đủ quota " + DAILY_TARGET_LISTINGS + " tin hôm nay!");
                         break;
                     }
 
@@ -331,17 +331,17 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
         boolean isQuotaReached = this.currentDailyCrawledCount >= DAILY_TARGET_LISTINGS;
 
         if (isQuotaReached || reachedEndOfSource) {
-            System.out.println("\n🔥 [TRIGGER SNAPSHOT] Chốt sổ dữ liệu cào trong ngày (" + this.currentDailyCrawledCount + " tin).");
+            System.out.println("\n [TRIGGER SNAPSHOT] Chốt sổ dữ liệu cào trong ngày (" + this.currentDailyCrawledCount + " tin).");
             System.out.println("[HEATMAP] Tiến hành lọc mẫu theo ngưỡng (>= N tin) và Tạo Snapshot Heatmap...");
             System.out.flush();
             try {
                 heatmapZoneService.generateDailySnapshot();
-                System.out.println("[HEATMAP] ✅ Đã hoàn tất tạo Snapshot Heatmap cho ngày hôm nay!");
+                System.out.println("[HEATMAP]  Đã hoàn tất tạo Snapshot Heatmap cho ngày hôm nay!");
             } catch (Exception heatmapEx) {
-                System.out.println("[HEATMAP ERROR] ❌ Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
+                System.out.println("[HEATMAP ERROR]  Lỗi khi tạo Snapshot: " + heatmapEx.getMessage());
             }
         } else {
-            System.out.println("[HEATMAP] ℹ️ Đang cào dở dang (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ đợt cào tiếp theo để chốt Snapshot.");
+            System.out.println("[HEATMAP] Đang cào dở dang (" + this.currentDailyCrawledCount + "/" + DAILY_TARGET_LISTINGS + " tin). Chờ đợt cào tiếp theo để chốt Snapshot.");
         }
         System.out.flush();
     }
@@ -820,7 +820,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                     entityManager.clear();
                 } catch (Exception ignored) {}
 
-                // 🔄 CƠ CHẾ THỬ LẠI (RETRY LOGIC) TẠI ĐÂY
+
                 int maxRetries = 3;
                 int retryCount = 0;
                 boolean success = false;
@@ -856,10 +856,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             } catch (Exception ignored) {}
 
                             if (retryCount >= maxRetries) {
-                                System.out.println(" ❌ [RETRY FAILED] Bị chặn quá 3 lần liên tiếp. Tạm thời bỏ qua tin này để đi tiếp.");
+                                System.out.println("  [RETRY FAILED] Bị chặn quá 3 lần liên tiếp. Tạm thời bỏ qua tin này để đi tiếp.");
                                 currentPosition++;
                             }
-                            continue; // Thử lại đúng tin này
+                            continue;
                         }
 
                         BigDecimal webArea = null;
@@ -884,7 +884,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                                 boolean hasDetailContainer = detailDoc.selectFirst(".re__pr-specs-content, .re__ldp-container, #product-detail-page, .re__main-content") != null;
 
                                 if ((hasSearchBar || hasProductList) && !hasDetailContainer) {
-                                    System.out.println(" ❌ [INVALID PAGE] Trang danh sách bộ lọc. Tiến hành XÓA TIN!");
+                                    System.out.println(" [INVALID PAGE] Trang danh sách bộ lọc. Tiến hành XÓA TIN!");
                                     isInvalidPage = true;
                                 }
 
@@ -926,7 +926,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                                     if (areaBlock != null) {
                                         String rawAreaText = areaBlock.text().split("\n")[0].trim();
                                         if (rawAreaText.length() > 50) {
-                                            System.out.println(" ❌ [INVALID PAGE] Chuỗi diện tích lỗi. Tiến hành XÓA TIN!");
+                                            System.out.println("  [INVALID PAGE] Chuỗi diện tích lỗi. Tiến hành XÓA TIN!");
                                             isInvalidPage = true;
                                         } else {
                                             if (rawAreaText.contains("m²")) {
@@ -945,7 +945,7 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                                 System.out.println("   💾 [DATABASE] --> Đã xóa hoàn toàn khỏi DB.");
                                 totalElements--;
                             } catch (Exception dbEx) {
-                                System.out.println(" ❌ [DB DELETE ERROR] " + dbEx.getMessage());
+                                System.out.println("  [DB DELETE ERROR] " + dbEx.getMessage());
                                 currentPosition++;
                             }
                         } else if (updated != null) {
@@ -958,27 +958,27 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             boolean isLngValid = currentLng != null && currentLng != 0.0 && currentLng != 0 && String.valueOf(currentLng).length() > 5;
 
                             if (isLatValid && isLngValid && newLat != null && newLng != null && Double.compare(currentLat, newLat) == 0 && Double.compare(currentLng, newLng) == 0) {
-                                System.out.println(String.format("   👉  TỌA ĐỘ ĐÚNG! Giữ nguyên: [%s, %s]", currentLat, currentLng));
+                                System.out.println(String.format("     TỌA ĐỘ ĐÚNG! Giữ nguyên: [%s, %s]", currentLat, currentLng));
                             } else if (newLat != null && newLng != null && newLat != 0.0) {
-                                System.out.println(String.format("   👉 📍 Tọa độ SAI hoặc THIẾU! Cập nhật từ [%s, %s] ➔ [%s, %s]", currentLat, currentLng, newLat, newLng));
+                                System.out.println(String.format("    Tọa độ SAI hoặc THIẾU! Cập nhật từ [%s, %s] ➔ [%s, %s]", currentLat, currentLng, newLat, newLng));
                                 listing.setLatitude(newLat);
                                 listing.setLongitude(newLng);
                                 hasChanges = true;
                             } else {
-                                System.out.println(String.format("   👉 ⚠️ Không lấy được tọa độ mới trên Web, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
+                                System.out.println(String.format("    Không lấy được tọa độ mới trên Web, giữ nguyên DB: [%s, %s]", currentLat, currentLng));
                             }
 
                             if (webArea != null && webArea.compareTo(BigDecimal.ZERO) > 0) {
                                 if (dbArea == null || dbArea.compareTo(webArea) != 0) {
-                                    System.out.println(String.format("   👉 ❌ DIỆN TÍCH SAI! [Diện tích cũ: %s m²] ➔ [Sửa thành: %s m²]",
+                                    System.out.println(String.format("    DIỆN TÍCH SAI! [Diện tích cũ: %s m²] ➔ [Sửa thành: %s m²]",
                                             (dbArea != null ? dbArea : "Trống"), webArea));
                                     listing.setArea(webArea);
                                     hasChanges = true;
                                 } else {
-                                    System.out.println(String.format("   👉  DIỆN TÍCH ĐÚNG! Giữ nguyên: %s m²", dbArea));
+                                    System.out.println(String.format("   DIỆN TÍCH ĐÚNG! Giữ nguyên: %s m²", dbArea));
                                 }
                             } else {
-                                System.out.println(String.format("   👉 ⚠️ Không tìm thấy diện tích trên Web, giữ nguyên DB: %s m²", (dbArea != null ? dbArea : "Trống")));
+                                System.out.println(String.format("    Không tìm thấy diện tích trên Web, giữ nguyên DB: %s m²", (dbArea != null ? dbArea : "Trống")));
                             }
 
                             System.out.flush();
@@ -986,10 +986,10 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
                             if (hasChanges) {
                                 try {
                                     saveOneInNewTransaction(listing);
-                                    System.out.println("   💾 [DATABASE] --> Đã cập nhật thành công.");
+                                    System.out.println("    [DATABASE] --> Đã cập nhật thành công.");
                                     updatedCount++;
                                 } catch (Exception dbEx) {
-                                    System.out.println(" ❌ [DB SAVE ERROR] " + dbEx.getMessage());
+                                    System.out.println("  [DB SAVE ERROR] " + dbEx.getMessage());
                                 }
                             }
                             currentPosition++;
@@ -1002,12 +1002,12 @@ public class CrawPropertyListingServiceImplement implements CrawPropertyListingS
 
                     } catch (Exception singleListingEx) {
                         retryCount++;
-                        System.out.println(String.format(" ❌ [PAGE ERROR] Lỗi tải trang (Lần %d/%d): %s", retryCount, maxRetries, singleListingEx.getMessage()));
+                        System.out.println(String.format("  [PAGE ERROR] Lỗi tải trang (Lần %d/%d): %s", retryCount, maxRetries, singleListingEx.getMessage()));
                         if (retryCount < maxRetries) {
                             System.out.println(" ⏳ Tạm dừng 10s rồi CÀO LẠI đúng tin này...");
                             try { Thread.sleep(10000); } catch (InterruptedException ignored) {}
                         } else {
-                            System.out.println(" ❌ [GIVE UP] Đã thử 3 lần bất thành. Bỏ qua tin này!");
+                            System.out.println("  [GIVE UP] Đã thử 3 lần bất thành. Bỏ qua tin này!");
                             currentPosition++;
                         }
                     }
