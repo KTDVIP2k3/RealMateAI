@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.responses;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.requests.InvestmentPortfolioRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
