@@ -83,9 +83,9 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> register(RegisterRequest registerRequest, HttpSession session) {
         try {
-            if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Information cannot be empty"));
-            }
+//            if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty()) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Information cannot be empty"));
+//            }
 
             if (registerRequest.getPhone().isEmpty() || registerRequest.getEmail().isEmpty() || registerRequest.getUserName().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Thông tin không được để trống"));
