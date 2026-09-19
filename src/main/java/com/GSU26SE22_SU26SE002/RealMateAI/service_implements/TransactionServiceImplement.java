@@ -304,17 +304,22 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
 
     private BigDecimal countTotalSpent(Account account) {
         List<Transaction> transactionList = account.getTransactions();
-
         BigDecimal totalSpent = BigDecimal.ZERO;
+
+        if (transactionList == null) return totalSpent;
 
         if (account.getRole() == RoleEnum.Seller) {
             for (Transaction transaction : transactionList) {
                 if (transaction.getTotalAmount() != null) {
-                    if (TransactionTypeEnum.WALLET_WITHDRAWAL.equals(transaction.getTransactionType())
-                            || TransactionTypeEnum.POSTING_PACKAGE_PAYMENT.equals(transaction.getTransactionType())
-                            || TransactionTypeEnum.POSTING_PACKAGE_RENEWAL.equals(transaction.getTransactionType())) {
+                    if (transaction.getTransactionStatus() != null
+                            && "success".equals(transaction.getTransactionStatus().toLowerCase())) {
 
-                        totalSpent = totalSpent.add(transaction.getTotalAmount());
+                        if (TransactionTypeEnum.WALLET_WITHDRAWAL.equals(transaction.getTransactionType())
+                                || TransactionTypeEnum.POSTING_PACKAGE_PAYMENT.equals(transaction.getTransactionType())
+                                || TransactionTypeEnum.POSTING_PACKAGE_RENEWAL.equals(transaction.getTransactionType())) {
+
+                            totalSpent = totalSpent.add(transaction.getTotalAmount());
+                        }
                     }
                 }
             }
@@ -323,11 +328,15 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
         if (account.getRole() == RoleEnum.Investor) {
             for (Transaction transaction : transactionList) {
                 if (transaction.getTotalAmount() != null) {
-                    if (TransactionTypeEnum.WALLET_WITHDRAWAL.equals(transaction.getTransactionType())
-                            || TransactionTypeEnum.MEMBERSHIP_PAYMENT.equals(transaction.getTransactionType())
-                            || TransactionTypeEnum.MEMBERSHIP_RENEWAL.equals(transaction.getTransactionType())) {
+                    if (transaction.getTransactionStatus() != null
+                            && "success".equals(transaction.getTransactionStatus().toLowerCase())) {
 
-                        totalSpent = totalSpent.add(transaction.getTotalAmount());
+                        if (TransactionTypeEnum.WALLET_WITHDRAWAL.equals(transaction.getTransactionType())
+                                || TransactionTypeEnum.MEMBERSHIP_PAYMENT.equals(transaction.getTransactionType())
+                                || TransactionTypeEnum.MEMBERSHIP_RENEWAL.equals(transaction.getTransactionType())) {
+
+                            totalSpent = totalSpent.add(transaction.getTotalAmount());
+                        }
                     }
                 }
             }
@@ -336,14 +345,20 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
         return totalSpent;
     }
 
-    private BigDecimal countTotalDeposit(Account account){
+    private BigDecimal countTotalDeposit(Account account) {
         List<Transaction> transactionList = account.getTransactions();
-
         BigDecimal totalDeposit = BigDecimal.ZERO;
 
-        for(Transaction transaction : transactionList){
-            if(transaction.getTransactionType().equals(TransactionTypeEnum.WALLET_DEPOSIT)){
-                totalDeposit = totalDeposit.add(transaction.getTotalAmount());
+        if (transactionList == null) return totalDeposit;
+
+        for (Transaction transaction : transactionList) {
+            if (transaction.getTotalAmount() != null) {
+                if (TransactionTypeEnum.WALLET_DEPOSIT.equals(transaction.getTransactionType())
+                        && transaction.getTransactionStatus() != null
+                        && "success".equals(transaction.getTransactionStatus().toLowerCase())) {
+
+                    totalDeposit = totalDeposit.add(transaction.getTotalAmount());
+                }
             }
         }
 
