@@ -50,9 +50,9 @@ public class ListingDetailResponse {
     private List<ListingImageResponse> images;
 
     // Thông tin Seller cơ bản
-    private Integer sellerId;
-    private String sellerName;
-    private String sellerPhone;
+//    private Integer sellerId;
+//    private String sellerName;
+//    private String sellerPhone;
 
     private Integer viewCount;
 
