@@ -187,7 +187,7 @@ public class ListingController {
     @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS (ảnh mới — nếu có — upload trước qua POST /media/upload/multiple)")
     public ResponseEntity<ApiResponse> updateListing(
             @PathVariable("listingId") Integer listingId,
-            @RequestBody UpdateListingRequest request) {
+            @jakarta.validation.Valid @RequestBody UpdateListingRequest request) {
         return listingService.updateListing(listingId, request);
     }
     // ─────────────────────────────────────────────────────────────────────────

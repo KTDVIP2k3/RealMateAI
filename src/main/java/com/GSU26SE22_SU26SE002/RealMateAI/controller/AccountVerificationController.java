@@ -66,7 +66,7 @@ public class AccountVerificationController {
     @PreAuthorize("hasAnyRole('Seller')")
     @Operation(summary = "Seller tạo mới yêu cầu xác thực tài khoản (Hỗ trợ tải lên hình ảnh dạng file)")
     public ResponseEntity<ApiResponse> createAccountVerification(
-            @ModelAttribute AccountVerificationRequest request) {
+            @jakarta.validation.Valid @ModelAttribute AccountVerificationRequest request) {
         return accountVerificationServiceInterface.createAccountVerification(request);
     }
 

@@ -44,7 +44,7 @@ public class PostingPackageController {
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Admin: Tạo MỚI một gói dịch vụ đăng tin",
             description = "Tiến hành kiểm tra trùng tên gói (không phân biệt hoa thường, khoảng trắng). Mặc định gói tạo mới sẽ có trạng thái isActive = true.")
-    public ResponseEntity<ApiResponse> createPostingPackage(@RequestBody PostingPackageRequest postingPackageRequest) {
+    public ResponseEntity<ApiResponse> createPostingPackage(@jakarta.validation.Valid @RequestBody PostingPackageRequest postingPackageRequest) {
         return postingPackageServiceInterface.createPostingPackage(postingPackageRequest);
     }
 
@@ -52,7 +52,7 @@ public class PostingPackageController {
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Admin: CẬP NHẬT thông tin gói dịch vụ đăng tin",
             description = "Cập nhật các thông tin như tên, mô tả, giá dựa trên ID. Đồng thời ghi nhận thời gian chỉnh sửa (updatedAt).")
-    public ResponseEntity<ApiResponse> updatePostingPackage(@PathVariable("postingPackageId") Integer postingPackageId, @RequestBody PostingPackageRequest postingPackageRequest) {
+    public ResponseEntity<ApiResponse> updatePostingPackage(@PathVariable("postingPackageId") Integer postingPackageId, @jakarta.validation.Valid @RequestBody PostingPackageRequest postingPackageRequest) {
         return postingPackageServiceInterface.updatePostingPackage(postingPackageId, postingPackageRequest);
     }
 

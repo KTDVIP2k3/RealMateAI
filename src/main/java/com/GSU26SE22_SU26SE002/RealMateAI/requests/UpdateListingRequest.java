@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
@@ -16,12 +18,14 @@ import java.util.List;
 public class UpdateListingRequest {
 
     // ── Listing ───────────────────────────────────────────
+    @NotBlank(message = "Tiêu đề bài đăng không được để trống")
     @Schema(example = "Căn hộ 2PN view sông - Quận 7 (đã giảm giá)")
     private String title;
 
     @Schema(example = "Nội thất đầy đủ, tầng 15, view sông Sài Gòn thoáng mát")
     private String description;
 
+    @Min(value = 0, message = "Giá bán/cho thuê không được là số âm")
     @Schema(example = "3300000000")
     private Long price;
 
