@@ -94,7 +94,7 @@ class FavoriteListingServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = favoriteService.addFavorite(req);
 
-            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(HttpStatus.CREATED, response.getStatusCode());
         }
 
         @Test

@@ -25,4 +25,6 @@ public class MediaUploadRequest {
      * Nếu null → service tự build: realmateai/{entityType}/{entityId}
      */
     private String folder;
+
+    private String age;
 }
