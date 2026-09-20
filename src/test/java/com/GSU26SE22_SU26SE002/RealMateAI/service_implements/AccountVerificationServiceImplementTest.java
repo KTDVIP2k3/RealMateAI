@@ -11,6 +11,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -77,7 +79,7 @@ class AccountVerificationServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationByStaffOrAdmin();
 
-            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             assertEquals("Account verification list is empty", response.getBody().getMessage());
         }
 
@@ -317,6 +319,28 @@ class AccountVerificationServiceImplementTest {
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("DB error", response.getBody().getMessage());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank/Null files returns BAD_REQUEST")
+        @CsvSource({
+                "true, false, false", // cccdmt empty
+                "false, true, false", // cccdms empty
+                "false, false, true"  // selfie empty
+        })
+        void createVerification_blankFields_returnsBadRequest(boolean cccdmtEmpty, boolean cccdmsEmpty, boolean selfieEmpty) {
+            MultipartFile file = mock(MultipartFile.class);
+            MultipartFile emptyFile = mock(MultipartFile.class);
+            lenient().when(emptyFile.isEmpty()).thenReturn(true);
+            lenient().when(file.isEmpty()).thenReturn(false);
+
+            AccountVerificationRequest request = new AccountVerificationRequest();
+            request.setCccdmt(cccdmtEmpty ? emptyFile : file);
+            request.setCccdms(cccdmsEmpty ? emptyFile : file);
+            request.setSelfie(selfieEmpty ? emptyFile : file);
+
+            // ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(request);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

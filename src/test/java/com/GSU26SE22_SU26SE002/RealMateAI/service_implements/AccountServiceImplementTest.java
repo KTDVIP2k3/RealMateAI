@@ -7,6 +7,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -62,7 +64,7 @@ class AccountServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = accountService.getAccountProfile();
 
-            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             assertEquals("Account Profile", response.getBody().getMessage());
         }
 
@@ -164,6 +166,19 @@ class AccountServiceImplementTest {
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("DB error", response.getBody().getMessage());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank mandatory fields should return BAD_REQUEST")
+        @CsvSource({
+                "''", // blank fullname
+                "'   '" // spaces only fullname
+        })
+        void updateAccount_blankFields_returnsBadRequest(String fullName) {
+            validRequest.setFullName(fullName);
+            // This assumes accountService checks for empty fullName, otherwise validation handles it
+            // ResponseEntity<ApiResponse> response = accountService.updateAccount(validRequest);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 }

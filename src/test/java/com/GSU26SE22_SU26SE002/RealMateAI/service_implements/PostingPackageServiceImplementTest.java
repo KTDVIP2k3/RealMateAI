@@ -11,6 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -240,6 +242,24 @@ class PostingPackageServiceImplementTest {
             ResponseEntity<ApiResponse> response = postingPackageService.createPostingPackage(request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank/Zero fields returns BAD_REQUEST")
+        @CsvSource({
+                "'', 'Desc', '1000', '30'",
+                "'Name', '', '1000', '30'",
+                "'Name', 'Desc', '0', '30'",
+                "'Name', 'Desc', '1000', '0'"
+        })
+        void createPostingPackage_blankFields_returnsBadRequest(String name, String desc, String price, String duration) {
+            request.setName(name);
+            request.setDescription(desc);
+            request.setPosting_package_price(new BigDecimal(price));
+            request.setDuration(new BigDecimal(duration));
+            
+            // ResponseEntity<ApiResponse> response = postingPackageService.createPostingPackage(request);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

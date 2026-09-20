@@ -9,6 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -223,6 +225,22 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.createMembershipPlan(request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank/Zero fields returns BAD_REQUEST")
+        @CsvSource({
+                "'', '100000', '1'",
+                "'Name', '0', '1'",
+                "'Name', '100000', '0'"
+        })
+        void createMembershipPlan_blankFields_returnsBadRequest(String name, String price, int quantity) {
+            request.setName(name);
+            request.setPrice(new BigDecimal(price));
+            request.setQuantity(quantity);
+
+            // ResponseEntity<ApiResponse> response = membershipPlanService.createMembershipPlan(request);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

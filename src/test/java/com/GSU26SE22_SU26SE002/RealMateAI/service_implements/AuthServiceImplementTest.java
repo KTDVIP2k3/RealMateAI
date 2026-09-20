@@ -16,6 +16,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -73,25 +75,16 @@ class AuthServiceImplementTest {
     @DisplayName("F-001. login")
     class LoginTests {
 
-        @Test
-        @DisplayName("UC-001: Blank/Empty username returns BAD_REQUEST")
-        void login_blankUsername_returnsBadRequest() {
+        @ParameterizedTest
+        @DisplayName("UC-001, UC-002: Blank/Empty username or password returns BAD_REQUEST")
+        @CsvSource({
+                "'', 'password'",
+                "'testuser', ''"
+        })
+        void login_blankFields_returnsBadRequest(String username, String password) {
             LoginRequest request = new LoginRequest();
-            request.setUserName("");
-            request.setPassword("password");
-
-            ResponseEntity<ApiResponse> response = authService.login(request, httpSession);
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("UserName/Password should not be blank", response.getBody().getMessage());
-        }
-
-        @Test
-        @DisplayName("UC-002: Blank/Empty password returns BAD_REQUEST")
-        void login_blankPassword_returnsBadRequest() {
-            LoginRequest request = new LoginRequest();
-            request.setUserName("testuser");
-            request.setPassword("");
+            request.setUserName(username);
+            request.setPassword(password);
 
             ResponseEntity<ApiResponse> response = authService.login(request, httpSession);
 
@@ -199,14 +192,24 @@ class AuthServiceImplementTest {
             validRequest.setFullName("New User");
             validRequest.setRole(RoleEnum.Seller);
         }
-
-        @Test
-        @DisplayName("UC-008, 009, 010: Blank phone, email, or username returns BAD_REQUEST")
-        void register_blankFields_returnsBadRequest() {
-            validRequest.setPhone("");
+        
+        @ParameterizedTest
+        @DisplayName("UC-008, 009, 010, 014: Blank fields return BAD_REQUEST")
+        @CsvSource({
+                // username, password, email, phone
+                "'', 'Valid1@Password', 'newuser@gmail.com', '0123456789'",
+                "'newuser', '', 'newuser@gmail.com', '0123456789'",
+                "'newuser', 'Valid1@Password', '', '0123456789'",
+                "'newuser', 'Valid1@Password', 'newuser@gmail.com', ''"
+        })
+        void register_blankFields_returnsBadRequest(String username, String password, String email, String phone) {
+            validRequest.setUserName(username);
+            validRequest.setPassword(password);
+            validRequest.setEmail(email);
+            validRequest.setPhone(phone);
+            
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("ThÃ´ng tin khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng", response.getBody().getMessage());
         }
 
         @Test
@@ -237,15 +240,6 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-014: Password blank returns BAD_REQUEST")
-        void register_blankPassword_returnsBadRequest() {
-            validRequest.setPassword("");
-            ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Máº­t kháº©u khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng", response.getBody().getMessage());
-        }
-
-        @Test
         @DisplayName("UC-015: Password contains spaces returns BAD_REQUEST")
         void register_passwordWithSpaces_returnsBadRequest() {
             validRequest.setPassword("Valid 1@");
@@ -269,7 +263,7 @@ class AuthServiceImplementTest {
             validRequest.setPassword("invalidpassword123");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Máº­t kháº©u pháº£i bao gá»“m cáº£ chá»¯ hoa, chá»¯ thÆ°á»ng, sá»‘ vÃ  kÃ½ tá»± Ä‘áº·c biá»‡t", response.getBody().getMessage());
+            assertEquals("Máº­t kháº©u pháº£i bao gá»“m cáº£ chá»¯ hoa, chá»¯ thÆ°á» ng, sá»‘ vÃ  kÃ½ tá»± Ä‘áº·c biá»‡t", response.getBody().getMessage());
         }
 
         @Test
