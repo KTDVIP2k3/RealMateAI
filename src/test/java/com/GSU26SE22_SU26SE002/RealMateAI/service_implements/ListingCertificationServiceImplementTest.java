@@ -69,6 +69,44 @@ class ListingCertificationServiceImplementTest {
     @DisplayName("submitCertificationRequest")
     class SubmitCertificationRequestTests {
         @Test
+        @DisplayName("Tạo yêu cầu tích xanh thành công với giấy tờ hợp lệ")
+        void submit_validRequest_returnsCreated() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sellerAccount);
+            when(listingRepository.findByIdAndSellerId(100, 10))
+                    .thenReturn(Optional.of(listing));
+
+            when(certificationRequestRepository
+                    .existsByListing_ListingIdAndStatus(
+                            100, CertificationStatusEnum.PENDING))
+                    .thenReturn(false);
+
+            when(certificationRequestRepository
+                    .save(any(ListingCertificationRequest.class)))
+                    .thenAnswer(invocation -> {
+                        ListingCertificationRequest saved = invocation.getArgument(0);
+                        saved.setCertificationRequestId(1);
+                        return saved;
+                    });
+
+            SubmitCertificationRequest req = new SubmitCertificationRequest();
+            req.setDocuments(List.of(
+                    new MockMultipartFile(
+                            "documents",
+                            "certificate.jpg",
+                            "image/jpeg",
+                            new byte[]{1}
+                    )
+            ));
+
+            ResponseEntity<ApiResponse> response =
+                    certificationService.submitCertificationRequest(100, req);
+
+            assertEquals(HttpStatus.CREATED, response.getStatusCode());
+            verify(certificationRequestRepository)
+                    .save(any(ListingCertificationRequest.class));
+        }
+
+        @Test
         @DisplayName("Trả 409 khi bài đăng đã được tích xanh trước đó")
         void submit_alreadyVerified_returnsConflict() {
             listing.setIsVerified(true);
@@ -144,12 +182,55 @@ class ListingCertificationServiceImplementTest {
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         }
+        @Test
+        @DisplayName("Trả 200 khi yêu cầu tồn tại và thuộc Seller hiện tại")
+        void getDetail_existingOwnedRequest_returns200() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sellerAccount);
+
+            ListingCertificationRequest existing =
+                    ListingCertificationRequest.builder()
+                            .certificationRequestId(1)
+                            .seller(seller)
+                            .listing(listing)
+                            .status(CertificationStatusEnum.PENDING)
+                            .build();
+
+            when(certificationRequestRepository
+                    .findByIdAndSellerIdWithDetails(1, 10))
+                    .thenReturn(Optional.of(existing));
+
+            ResponseEntity<ApiResponse> response =
+                    certificationService.getMyCertificationRequestDetail(1);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+        }
     }
 
     // ── 65/66. View Listing Certification Requests / Pending (Staff) ─────────
     @Nested
     @DisplayName("65/66. getPendingCertificationQueue")
     class GetPendingCertificationQueueTests {
+        @Test
+        @DisplayName("Trả 200 khi có yêu cầu tích xanh đang PENDING")
+        void getPendingQueue_withRequests_returns200() {
+            ListingCertificationRequest pendingRequest =
+                    ListingCertificationRequest.builder()
+                            .certificationRequestId(1)
+                            .listing(listing)
+                            .seller(seller)
+                            .status(CertificationStatusEnum.PENDING)
+                            .build();
+
+            when(certificationRequestRepository
+                    .findByStatusWithDetails(CertificationStatusEnum.PENDING))
+                    .thenReturn(List.of(pendingRequest));
+
+            ResponseEntity<ApiResponse> response =
+                    certificationService.getPendingCertificationQueue();
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+        }
+
         @Test
         @DisplayName("Staff xem hàng đợi các yêu cầu PENDING")
         void getPendingQueue_returnsList() {
@@ -166,6 +247,26 @@ class ListingCertificationServiceImplementTest {
     @Nested
     @DisplayName("67/68. getCertificationRequestDetail")
     class GetCertificationRequestDetailTests {
+        @Test
+        @DisplayName("Trả 200 khi yêu cầu tích xanh tồn tại")
+        void getDetail_existingRequest_returns200() {
+            ListingCertificationRequest existing =
+                    ListingCertificationRequest.builder()
+                            .certificationRequestId(1)
+                            .listing(listing)
+                            .seller(seller)
+                            .status(CertificationStatusEnum.PENDING)
+                            .build();
+
+            when(certificationRequestRepository.findByIdWithDetails(1))
+                    .thenReturn(Optional.of(existing));
+
+            ResponseEntity<ApiResponse> response =
+                    certificationService.getCertificationRequestDetail(1);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+        }
+
         @Test
         @DisplayName("Trả 404 khi yêu cầu không tồn tại")
         void getDetail_notFound_returns404() {
