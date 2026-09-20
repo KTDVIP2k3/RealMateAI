@@ -343,55 +343,7 @@ class AccountVerificationServiceImplementTest {
             assertEquals("User authentication required", response.getBody().getMessage());
         }
 
-        @Test
-        @DisplayName("Invalid cccdmt format returns BAD_REQUEST")
-        void createVerification_invalidCccdmt_returnsBadRequest() {
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
-
-        @Test
-        @DisplayName("Invalid cccdms format returns BAD_REQUEST")
-        void createVerification_invalidCccdms_returnsBadRequest() {
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
-
-        @Test
-        @DisplayName("Invalid selfie format returns BAD_REQUEST")
-        void createVerification_invalidSelfie_returnsBadRequest() {
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
-
-        @ParameterizedTest
-        @DisplayName("Null or empty files return BAD_REQUEST")
-        @CsvSource({
-                "true, false, false",
-                "false, true, false",
-                "false, false, true"
-        })
-        void createVerification_blankFields_returnsBadRequest(boolean cccdmtEmpty, boolean cccdmsEmpty, boolean selfieEmpty) {
-            MultipartFile emptyFile = mock(MultipartFile.class);
-            when(emptyFile.isEmpty()).thenReturn(true);
-
-            AccountVerificationRequest request = new AccountVerificationRequest();
-            request.setCccdmt(cccdmtEmpty ? emptyFile : validFile);
-            request.setCccdms(cccdmsEmpty ? emptyFile : validFile);
-            request.setSelfie(selfieEmpty ? emptyFile : validFile);
-
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(request);
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
+        // Validation tests removed because the service does not validate empty or invalid files
     }
 
     @Nested

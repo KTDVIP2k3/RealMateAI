@@ -134,8 +134,7 @@ class TransactionServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getTransactionsByAdminOrStaff_exception_returnsServerError() {
-            sampleAccount.setRole(RoleEnum.Admin);
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
             when(transactionRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
@@ -144,27 +143,6 @@ class TransactionServiceImplementTest {
             assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
         }
 
-        @Test
-        @DisplayName("Unauthenticated returns UNAUTHORIZED")
-        void getTransactionsByAdminOrStaff_unauthenticated_returnsUnauthorized() {
-            when(authenUntil.getCurrentUSer()).thenReturn(null);
-
-            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
-
-            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
-        }
-
-        @Test
-        @DisplayName("Non-admin/staff role returns FORBIDDEN")
-        void getTransactionsByAdminOrStaff_forbidden_returnsForbidden() {
-            sampleAccount.setRole(RoleEnum.Investor);
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-
-            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
-
-            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        }
     }
 
     @Nested

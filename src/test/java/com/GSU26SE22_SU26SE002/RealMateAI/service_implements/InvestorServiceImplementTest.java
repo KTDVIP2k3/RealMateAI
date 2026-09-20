@@ -236,6 +236,9 @@ class InvestorServiceImplementTest {
                 "'', ''"
         })
         void updateInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
+            sampleAccount.setInvestor(sampleInvestor);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            
             request.setInvestmentStyle(style);
             request.setReturnExpectation(expectation);
 
