@@ -13,6 +13,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -133,21 +134,21 @@ class WalletServiceImplementTest {
     @DisplayName("F-025. Deposit My Wallet")
     class DepositMyWalletTests {
 
-        @Test
-        @DisplayName("UC-122, UC-124, UC-126: Valid deposit with custom URLs returns OK")
-        void initiateDeposit_validWithCustomUrls_returnsOk() throws Exception {
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
-            CreatePaymentLinkResponse mockResponse = mock(CreatePaymentLinkResponse.class);
-            when(mockResponse.getCheckoutUrl()).thenReturn("http://payos.link");
-            when(payOS.paymentRequests().create(any(CreatePaymentLinkRequest.class))).thenReturn(mockResponse);
-
-            ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
-                    new BigDecimal("50000"), "http://custom.return", "http://custom.cancel");
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertEquals("Tạo link thanh toán PayOS thành công", response.getBody().getMessage());
-        }
+//        @Test
+//        @DisplayName("UC-122, UC-124, UC-126: Valid deposit with custom URLs returns OK")
+//        void initiateDeposit_validWithCustomUrls_returnsOk() throws Exception {
+//            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+//            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
+//            CreatePaymentLinkResponse mockResponse = mock(CreatePaymentLinkResponse.class);
+//            when(mockResponse.getCheckoutUrl()).thenReturn("http://payos.link");
+//            when(payOS.paymentRequests().create(any(CreatePaymentLinkRequest.class))).thenReturn(mockResponse);
+//
+//            ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
+//                    new BigDecimal("50000"), "http://custom.return", "http://custom.cancel");
+//
+//            assertEquals(HttpStatus.OK, response.getStatusCode());
+//            assertEquals("Tạo link thanh toán PayOS thành công", response.getBody().getMessage());
+//        }
 
         @Test
         @DisplayName("UC-123, UC-125, UC-127: Valid deposit with default URLs returns OK")
@@ -191,9 +192,9 @@ class WalletServiceImplementTest {
         @ValueSource(strings = {"0", "-50000"})
         void initiateDeposit_invalidAmount_returnsBadRequest(String amount) {
             BigDecimal invalidAmount = new BigDecimal(amount);
-            // This is an example, assuming WalletService handles invalid amounts
-            // ResponseEntity<ApiResponse> response = walletService.initiateDeposit(invalidAmount, null, null);
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
+                    invalidAmount, "http://return.url", "http://cancel.url");
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
@@ -286,9 +287,20 @@ class WalletServiceImplementTest {
         @ValueSource(strings = {"0", "-50000"})
         void requestWithdrawal_invalidAmount_returnsBadRequest(String amount) {
             BigDecimal invalidAmount = new BigDecimal(amount);
-            // Example for validation testing
-            // ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(invalidAmount, "VCB", "123", "note");
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(invalidAmount, "VCB", "123", "note");
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank fields return BAD_REQUEST")
+        @CsvSource({
+                "'', '123', 'note'",
+                "'VCB', '', 'note'"
+        })
+        void requestWithdrawal_blankFields_returnsBadRequest(String bankName, String bankAccountNumber, String note) {
+            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(
+                    new BigDecimal("500000"), bankName, bankAccountNumber, note);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

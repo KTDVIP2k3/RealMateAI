@@ -140,7 +140,7 @@ class InvestorServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Account does not exist returns NOT_FOUND")
+        @DisplayName("Non-existent account returns NOT_FOUND")
         void createInvestorSurvey_noAccount_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -173,10 +173,11 @@ class InvestorServiceImplementTest {
         }
 
         @ParameterizedTest
-        @DisplayName("Blank/Null fields returns BAD_REQUEST")
+        @DisplayName("fields trống/null trả về BAD_REQUEST")
         @CsvSource({
                 "'', 'High'",
-                "'Conservative', ''"
+                "'Conservative', ''",
+                "'', ''" // Empty fields
         })
         void createInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
             request.setInvestmentStyle(style);

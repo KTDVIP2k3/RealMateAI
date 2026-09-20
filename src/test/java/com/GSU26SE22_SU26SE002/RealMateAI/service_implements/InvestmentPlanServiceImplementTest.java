@@ -478,7 +478,8 @@ class InvestmentPlanServiceImplementTest {
                 "'-50000', '100000', '5', 'Name'",
                 "'100000', '-100000', '5', 'Name'",
                 "'100000', '100000', '-5', 'Name'",
-                "'100000', '100000', '5', ''"
+                "'100000', '100000', '5', ''",
+                "'0', '0', '0', ''" // Empty/Zero fields
         })
         void createPlan_invalidFields_returnsBadRequest(String equity, String loanCapital, String longTermYear, String consciousName) {
             planRequest.setEquity(Long.parseLong(equity));
@@ -608,6 +609,24 @@ class InvestmentPlanServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
 
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Missing Validation: Blank fields returns BAD_REQUEST")
+        @CsvSource({
+                "'0', '0', '0', ''" // Empty/Zero fields
+        })
+        void createVersion_invalidFields_returnsBadRequest(String equity, String loanCapital, String longTermYear, String consciousName) {
+            updateRequest.setEquity(Long.parseLong(equity));
+            updateRequest.setLoanCapital(Long.parseLong(loanCapital));
+            updateRequest.setLongTermYear(Integer.parseInt(longTermYear));
+            updateRequest.setConsciousName(consciousName);
+
+            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }

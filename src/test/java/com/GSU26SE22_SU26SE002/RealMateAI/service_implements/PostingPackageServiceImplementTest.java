@@ -250,7 +250,9 @@ class PostingPackageServiceImplementTest {
                 "'', 'Desc', '1000', '30'",
                 "'Name', '', '1000', '30'",
                 "'Name', 'Desc', '0', '30'",
-                "'Name', 'Desc', '1000', '0'"
+                "'Name', 'Desc', '1000', '0'",
+                "'', '', '0', '0'", // Empty fields
+                "'Name', 'Desc', '-1000', '-5'" // Negative numbers
         })
         void createPostingPackage_blankFields_returnsBadRequest(String name, String desc, String price, String duration) {
             request.setName(name);
@@ -293,11 +295,26 @@ class PostingPackageServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void updatePostingPackage_exception_returnsServerError() {
-            when(postingPackageRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            when(postingPackageRepository.findById(1)).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(1, request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank or negative fields return BAD_REQUEST")
+        @CsvSource({
+                "'', '', '0', '0'", // Empty fields
+                "'Name', 'Desc', '-1000', '-5'" // Negative numbers
+        })
+        void updatePostingPackage_blankFields_returnsBadRequest(String name, String desc, String price, String duration) {
+            request.setName(name);
+            request.setDescription(desc);
+            request.setPosting_package_price(new BigDecimal(price));
+            request.setDuration(new BigDecimal(duration));
+            ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(1, request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

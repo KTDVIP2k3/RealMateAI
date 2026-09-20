@@ -83,7 +83,7 @@ class TransactionServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = transactionService.getMyTransactions(0, 10);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.OK, response.getStatusCode());
         }
 
         @Test

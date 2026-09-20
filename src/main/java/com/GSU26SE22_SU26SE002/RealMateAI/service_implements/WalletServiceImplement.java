@@ -62,6 +62,11 @@ public class WalletServiceImplement implements WalletServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> initiateDeposit(BigDecimal amount, String customReturnUrl, String customCancelUrl) {
         try {
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("BAD_REQUEST", "Số tiền phải lớn hơn 0"));
+            }
+
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -261,6 +266,13 @@ public class WalletServiceImplement implements WalletServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> requestWithdrawal(BigDecimal amount, String bankName, String bankAccountNumber, String note) {
         try {
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0 ||
+                bankName == null || bankName.trim().isEmpty() ||
+                bankAccountNumber == null || bankAccountNumber.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("BAD_REQUEST", "Dữ liệu không hợp lệ"));
+            }
+
             Account currentAccount = authenUntil.getCurrentUSer();
             if (currentAccount == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
