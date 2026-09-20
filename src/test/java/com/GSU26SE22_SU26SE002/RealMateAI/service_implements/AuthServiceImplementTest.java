@@ -72,11 +72,11 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-001. login")
+    @DisplayName("login")
     class LoginTests {
 
         @ParameterizedTest
-        @DisplayName("UC-001, UC-002: Blank/Empty username or password returns BAD_REQUEST")
+        @DisplayName("Blank/Empty username or password returns BAD_REQUEST")
         @CsvSource({
                 "'', 'password'",
                 "'testuser', ''"
@@ -93,7 +93,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-003: Banned Account / Not Active returns FORBIDDEN")
+        @DisplayName("Banned Account / Not Active returns FORBIDDEN")
         void login_inactiveAccount_returnsForbidden() throws Exception {
             LoginRequest request = new LoginRequest();
             request.setUserName("testuser");
@@ -112,7 +112,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-004: Server Error / Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Server Error / Exception returns INTERNAL_SERVER_ERROR")
         void login_exceptionThrown_returnsInternalServerError() {
             LoginRequest request = new LoginRequest();
             request.setUserName("testuser");
@@ -127,7 +127,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-005: Incorrect password returns BAD_REQUEST")
+        @DisplayName("Incorrect password returns BAD_REQUEST")
         void login_incorrectPassword_returnsBadRequest() {
             LoginRequest request = new LoginRequest();
             request.setUserName("testuser");
@@ -144,7 +144,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-006: Non-existent username returns NOT_FOUND")
+        @DisplayName("Non-existent username returns NOT_FOUND")
         void login_nonExistentUsername_returnsNotFound() {
             LoginRequest request = new LoginRequest();
             request.setUserName("unknownuser");
@@ -159,7 +159,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-007: Correct username and password returns OK")
+        @DisplayName("Correct username and password returns OK")
         void login_success_returnsOk() {
             LoginRequest request = new LoginRequest();
             request.setUserName("testuser");
@@ -177,7 +177,7 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-002. register")
+    @DisplayName("register")
     class RegisterTests {
 
         private RegisterRequest validRequest;
@@ -194,7 +194,7 @@ class AuthServiceImplementTest {
         }
         
         @ParameterizedTest
-        @DisplayName("UC-008, 009, 010, 014: Blank fields return BAD_REQUEST")
+        @DisplayName("Blank fields return BAD_REQUEST")
         @CsvSource({
                 // username, password, email, phone
                 "'', 'Valid1@Password', 'newuser@gmail.com', '0123456789'",
@@ -213,7 +213,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-011: Username contains spaces returns BAD_REQUEST")
+        @DisplayName("Username contains spaces returns BAD_REQUEST")
         void register_usernameWithSpaces_returnsBadRequest() {
             validRequest.setUserName("new user");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
@@ -222,7 +222,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-012: Username contains special chars returns BAD_REQUEST")
+        @DisplayName("Username contains special chars returns BAD_REQUEST")
         void register_usernameSpecialChars_returnsBadRequest() {
             validRequest.setUserName("newuser@!");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
@@ -231,7 +231,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-013: Username length < 3 or > 20 returns BAD_REQUEST")
+        @DisplayName("Username length < 3 or > 20 returns BAD_REQUEST")
         void register_usernameInvalidLength_returnsBadRequest() {
             validRequest.setUserName("ab");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
@@ -240,7 +240,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-015: Password contains spaces returns BAD_REQUEST")
+        @DisplayName("Password contains spaces returns BAD_REQUEST")
         void register_passwordWithSpaces_returnsBadRequest() {
             validRequest.setPassword("Valid 1@");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
@@ -249,7 +249,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-016: Password length < 8 or > 32 returns BAD_REQUEST")
+        @DisplayName("Password length < 8 or > 32 returns BAD_REQUEST")
         void register_passwordInvalidLength_returnsBadRequest() {
             validRequest.setPassword("Val1@");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
@@ -258,7 +258,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-017: Password invalid format returns BAD_REQUEST")
+        @DisplayName("Password invalid format returns BAD_REQUEST")
         void register_passwordInvalidFormat_returnsBadRequest() {
             validRequest.setPassword("invalidpassword123");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
@@ -267,7 +267,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-018: Existed email with same role returns BAD_REQUEST")
+        @DisplayName("Existed email with same role returns BAD_REQUEST")
         void register_existedEmailSameRole_returnsBadRequest() {
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
             validRequest.setEmail("test@gmail.com"); // sampleAccount's email
@@ -279,7 +279,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-019: Existed username returns BAD_REQUEST")
+        @DisplayName("Existed username returns BAD_REQUEST")
         void register_existedUsername_returnsBadRequest() {
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
             validRequest.setEmail("different@gmail.com");
@@ -291,7 +291,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-022: register hợp lệ trả về OK")
+        @DisplayName("register hợp lệ trả về OK")
         void register_valid_returnsOk() throws Exception {
             when(accountRepository.findAll()).thenReturn(List.of());
             when(accountRepository.saveAndFlush(any(Account.class))).thenAnswer(i -> {
@@ -309,7 +309,7 @@ class AuthServiceImplementTest {
         }
         
         @Test
-        @DisplayName("UC-020: MessagingException returns INTERNAL_SERVER_ERROR")
+        @DisplayName("MessagingException returns INTERNAL_SERVER_ERROR")
         void register_messagingException_returnsServerError() throws Exception {
             when(accountRepository.findAll()).thenReturn(List.of());
             when(accountRepository.saveAndFlush(any(Account.class))).thenReturn(new Account());
@@ -322,7 +322,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-021: Generic Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Generic Exception returns INTERNAL_SERVER_ERROR")
         void register_genericException_returnsServerError() {
             when(accountRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
@@ -334,7 +334,7 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-003. verify-otp")
+    @DisplayName("verify-otp")
     class VerifyOtpTests {
 
         private OtpRequest request;
@@ -353,7 +353,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-023: Valid OTP returns OK")
+        @DisplayName("Valid OTP returns OK")
         void verifyOtp_valid_returnsOk() {
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
 
@@ -366,7 +366,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-024: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void verifyOtp_exception_returnsServerError() {
             when(accountRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
@@ -377,7 +377,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-025: Non-existent email returns BAD_REQUEST")
+        @DisplayName("Non-existent email returns BAD_REQUEST")
         void verifyOtp_nonExistentEmail_returnsBadRequest() {
             when(accountRepository.findAll()).thenReturn(List.of());
 
@@ -388,7 +388,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-026: OTP not found in DB returns BAD_REQUEST")
+        @DisplayName("OTP not found in DB returns BAD_REQUEST")
         void verifyOtp_otpNotFound_returnsBadRequest() {
             sampleAccount.setOtp(null);
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
@@ -400,7 +400,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-027: Expired OTP returns BAD_REQUEST")
+        @DisplayName("Expired OTP returns BAD_REQUEST")
         void verifyOtp_expiredOtp_returnsBadRequest() {
             otp.setExpiredAt(LocalDateTime.now().minusMinutes(5));
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
@@ -412,7 +412,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-028: Incorrect OTP returns BAD_REQUEST")
+        @DisplayName("Incorrect OTP returns BAD_REQUEST")
         void verifyOtp_incorrectOtp_returnsBadRequest() {
             request.setOtp("654321");
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
@@ -438,11 +438,11 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-004. send-otp")
+    @DisplayName("send-otp")
     class SendOtpTests {
 
         @Test
-        @DisplayName("UC-030: Valid email returns OK")
+        @DisplayName("Valid email returns OK")
         void sendOtp_valid_returnsOk() throws Exception {
             SendOtpRequest request = new SendOtpRequest();
             request.setEmail("test@gmail.com");
@@ -456,7 +456,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-033: Non-existent email returns NOT_FOUND")
+        @DisplayName("Non-existent email returns NOT_FOUND")
         void sendOtp_nonExistentEmail_returnsNotFound() {
             SendOtpRequest request = new SendOtpRequest();
             request.setEmail("unknown@gmail.com");
@@ -469,7 +469,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-031, UC-032: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void sendOtp_exception_returnsServerError() {
             SendOtpRequest request = new SendOtpRequest();
             request.setEmail("test@gmail.com");
@@ -482,7 +482,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-034: MessagingException returns INTERNAL_SERVER_ERROR")
+        @DisplayName("MessagingException returns INTERNAL_SERVER_ERROR")
         void sendOtp_messagingException_returnsServerError() throws Exception {
             SendOtpRequest request = new SendOtpRequest();
             request.setEmail("test@gmail.com");
@@ -510,11 +510,11 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-005. forgot-password")
+    @DisplayName("forgot-password")
     class ForgotPasswordTests {
 
         @Test
-        @DisplayName("UC-034: Existed email returns OK")
+        @DisplayName("Existed email returns OK")
         void forgotPassword_valid_returnsOk() throws Exception {
             ForgotPasswordRequest request = new ForgotPasswordRequest();
             request.setEmail("test@gmail.com");
@@ -529,7 +529,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-036: Non-existent email returns NOT_FOUND")
+        @DisplayName("Non-existent email returns NOT_FOUND")
         void forgotPassword_nonExistentEmail_returnsNotFound() {
             ForgotPasswordRequest request = new ForgotPasswordRequest();
             request.setEmail("unknown@gmail.com");
@@ -542,7 +542,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-035: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void forgotPassword_exception_returnsServerError() {
             ForgotPasswordRequest request = new ForgotPasswordRequest();
             request.setEmail("test@gmail.com");
@@ -569,11 +569,11 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-006. create new-password")
+    @DisplayName("create new-password")
     class CreateNewPasswordTests {
 
         @Test
-        @DisplayName("UC-037: Valid new password returns OK")
+        @DisplayName("Valid new password returns OK")
         void newPassword_valid_returnsOk() {
             NewPasswordRequest request = new NewPasswordRequest();
             request.setEmail("test@gmail.com");
@@ -588,7 +588,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-039: Non-existent email returns NOT_FOUND")
+        @DisplayName("Non-existent email returns NOT_FOUND")
         void newPassword_nonExistentEmail_returnsNotFound() {
             NewPasswordRequest request = new NewPasswordRequest();
             request.setEmail("unknown@gmail.com");
@@ -602,7 +602,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-038: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void newPassword_exception_returnsServerError() {
             NewPasswordRequest request = new NewPasswordRequest();
             request.setEmail("test@gmail.com");
@@ -631,11 +631,11 @@ class AuthServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-007. reset-password")
+    @DisplayName("reset-password")
     class ResetPasswordTests {
 
         @Test
-        @DisplayName("UC-040: Correct Old Password returns OK")
+        @DisplayName("Correct Old Password returns OK")
         void resetPassword_valid_returnsOk() {
             ResetPasswordRequest request = new ResetPasswordRequest();
             request.setOldPassword("password");
@@ -652,7 +652,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-042: Incorrect Old Password returns BAD_REQUEST")
+        @DisplayName("Incorrect Old Password returns BAD_REQUEST")
         void resetPassword_incorrectOldPassword_returnsBadRequest() {
             ResetPasswordRequest request = new ResetPasswordRequest();
             request.setOldPassword("wrongpassword");
@@ -668,7 +668,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-041: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void resetPassword_exception_returnsServerError() {
             ResetPasswordRequest request = new ResetPasswordRequest();
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));

@@ -67,11 +67,11 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-037. View Active Membership Plans")
+    @DisplayName("View Active Membership Plans")
     class ViewActiveMembershipPlansTests {
 
         @Test
-        @DisplayName("UC-175: Returns active and non-deleted plans OK")
+        @DisplayName("Returns active and non-deleted plans OK")
         void getMembershipPlanListIsActive_valid_returnsOk() {
             when(membershipPlanRepository.findAll()).thenReturn(Arrays.asList(activePlan, inactivePlan, deletedPlan));
 
@@ -82,7 +82,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-176: Empty list returns OK")
+        @DisplayName("Empty list returns OK")
         void getMembershipPlanListIsActive_empty_returnsOk() {
             when(membershipPlanRepository.findAll()).thenReturn(Collections.emptyList());
 
@@ -93,7 +93,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-177: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMembershipPlanListIsActive_exception_returnsServerError() {
             when(membershipPlanRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
@@ -104,11 +104,11 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-038. View Membership Plan Details")
+    @DisplayName("View Membership Plan Details")
     class ViewMembershipPlanDetailsTests {
 
         @Test
-        @DisplayName("UC-179: Existed ID returns OK")
+        @DisplayName("Existed ID returns OK")
         void getMembershipPlanDetail_existedId_returnsOk() {
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(activePlan));
 
@@ -119,7 +119,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-178: Non-existent ID returns NOT_FOUND")
+        @DisplayName("Non-existent ID returns NOT_FOUND")
         void getMembershipPlanDetail_nonExistentId_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
 
@@ -130,7 +130,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-180: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMembershipPlanDetail_exception_returnsServerError() {
             when(membershipPlanRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
@@ -141,11 +141,11 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-039. View Membership Plans (Admin)")
+    @DisplayName("View Membership Plans (Admin)")
     class ViewMembershipPlansAdminTests {
 
         @Test
-        @DisplayName("UC-181: Returns all non-deleted plans OK")
+        @DisplayName("Returns all non-deleted plans OK")
         void getMembershipPlanListByAdmin_valid_returnsOk() {
             when(membershipPlanRepository.findAll()).thenReturn(Arrays.asList(activePlan, inactivePlan, deletedPlan));
 
@@ -156,7 +156,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-182: Empty list returns OK")
+        @DisplayName("Empty list returns OK")
         void getMembershipPlanListByAdmin_empty_returnsOk() {
             when(membershipPlanRepository.findAll()).thenReturn(Collections.singletonList(deletedPlan));
 
@@ -167,7 +167,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-184: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMembershipPlanListByAdmin_exception_returnsServerError() {
             when(membershipPlanRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
@@ -178,7 +178,7 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-040. Create Membership Plan")
+    @DisplayName("Create Membership Plan")
     class CreateMembershipPlanTests {
 
         private MembershipPlanRequest request;
@@ -205,7 +205,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-185: Existed name returns BAD_REQUEST")
+        @DisplayName("Existed name returns BAD_REQUEST")
         void createMembershipPlan_existedName_returnsBadRequest() {
             request.setName("Basic Plan");
             when(membershipPlanRepository.findAll()).thenReturn(Collections.singletonList(activePlan));
@@ -246,7 +246,7 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-041. Update Membership Plan")
+    @DisplayName("Update Membership Plan")
     class UpdateMembershipPlanTests {
 
         private MembershipPlanRequest request;
@@ -273,7 +273,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-191: Non-existent ID returns NOT_FOUND")
+        @DisplayName("Non-existent ID returns NOT_FOUND")
         void updateMembershipPlan_nonExistentId_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
 
@@ -308,11 +308,11 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-042. Delete Membership Plan")
+    @DisplayName("Delete Membership Plan")
     class DeleteMembershipPlanTests {
 
         @Test
-        @DisplayName("UC-199: Valid request returns OK")
+        @DisplayName("Valid request returns OK")
         void deleteMembershipPlan_valid_returnsOk() {
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(activePlan));
 
@@ -323,7 +323,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-198: Non-existent ID returns NOT_FOUND")
+        @DisplayName("Non-existent ID returns NOT_FOUND")
         void deleteMembershipPlan_nonExistentId_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
 
@@ -334,7 +334,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-202: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void deleteMembershipPlan_exception_returnsServerError() {
             when(membershipPlanRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
@@ -345,7 +345,7 @@ class MembershipPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-043. Toggle Membership Plan Status")
+    @DisplayName("Toggle Membership Plan Status")
     class ToggleMembershipPlanStatusTests {
 
         @Test
@@ -360,7 +360,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-205: Non-existent ID returns NOT_FOUND")
+        @DisplayName("Non-existent ID returns NOT_FOUND")
         void toggleActiveMembershipPlan_nonExistentId_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
 
@@ -370,7 +370,7 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-208: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void toggleActiveMembershipPlan_exception_returnsServerError() {
             when(membershipPlanRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 

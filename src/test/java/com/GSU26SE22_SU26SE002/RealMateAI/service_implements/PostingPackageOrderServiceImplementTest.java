@@ -56,7 +56,7 @@ class PostingPackageOrderServiceImplementTest {
 
     // ── 89. View My Posting Package Orders ────────────────────────────────
     @Nested
-    @DisplayName("89. getPostingPackageOrders")
+    @DisplayName("getPostingPackageOrders")
     class GetPostingPackageOrdersTests {
         @Test
         @DisplayName("Trả 404 khi chưa đăng nhập")
@@ -95,7 +95,7 @@ class PostingPackageOrderServiceImplementTest {
 
     // ── 90. Purchase Posting Package ──────────────────────────────────────
     @Nested
-    @DisplayName("90. payPostingPackage")
+    @DisplayName("payPostingPackage")
     class PayPostingPackageTests {
         @Test
         @DisplayName("Trả 400 khi postingPackageId không tồn tại")
@@ -127,7 +127,7 @@ class PostingPackageOrderServiceImplementTest {
 
     // ── 91. Retry Posting Package Payment ─────────────────────────────────
     @Nested
-    @DisplayName("91. retryPayPostingPackage")
+    @DisplayName("retryPayPostingPackage")
     class RetryPayPostingPackageTests {
         @Test
         @DisplayName("Trả lỗi khi order không tồn tại")
@@ -142,7 +142,7 @@ class PostingPackageOrderServiceImplementTest {
 
     // ── 92. Renew Posting Package ─────────────────────────────────────────
     @Nested
-    @DisplayName("92. renewPostingPackage")
+    @DisplayName("renewPostingPackage")
     class RenewPostingPackageTests {
         @Test
         @DisplayName("Trả lỗi khi order không tồn tại")

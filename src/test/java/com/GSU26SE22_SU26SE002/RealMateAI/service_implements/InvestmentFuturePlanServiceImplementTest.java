@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("InvestmentFuturePlanServiceImplement ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Future Investment Plan")
+@DisplayName("InvestmentFuturePlanServiceImplement — Future Investment Plan")
 class InvestmentFuturePlanServiceImplementTest {
 
     @Mock private AuthenUntil authenUntil;
@@ -62,14 +62,12 @@ class InvestmentFuturePlanServiceImplementTest {
                 .investmentCriterias(Collections.emptyList())
                 .build();
     }
-
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ 113. Create Future Investment Plan ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     @Nested
-    @DisplayName("113. generateAndSaveFuturePlan")
+    @DisplayName("generateAndSaveFuturePlan")
     class GenerateAndSaveFuturePlanTests {
 
         @Test
-        @DisplayName("TrÃƒÂ¡Ã‚ÂºÃ‚Â£ 404 khi sourceVersionId khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i")
+        @DisplayName("Trả 404 khi sourceVersionId không tồn tại")
         void generate_sourceVersionNotFound_returns404() {
             when(investmentProfileVersionRepository.findById(999)).thenReturn(Optional.empty());
             GenerateFuturePlanRequest req = new GenerateFuturePlanRequest();
@@ -81,7 +79,7 @@ class InvestmentFuturePlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("TrÃƒÂ¡Ã‚ÂºÃ‚Â£ 400 khi khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ bÃƒÂ¡Ã‚ÂºÃ‚Â¥t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢ng sÃƒÂ¡Ã‚ÂºÃ‚Â£n nÃƒÆ’Ã‚Â o trong danh sÃƒÆ’Ã‚Â¡ch feedback")
+        @DisplayName("Trả 400 khi không có bất động sản nào trong danh sách feedback")
         void generate_noSelectedProperties_returnsBadRequest() {
             when(investmentProfileVersionRepository.findById(6)).thenReturn(Optional.of(sourceVersion));
             when(authenUntil.getCurrentUSer()).thenReturn(investorAccount);
@@ -95,7 +93,83 @@ class InvestmentFuturePlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("TÃƒÂ¡Ã‚ÂºÃ‚Â¡o thÃƒÆ’Ã‚Â nh cÃƒÆ’Ã‚Â´ng, tÃƒÂ¡Ã‚Â»Ã‚Â± chuyÃƒÂ¡Ã‚Â»Ã†â€™n sang fallback rule-based khi AI lÃƒÂ¡Ã‚Â»Ã¢â‚¬â€i")
+        @DisplayName("Trả 400 không có body khi parameter dạng chuỗi bị blank")
+        void generate_blankStringParameter_returns400WithoutBody() {
+            String[] fields = {"planName", "consciousName", "propertySource", "usagePurpose"};
+
+            for (String field : fields) {
+                GenerateFuturePlanRequest req = validGenerateRequest();
+                switch (field) {
+                    case "planName" -> req.setPlanName("   ");
+                    case "consciousName" -> req.setConsciousName("   ");
+                    case "propertySource" -> req.getSelectedProperties().get(0).setPropertySource("   ");
+                    case "usagePurpose" -> req.getSelectedProperties().get(0).setUsagePurpose("   ");
+                }
+
+                ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), field);
+                assertEquals(null, response.getBody(), field);
+            }
+        }
+
+        @Test
+        @DisplayName("Trả 400 không có body khi parameter dạng số bằng 0 hoặc nhỏ hơn 0")
+        void generate_nonPositiveNumericParameter_returns400WithoutBody() {
+            String[] fields = {
+                    "equity", "loanCapital", "currentCashFlow", "longTermYear", "strategyId",
+                    "listingId", "manualPropertyId", "actualPurchasePrice", "monthlyRevenue",
+                    "monthlyOperatingCost", "holdingMonths"
+            };
+            long[] invalidValues = {0L, -1L};
+
+            for (String field : fields) {
+                for (long value : invalidValues) {
+                    GenerateFuturePlanRequest req = validGenerateRequest();
+                    GenerateFuturePlanRequest.SelectedPropertyItem item = req.getSelectedProperties().get(0);
+                    switch (field) {
+                        case "equity" -> req.setEquity(value);
+                        case "loanCapital" -> req.setLoanCapital(value);
+                        case "currentCashFlow" -> req.setCurrentCashFlow(value);
+                        case "longTermYear" -> req.setLongTermYear((int) value);
+                        case "strategyId" -> req.setStrategyId((int) value);
+                        case "listingId" -> item.setListingId((int) value);
+                        case "manualPropertyId" -> {
+                            item.setListingId(null);
+                            item.setManualPropertyId((int) value);
+                        }
+                        case "actualPurchasePrice" -> item.setActualPurchasePrice(value);
+                        case "monthlyRevenue" -> item.setMonthlyRevenue(value);
+                        case "monthlyOperatingCost" -> item.setMonthlyOperatingCost(value);
+                        case "holdingMonths" -> item.setHoldingMonths((int) value);
+                    }
+
+                    ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
+
+                    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), field + "=" + value);
+                    assertEquals(null, response.getBody(), field + "=" + value);
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Trả 400 không có body khi danh sách truyền vào rỗng hoặc chứa chuỗi blank")
+        void generate_invalidCollectionParameter_returns400WithoutBody() {
+            GenerateFuturePlanRequest emptyWards = validGenerateRequest();
+            emptyWards.setWardNames(Collections.emptyList());
+            assertBadRequestWithoutBody(emptyWards);
+
+            GenerateFuturePlanRequest blankWard = validGenerateRequest();
+            blankWard.setWardNames(List.of("   "));
+            assertBadRequestWithoutBody(blankWard);
+
+            GenerateFuturePlanRequest emptyStrategyDetail = validGenerateRequest();
+            emptyStrategyDetail.setInvestmentStrategyDetail(Collections.emptyMap());
+            assertBadRequestWithoutBody(emptyStrategyDetail);
+        }
+
+        @Test
+        @DisplayName("Tạo thành công, tự chuyển sang fallback rule-based khi AI lỗi")
         void generate_success_withAiFallback() {
             when(investmentProfileVersionRepository.findById(6)).thenReturn(Optional.of(sourceVersion));
             when(authenUntil.getCurrentUSer()).thenReturn(investorAccount);
@@ -120,17 +194,50 @@ class InvestmentFuturePlanServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
 
-            // AI lÃƒÂ¡Ã‚Â»Ã¢â‚¬â€i (models=null) -> fallback rule-based -> vÃƒÂ¡Ã‚ÂºÃ‚Â«n tÃƒÂ¡Ã‚ÂºÃ‚Â¡o thÃƒÆ’Ã‚Â nh cÃƒÆ’Ã‚Â´ng.
-            assertEquals(HttpStatus.OK, response.getStatusCode());
+                assertEquals(HttpStatus.OK, response.getStatusCode());
+        }
+
+        private GenerateFuturePlanRequest validGenerateRequest() {
+            when(investmentProfileVersionRepository.findById(6)).thenReturn(Optional.of(sourceVersion));
+            when(authenUntil.getCurrentUSer()).thenReturn(investorAccount);
+
+            GenerateFuturePlanRequest.SelectedPropertyItem item = GenerateFuturePlanRequest.SelectedPropertyItem.builder()
+                    .listingId(11)
+                    .propertySource("SYSTEM")
+                    .usagePurpose("CHO_THUE")
+                    .monthlyRevenue(45_000_000L)
+                    .monthlyOperatingCost(8_000_000L)
+                    .actualPurchasePrice(13_500_000_000L)
+                    .holdingMonths(6)
+                    .build();
+
+            GenerateFuturePlanRequest req = new GenerateFuturePlanRequest();
+            req.setSourceVersionId(6);
+            req.setPlanName("Kế hoạch tương lai");
+            req.setEquity(2_000_000_000L);
+            req.setLoanCapital(1_000_000_000L);
+            req.setCurrentCashFlow(50_000_000L);
+            req.setConsciousName("Hồ Chí Minh");
+            req.setWardNames(List.of("Phường Bến Nghé"));
+            req.setLongTermYear(20);
+            req.setStrategyId(1);
+            req.setInvestmentStrategyDetail(Collections.singletonMap("riskLevel", "MEDIUM"));
+            req.setSelectedProperties(List.of(item));
+            return req;
+        }
+
+        private void assertBadRequestWithoutBody(GenerateFuturePlanRequest req) {
+            ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(null, response.getBody());
         }
     }
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ 114. View Future Investment Plan Details ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-    @Nested
-    @DisplayName("114. getFuturePlanDetail")
+        @Nested
+    @DisplayName("getFuturePlanDetail")
     class GetFuturePlanDetailTests {
         @Test
-        @DisplayName("TrÃƒÂ¡Ã‚ÂºÃ‚Â£ 404 khi kÃƒÂ¡Ã‚ÂºÃ‚Â¿ hoÃƒÂ¡Ã‚ÂºÃ‚Â¡ch tÃƒâ€ Ã‚Â°Ãƒâ€ Ã‚Â¡ng lai khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i")
+        @DisplayName("Trả 404 khi kế hoạch tương lai không tồn tại")
         void getDetail_notFound_returns404() {
             when(futureInvestmentPlanRepository.findById(999)).thenReturn(Optional.empty());
 
@@ -140,7 +247,7 @@ class InvestmentFuturePlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Ãƒâ€žÃ‚ÂÃƒÂ¡Ã‚Â»Ã‚Âc lÃƒÂ¡Ã‚ÂºÃ‚Â¡i thÃƒÆ’Ã‚Â nh cÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã‚Â« snapshot Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ lÃƒâ€ Ã‚Â°u, khÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â­nh lÃƒÂ¡Ã‚ÂºÃ‚Â¡i/khÃƒÆ’Ã‚Â´ng gÃƒÂ¡Ã‚Â»Ã‚Âi AI")
+        @DisplayName("Đọc lại thành công từ snapshot đã lưu, không tính lại và không gọi AI")
         void getDetail_success_readsFromSnapshot() {
             FutureInvestmentPlan plan = FutureInvestmentPlan.builder()
                     .futureInvestmentPlanId(1)
@@ -156,12 +263,11 @@ class InvestmentFuturePlanServiceImplementTest {
         }
     }
 
-    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ 115. Get Derived Future Plans List ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-    @Nested
-    @DisplayName("115. getFutureVersionsBySourceVersionId")
+      @Nested
+    @DisplayName("getFutureVersionsBySourceVersionId")
     class GetFutureVersionsBySourceVersionIdTests {
         @Test
-        @DisplayName("TrÃƒÂ¡Ã‚ÂºÃ‚Â£ 404 khi phiÃƒÆ’Ã‚Âªn bÃƒÂ¡Ã‚ÂºÃ‚Â£n gÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœc khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i")
+        @DisplayName("Trả 404 khi phiên bản gốc không tồn tại")
         void getVersions_sourceNotFound_returns404() {
             when(investmentProfileVersionRepository.findById(999)).thenReturn(Optional.empty());
 
@@ -171,7 +277,7 @@ class InvestmentFuturePlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("TrÃƒÂ¡Ã‚ÂºÃ‚Â£ vÃƒÂ¡Ã‚Â»Ã‚Â danh sÃƒÆ’Ã‚Â¡ch rÃƒÂ¡Ã‚Â»Ã¢â‚¬â€ng khi phiÃƒÆ’Ã‚Âªn bÃƒÂ¡Ã‚ÂºÃ‚Â£n gÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœc chÃƒâ€ Ã‚Â°a cÃƒÆ’Ã‚Â³ kÃƒÂ¡Ã‚ÂºÃ‚Â¿ hoÃƒÂ¡Ã‚ÂºÃ‚Â¡ch tÃƒâ€ Ã‚Â°Ãƒâ€ Ã‚Â¡ng lai nÃƒÆ’Ã‚Â o")
+        @DisplayName("Trả về danh sách rỗng khi phiên bản gốc chưa có kế hoạch tương lai nào")
         void getVersions_noneYet_returnsEmptyList() {
             when(investmentProfileVersionRepository.findById(6)).thenReturn(Optional.of(sourceVersion));
             when(futureInvestmentPlanRepository.findBySourceVersion_ProfileVersionIdOrderByCreatedAtDesc(6))
@@ -183,7 +289,7 @@ class InvestmentFuturePlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("TrÃƒÂ¡Ã‚ÂºÃ‚Â£ vÃƒÂ¡Ã‚Â»Ã‚Â danh sÃƒÆ’Ã‚Â¡ch kÃƒÂ¡Ã‚ÂºÃ‚Â¿ hoÃƒÂ¡Ã‚ÂºÃ‚Â¡ch tÃƒâ€ Ã‚Â°Ãƒâ€ Ã‚Â¡ng lai Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ tÃƒÂ¡Ã‚ÂºÃ‚Â¡o tÃƒÂ¡Ã‚Â»Ã‚Â« phiÃƒÆ’Ã‚Âªn bÃƒÂ¡Ã‚ÂºÃ‚Â£n gÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœc")
+        @DisplayName("Trả về danh sách kế hoạch tương lai đã tạo từ phiên bản gốc")
         void getVersions_hasResults_returnsList() {
             FutureInvestmentPlan plan = FutureInvestmentPlan.builder()
                     .futureInvestmentPlanId(1).name("Ket qua du doan 1")

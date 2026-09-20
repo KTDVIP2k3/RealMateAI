@@ -53,7 +53,7 @@ class NotificationServiceImplementTest {
 
     // ── 106. View Notifications ─────────────────────────────────────────────
     @Nested
-    @DisplayName("106. getMyNotifications")
+    @DisplayName("getMyNotifications")
     class GetMyNotificationsTests {
         @Test
         @DisplayName("Trả về danh sách thông báo, kèm unreadCount")
@@ -83,7 +83,7 @@ class NotificationServiceImplementTest {
 
     // ── 107. View Notification Unread Counts ─────────────────────────────────
     @Nested
-    @DisplayName("107. getUnreadCount")
+    @DisplayName("getUnreadCount")
     class GetUnreadCountTests {
         @Test
         @DisplayName("Trả về đúng số thông báo chưa đọc")
@@ -99,7 +99,7 @@ class NotificationServiceImplementTest {
 
     // ── 108. Mark Notification As Read ────────────────────────────────────────
     @Nested
-    @DisplayName("108. markAsRead")
+    @DisplayName("markAsRead")
     class MarkAsReadTests {
         @Test
         @DisplayName("Đánh dấu đã đọc thành công khi thông báo thuộc đúng người dùng")
@@ -129,7 +129,7 @@ class NotificationServiceImplementTest {
 
     // ── 109. Mark All Notifications As Read ───────────────────────────────────
     @Nested
-    @DisplayName("109. markAllAsRead")
+    @DisplayName("markAllAsRead")
     class MarkAllAsReadTests {
         @Test
         @DisplayName("Đánh dấu thành công toàn bộ thông báo chưa đọc")

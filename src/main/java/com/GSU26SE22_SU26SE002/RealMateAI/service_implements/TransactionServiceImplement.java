@@ -153,6 +153,8 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
                         .body(ApiResponse.fail("UNAUTHORIZED", "Người dùng chưa đăng nhập"));
             }
 
+
+
             List<Transaction> allTransactions = currentAccount.getTransactions();
             if (allTransactions == null) {
                 allTransactions = Collections.emptyList();
@@ -177,6 +179,13 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
     @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse> getTransactionsByAdminOrStaffByType(int page, int size, String type) {
         try {
+            Account account = authenUntil.getCurrentUSer();
+            if(account == null){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            if(!account.getRole().equals(RoleEnum.Admin)){
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
             List<Transaction> allTransactions = transactionRepository.findAll();
             if (allTransactions == null) {
                 allTransactions = Collections.emptyList();

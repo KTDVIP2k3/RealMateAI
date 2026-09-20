@@ -83,7 +83,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-050. View Active Posting Packages")
+    @DisplayName("View Active Posting Packages")
     class ViewActivePostingPackagesTests {
 
         @Test
@@ -120,7 +120,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-051. View Posting Package Details")
+    @DisplayName("View Posting Package Details")
     class ViewPostingPackageDetailsTests {
 
         @Test
@@ -157,7 +157,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-052. View Posting Packages (Admin)")
+    @DisplayName("View Posting Packages (Admin)")
     class ViewPostingPackagesAdminTests {
 
         @Test
@@ -194,7 +194,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-053. Create Posting Package")
+    @DisplayName("Create Posting Package")
     class CreatePostingPackageTests {
 
         @Test
@@ -266,7 +266,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-054. Update Posting Package")
+    @DisplayName("Update Posting Package")
     class UpdatePostingPackageTests {
 
         @Test
@@ -319,7 +319,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-055. Delete Posting Package")
+    @DisplayName("Delete Posting Package")
     class DeletePostingPackageTests {
 
         @Test
@@ -355,7 +355,7 @@ class PostingPackageServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-056. Toggle Posting Package Status")
+    @DisplayName("Toggle Posting Package Status")
     class TogglePostingPackageStatusTests {
 
         @Test

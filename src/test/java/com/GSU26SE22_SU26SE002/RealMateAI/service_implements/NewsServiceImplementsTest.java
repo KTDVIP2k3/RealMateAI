@@ -57,7 +57,7 @@ class NewsServiceImplementsTest {
 
     // ── 110. View All News ────────────────────────────────────────────────
     @Nested
-    @DisplayName("110. getAllNewsPaged")
+    @DisplayName("getAllNewsPaged")
     class GetAllNewsPagedTests {
         @Test
         @DisplayName("Trả về danh sách tin tức đang active, đã lọc bỏ tin không active")
@@ -83,7 +83,7 @@ class NewsServiceImplementsTest {
 
     // ── 111. View News Details ─────────────────────────────────────────────
     @Nested
-    @DisplayName("111. getNewsDetailById")
+    @DisplayName("getNewsDetailById")
     class GetNewsDetailByIdTests {
         @Test
         @DisplayName("Tăng viewCount và trả về chi tiết khi tin tức đang active")

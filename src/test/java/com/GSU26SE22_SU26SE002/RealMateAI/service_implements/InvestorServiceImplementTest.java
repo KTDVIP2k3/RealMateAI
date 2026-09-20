@@ -69,7 +69,7 @@ class InvestorServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-057. View Survey")
+    @DisplayName("View Survey")
     class ViewSurveyTests {
 
         @Test
@@ -122,7 +122,7 @@ class InvestorServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-058. Submit Survey")
+    @DisplayName("Submit Survey")
     class SubmitSurveyTests {
 
         @Test
@@ -190,7 +190,7 @@ class InvestorServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-059. Update Survey")
+    @DisplayName("Update Survey")
     class UpdateSurveyTests {
 
         @Test

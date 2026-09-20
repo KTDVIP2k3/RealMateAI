@@ -108,7 +108,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-060. View Investment Plan List")
+    @DisplayName("View Investment Plan List")
     class ViewInvestmentPlanListTests {
 
         @Test
@@ -155,7 +155,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-061. View Investment Plan Version List")
+    @DisplayName("View Investment Plan Version List")
     class ViewInvestmentPlanVersionListTests {
 
         @Test
@@ -190,7 +190,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-062. View Investment Plan Version Detail")
+    @DisplayName("View Investment Plan Version Detail")
     class ViewInvestmentPlanVersionDetailTests {
 
         @Test
@@ -225,7 +225,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-063. View Investment Plan Version Result")
+    @DisplayName("View Investment Plan Version Result")
     class ViewInvestmentPlanVersionResultTests {
 
         @Test
@@ -260,7 +260,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-066. Soft Delete Investment Plan")
+    @DisplayName("Soft Delete Investment Plan")
     class SoftDeleteInvestmentPlanTests {
 
         @Test
@@ -296,7 +296,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-067. Soft Delete Investment Plan Version")
+    @DisplayName("Soft Delete Investment Plan Version")
     class SoftDeleteInvestmentPlanVersionTests {
 
         @Test
@@ -343,7 +343,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-068. Update Investment Plan Name")
+    @DisplayName("Update Investment Plan Name")
     class UpdateInvestmentPlanNameTests {
 
         @Test
@@ -389,7 +389,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-069. Update Investment Plan Version Name")
+    @DisplayName("Update Investment Plan Version Name")
     class UpdateInvestmentPlanVersionNameTests {
 
         @Test
@@ -435,7 +435,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-064. Create Investment Plan")
+    @DisplayName("Create Investment Plan")
     class CreateInvestmentPlanTests {
         private InvestmentPlanRequest planRequest;
         private Strategy strategy;
@@ -554,7 +554,7 @@ class InvestmentPlanServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-065. Create Investment Plan Version")
+    @DisplayName("Create Investment Plan Version")
     class CreateInvestmentPlanVersionTests {
         private UpdateInvestmentPlanRequest updateRequest;
         private Strategy strategy;
@@ -618,11 +618,16 @@ class InvestmentPlanServiceImplementTest {
         }
 
         @ParameterizedTest
-        @DisplayName("Missing Validation: Blank fields returns BAD_REQUEST")
+        @DisplayName("Blank or invalid numeric fields return BAD_REQUEST")
         @CsvSource({
-                "'0', '0', '0', ''" // Empty/Zero fields
+                "'0',    '500000', '5', 'Conservative'",
+                "'-1000', '500000', '5', 'Conservative'",
+                "'1000000', '-1', '5', 'Conservative'",
+                "'1000000', '500000', '0', 'Conservative'",
+                "'1000000', '500000', '-1', 'Conservative'",
+                "'1000000', '500000', '5', ''"
         })
-        void createVersion_invalidFields_returnsBadRequest(String equity, String loanCapital, String longTermYear, String consciousName) {
+        void updateVersion_invalidFields_returnsBadRequest(String equity, String loanCapital, String longTermYear, String consciousName) {
             updateRequest.setEquity(Long.parseLong(equity));
             updateRequest.setLoanCapital(Long.parseLong(loanCapital));
             updateRequest.setLongTermYear(Integer.parseInt(longTermYear));
@@ -630,6 +635,7 @@ class InvestmentPlanServiceImplementTest {
 
             Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
             Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

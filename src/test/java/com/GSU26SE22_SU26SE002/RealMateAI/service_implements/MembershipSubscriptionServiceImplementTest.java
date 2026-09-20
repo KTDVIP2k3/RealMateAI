@@ -92,7 +92,7 @@ class MembershipSubscriptionServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-045. View Membership Subscriptions")
+    @DisplayName("View Membership Subscriptions")
     class ViewMembershipSubscriptionsTests {
 
         @Test
@@ -123,7 +123,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-212: Unauthenticated returns NOT_FOUND")
+        @DisplayName("Unauthenticated returns NOT_FOUND")
         void getMembershipSubscriptions_unauthenticated_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -134,7 +134,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-213: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMembershipSubscriptions_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
@@ -145,7 +145,7 @@ class MembershipSubscriptionServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-046. Subscribe Membership Plan")
+    @DisplayName("Subscribe Membership Plan")
     class SubscribeMembershipPlanTests {
 
         @Test
@@ -166,7 +166,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-219: Non-existent plan returns NOT_FOUND")
+        @DisplayName("Non-existent plan returns NOT_FOUND")
         void payMemberShipSubscriptions_notFound_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
 
@@ -186,7 +186,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-216: Unauthenticated returns UNAUTHORIZED")
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
         void payMemberShipSubscriptions_unauthenticated_returnsNotFound() {
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(samplePlan));
             when(authenUntil.getCurrentUSer()).thenReturn(null);
@@ -197,7 +197,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-217: Wallet does not exist returns BAD_REQUEST")
+        @DisplayName("Wallet does not exist returns BAD_REQUEST")
         void payMemberShipSubscriptions_noWallet_returnsBadRequest() {
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(samplePlan));
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
@@ -210,7 +210,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-218: Insufficient balance returns BAD_REQUEST")
+        @DisplayName("Insufficient balance returns BAD_REQUEST")
         void payMemberShipSubscriptions_insufficientBalance_returnsBadRequest() {
             sampleWallet.setBalance(new BigDecimal("50000")); // Plan is 100000
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(samplePlan));
@@ -224,7 +224,7 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-220: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void payMemberShipSubscriptions_exception_returnsServerError() {
             when(membershipPlanRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
@@ -235,7 +235,7 @@ class MembershipSubscriptionServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-047. Renew Membership Subscription")
+    @DisplayName("Renew Membership Subscription")
     class RenewMembershipSubscriptionTests {
 
         @Test
@@ -289,7 +289,7 @@ class MembershipSubscriptionServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-048. Cancel Membership Subscription")
+    @DisplayName("Cancel Membership Subscription")
     class CancelMembershipSubscriptionTests {
 
         @Test
@@ -321,7 +321,7 @@ class MembershipSubscriptionServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-049. Activate Membership Subscription")
+    @DisplayName("Activate Membership Subscription")
     class ActivateMembershipSubscriptionTests {
 
         @Test
