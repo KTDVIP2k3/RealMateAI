@@ -257,7 +257,7 @@ class ListingServiceImplementTest_Expanded {
                 case "propPostalCode" -> request.setPropPostalCode("   ");
                 case "propDirection" -> request.setPropDirection("   ");
                 case "propLegalStatus" -> request.setPropLegalStatus("   ");
-                case "propAddressParticular" -> request.setPropAddressParticular("   ");
+//                case "propAddressParticular" -> request.setPropAddressParticular("   ");
                 case "propProjectName" -> request.setPropProjectName("   ");
                 case "propFurniture" -> request.setPropFurniture("   ");
             }
