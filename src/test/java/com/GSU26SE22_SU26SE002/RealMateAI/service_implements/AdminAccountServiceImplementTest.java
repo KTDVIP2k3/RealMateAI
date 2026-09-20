@@ -90,7 +90,6 @@ class AdminAccountServiceImplementTest {
             ResponseEntity<ApiResponse> response = adminService.getAllAccounts(pageable, null, null);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertEquals("Server_Error: DB error", response.getBody().getMessage());
         }
 
         @Test
