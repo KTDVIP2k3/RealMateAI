@@ -25,7 +25,6 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -182,9 +181,11 @@ class InvestorServiceImplementTest {
         void createInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
             request.setInvestmentStyle(style);
             request.setReturnExpectation(expectation);
+            sampleAccount.setInvestor(null);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
-            // ResponseEntity<ApiResponse> response = investorService.createInvestorSurvey(request);
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            ResponseEntity<ApiResponse> response = investorService.createInvestorSurvey(request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
@@ -225,6 +226,21 @@ class InvestorServiceImplementTest {
             ResponseEntity<ApiResponse> response = investorService.updateInvestorSurvey(request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank fields return BAD_REQUEST")
+        @CsvSource({
+                "'', 'High'",
+                "'Conservative', ''",
+                "'', ''"
+        })
+        void updateInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
+            request.setInvestmentStyle(style);
+            request.setReturnExpectation(expectation);
+
+            ResponseEntity<ApiResponse> response = investorService.updateInvestorSurvey(request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 }

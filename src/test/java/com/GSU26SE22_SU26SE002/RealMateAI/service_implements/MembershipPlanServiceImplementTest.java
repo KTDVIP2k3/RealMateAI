@@ -21,7 +21,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -241,8 +240,8 @@ class MembershipPlanServiceImplementTest {
             request.setPrice(new BigDecimal(price));
             request.setQuantity(quantity);
 
-            // ResponseEntity<ApiResponse> response = membershipPlanService.createMembershipPlan(request);
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            ResponseEntity<ApiResponse> response = membershipPlanService.createMembershipPlan(request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

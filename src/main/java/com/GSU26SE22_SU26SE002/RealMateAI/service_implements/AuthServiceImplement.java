@@ -45,7 +45,9 @@ public class AuthServiceImplement implements AuthServiceInterface {
 
     public ResponseEntity<ApiResponse> resendOtpUnified(HttpSession httpSession, SendOtpRequest sendOtpRequest) {
         try {
-//            Integer accountId = (Integer) httpSession.getAttribute("accountId");
+            if (sendOtpRequest.getEmail() == null || sendOtpRequest.getEmail().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email cannot be blank"));
+            }
 //            if (accountId == null) {
 //                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Invalid session"));
 //            }
@@ -181,6 +183,9 @@ public class AuthServiceImplement implements AuthServiceInterface {
 
     public ResponseEntity<ApiResponse> forgotPassword(ForgotPasswordRequest forgotPasswordRequest, HttpSession httpSession){
         try{
+            if (forgotPasswordRequest.getEmail() == null || forgotPasswordRequest.getEmail().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Email cannot be blank"));
+            }
             Account account = accountRepository.findByEmail(forgotPasswordRequest.getEmail()).orElse(null);
             boolean existEmail = accountRepository.findAll().stream().anyMatch(account1 -> account1.getEmail().toLowerCase().equalsIgnoreCase(forgotPasswordRequest.getEmail().toLowerCase()));
 
@@ -238,6 +243,10 @@ public class AuthServiceImplement implements AuthServiceInterface {
     @Override
     public ResponseEntity<ApiResponse> newPassword(NewPasswordRequest newPasswordRequest, HttpSession httpSession) {
         try {
+            if (newPasswordRequest.getEmail() == null || newPasswordRequest.getEmail().trim().isEmpty() ||
+                newPasswordRequest.getNewPassword() == null || newPasswordRequest.getNewPassword().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "Fields cannot be blank"));
+            }
 //            Integer accountId = (Integer) httpSession.getAttribute("accountId");
             Account account = accountRepository.findByEmail(newPasswordRequest.getEmail()).orElse(null);
             if (account == null) {

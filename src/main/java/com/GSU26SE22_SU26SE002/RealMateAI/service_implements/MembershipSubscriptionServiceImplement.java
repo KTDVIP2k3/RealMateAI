@@ -10,7 +10,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.MembershipSubscriptionDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.MembershipSubscriptionServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
-import org.geolatte.geom.M;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

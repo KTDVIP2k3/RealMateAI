@@ -592,6 +592,7 @@ class AuthServiceImplementTest {
         void newPassword_nonExistentEmail_returnsNotFound() {
             NewPasswordRequest request = new NewPasswordRequest();
             request.setEmail("unknown@gmail.com");
+            request.setNewPassword("SomePass1@");
             when(accountRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
 
             ResponseEntity<ApiResponse> response = authService.newPassword(request, httpSession);
@@ -605,6 +606,7 @@ class AuthServiceImplementTest {
         void newPassword_exception_returnsServerError() {
             NewPasswordRequest request = new NewPasswordRequest();
             request.setEmail("test@gmail.com");
+            request.setNewPassword("SomePass1@");
             when(accountRepository.findByEmail(anyString())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = authService.newPassword(request, httpSession);

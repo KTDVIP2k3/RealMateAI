@@ -10,6 +10,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.AdminUpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -227,6 +229,23 @@ class AdminAccountServiceImplementTest {
             assertTrue(response.getBody().getMessage().contains("Investor"));
             verify(investorRepository).save(any());
         }
+
+        @ParameterizedTest
+        @DisplayName("Blank fields return BAD_REQUEST")
+        @CsvSource({
+                "'', 'Valid1@Pass', 'new@gmail.com', 'New User'",
+                "'newuser', '', 'new@gmail.com', 'New User'",
+                "'newuser', 'Valid1@Pass', '', 'New User'",
+                "'newuser', 'Valid1@Pass', 'new@gmail.com', ''"
+        })
+        void createAccount_blankFields_returnsBadRequest(String userName, String password, String email, String fullName) {
+            validRequest.setUserName(userName);
+            validRequest.setPassword(password);
+            validRequest.setEmail(email);
+            validRequest.setFullName(fullName);
+            ResponseEntity<ApiResponse> response = adminService.createSellerAccount(validRequest);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
     }
 
     @Nested
@@ -245,6 +264,20 @@ class AdminAccountServiceImplementTest {
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
             assertEquals("Cập nhật tài khoản thành công", response.getBody().getMessage());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank fields return BAD_REQUEST")
+        @CsvSource({
+                "'', '0987654321'",
+                "'Updated Name', ''"
+        })
+        void updateAccount_blankFields_returnsBadRequest(String fullName, String phone) {
+            AdminUpdateAccountRequest request = new AdminUpdateAccountRequest();
+            request.setFullName(fullName);
+            request.setPhone(phone);
+            ResponseEntity<ApiResponse> response = adminService.updateAccount(1, request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
 
         @Test

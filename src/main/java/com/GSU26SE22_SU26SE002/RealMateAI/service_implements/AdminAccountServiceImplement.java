@@ -151,10 +151,18 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
                                                       boolean createInvestor,
                                                       boolean createSeller) {
         try {
+            if (request.getUserName() == null || request.getUserName().trim().isEmpty() ||
+                request.getPassword() == null || request.getPassword().trim().isEmpty() ||
+                request.getEmail() == null || request.getEmail().trim().isEmpty() ||
+                request.getFullName() == null || request.getFullName().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.fail("BAD_REQUEST", "Thi\u1ebfu th\u00f4ng tin b\u1eaft bu\u1ed9c"));
+            }
             // validate unique username
             if (accountRepository.findByUserName(request.getUserName()).isPresent()) {
                 return ResponseEntity.badRequest()
-                        .body(ApiResponse.fail("Bad_Request", "Username đã tồn tại"));
+                        .body(ApiResponse.fail("Bad_Request", "Username \u0111\u00e3 t\u1ed3n t\u1ea1i"));
+
             }
             // validate unique email
             if (accountRepository.findByEmail(request.getEmail()).isPresent()) {
@@ -215,6 +223,11 @@ public class AdminAccountServiceImplement implements AdminAccountServiceInterfac
     @Transactional
     public ResponseEntity<ApiResponse> updateAccount(Integer accountId, AdminUpdateAccountRequest request) {
         try {
+            if ((request.getFullName() != null && request.getFullName().trim().isEmpty()) ||
+                (request.getPhone() != null && request.getPhone().trim().isEmpty())) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.fail("BAD_REQUEST", "Th\u00f4ng tin kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ec3 tr\u1ed1ng"));
+            }
             Account account = accountRepository.findById(accountId).orElse(null);
             if (account == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)

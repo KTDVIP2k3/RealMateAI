@@ -8,7 +8,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.repositories.TransactionRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.MyTransactionResponseDto;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.TransactionDetailDTO;
-import com.GSU26SE22_SU26SE002.RealMateAI.responses.TransactionSummaryDto;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.TransactionServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import lombok.RequiredArgsConstructor;

@@ -15,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class InvestorServiceImplement implements InvestorServiceInterface {
@@ -70,6 +69,11 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "This account has investor so just update investor"));
            }
 
+           if (investorSurveyRequest.getInvestmentStyle() == null || investorSurveyRequest.getInvestmentStyle().trim().isEmpty() ||
+               investorSurveyRequest.getReturnExpectation() == null || investorSurveyRequest.getReturnExpectation().trim().isEmpty()) {
+               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Investment style and return expectation are required"));
+           }
+
            Investor investor = new Investor();
            investor.setAccount(account);
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
@@ -97,8 +101,13 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
            Account account = authenUntil.getCurrentUSer();
 
            Investor investor = account.getInvestor();
-           if(investor == null){
+           if (investor == null){
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Investor does not exist"));
+           }
+
+           if (investorSurveyRequest.getInvestmentStyle() == null || investorSurveyRequest.getInvestmentStyle().trim().isEmpty() ||
+               investorSurveyRequest.getReturnExpectation() == null || investorSurveyRequest.getReturnExpectation().trim().isEmpty()) {
+               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Investment style and return expectation are required"));
            }
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
            investor.setStableIncome(investorSurveyRequest.getStableIncome());

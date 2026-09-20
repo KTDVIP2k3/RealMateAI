@@ -4,8 +4,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.model.CrawPropertyListing;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.CrawPropertyListingRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.CrawPropertyListingServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.HeatmapZoneServiceInterface;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitUntilState;
 import jakarta.persistence.EntityManager;
