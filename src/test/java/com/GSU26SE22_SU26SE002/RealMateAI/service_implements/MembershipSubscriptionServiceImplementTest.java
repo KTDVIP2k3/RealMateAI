@@ -167,7 +167,7 @@ class MembershipSubscriptionServiceImplementTest {
 
         @Test
         @DisplayName("UC-219: Non-existent plan returns NOT_FOUND")
-        void payMemberShipSubscriptions_notFoundPlan_returnsNotFound() {
+        void payMemberShipSubscriptions_notFound_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = subscriptionService.payMemberShipSubscriptions(99);
@@ -176,7 +176,17 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-216: Unauthenticated returns NOT_FOUND")
+        @DisplayName("Tham số rỗng/bằng 0 trả về NOT_FOUND hoặc BAD_REQUEST")
+        void payMemberShipSubscriptions_emptyId_returnsNotFound() {
+            when(membershipPlanRepository.findById(0)).thenReturn(Optional.empty());
+
+            ResponseEntity<ApiResponse> response = subscriptionService.payMemberShipSubscriptions(0);
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("UC-216: Unauthenticated returns UNAUTHORIZED")
         void payMemberShipSubscriptions_unauthenticated_returnsNotFound() {
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(samplePlan));
             when(authenUntil.getCurrentUSer()).thenReturn(null);

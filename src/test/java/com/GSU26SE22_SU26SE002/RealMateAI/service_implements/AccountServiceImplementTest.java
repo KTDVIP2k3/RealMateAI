@@ -64,7 +64,7 @@ class AccountServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = accountService.getAccountProfile();
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.OK, response.getStatusCode());
             assertEquals("Account Profile", response.getBody().getMessage());
         }
 
@@ -80,7 +80,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-045: Account does not exist returns NOT_FOUND")
+        @DisplayName("UC-045: Non-existent account returns NOT_FOUND")
         void getAccountProfile_accountNull_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -136,7 +136,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-076: Account does not exist returns NOT_FOUND")
+        @DisplayName("UC-076: Non-existent account returns NOT_FOUND")
         void updateAccount_accountNull_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 

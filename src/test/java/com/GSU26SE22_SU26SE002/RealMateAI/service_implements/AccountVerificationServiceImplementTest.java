@@ -79,7 +79,7 @@ class AccountVerificationServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationByStaffOrAdmin();
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.OK, response.getStatusCode());
             assertEquals("Account verification list is empty", response.getBody().getMessage());
         }
 

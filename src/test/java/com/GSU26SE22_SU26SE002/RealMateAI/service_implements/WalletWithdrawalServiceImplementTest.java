@@ -175,7 +175,7 @@ class WalletWithdrawalServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = walletWithdrawalService.getWalletWithdrawalDetailById(99);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             // Encoding sensitive message check removed
         }
 

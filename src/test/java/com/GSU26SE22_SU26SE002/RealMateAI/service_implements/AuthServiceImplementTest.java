@@ -218,7 +218,7 @@ class AuthServiceImplementTest {
             validRequest.setUserName("new user");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("TÃªn Ä‘Äƒng nháº­p khÃ´ng Ä‘Æ°á»£c chá»©a khoáº£ng tráº¯ng", response.getBody().getMessage());
+            assertEquals("Tên đăng nhập không được chứa khoảng trắng", response.getBody().getMessage());
         }
 
         @Test
@@ -227,7 +227,7 @@ class AuthServiceImplementTest {
             validRequest.setUserName("newuser@!");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("TÃªn Ä‘Äƒng nháº­p khÃ´ng Ä‘Æ°á»£c chá»©a dáº¥u tiáº¿ng Viá»‡t hoáº·c kÃ½ tá»± Ä‘áº·c biá»‡t", response.getBody().getMessage());
+            assertEquals("Tên đăng nhập không được chứa dấu tiếng Việt hoặc ký tự đặc biệt", response.getBody().getMessage());
         }
 
         @Test
@@ -236,7 +236,7 @@ class AuthServiceImplementTest {
             validRequest.setUserName("ab");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("TÃªn Ä‘Äƒng nháº­p pháº£i tá»« 3 Ä‘áº¿n 20 kÃ½ tá»±", response.getBody().getMessage());
+            assertEquals("Tên đăng nhập phải từ 3 đến 20 ký tự", response.getBody().getMessage());
         }
 
         @Test
@@ -245,7 +245,7 @@ class AuthServiceImplementTest {
             validRequest.setPassword("Valid 1@");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Máº­t kháº©u khÃ´ng Ä‘Æ°á»£c chá»©a khoáº£ng tráº¯ng", response.getBody().getMessage());
+            assertEquals("Mật khẩu không được chứa khoảng trắng", response.getBody().getMessage());
         }
 
         @Test
@@ -254,7 +254,7 @@ class AuthServiceImplementTest {
             validRequest.setPassword("Val1@");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Máº­t kháº©u pháº£i tá»« 8 Ä‘áº¿n 32 kÃ½ tá»±", response.getBody().getMessage());
+            assertEquals("Mật khẩu phải từ 8 đến 32 ký tự", response.getBody().getMessage());
         }
 
         @Test
@@ -263,7 +263,7 @@ class AuthServiceImplementTest {
             validRequest.setPassword("invalidpassword123");
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Máº­t kháº©u pháº£i bao gá»“m cáº£ chá»¯ hoa, chá»¯ thÆ°á» ng, sá»‘ vÃ  kÃ½ tá»± Ä‘áº·c biá»‡t", response.getBody().getMessage());
+            assertEquals("Mật khẩu phải bao gồm cả chữ hoa, chữ thường, số và ký tự đặc biệt", response.getBody().getMessage());
         }
 
         @Test
@@ -275,7 +275,7 @@ class AuthServiceImplementTest {
             
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Email nÃ y Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng kÃ½ cho vai trÃ² tÆ°Æ¡ng á»©ng", response.getBody().getMessage());
+            assertEquals("Email này đã được đăng ký cho vai trò tương ứng", response.getBody().getMessage());
         }
 
         @Test
@@ -291,7 +291,7 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-022: Valid registration returns OK")
+        @DisplayName("UC-022: register hợp lệ trả về OK")
         void register_valid_returnsOk() throws Exception {
             when(accountRepository.findAll()).thenReturn(List.of());
             when(accountRepository.saveAndFlush(any(Account.class))).thenAnswer(i -> {
@@ -422,6 +422,19 @@ class AuthServiceImplementTest {
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             assertEquals("Incorrect OTP", response.getBody().getMessage());
         }
+
+        @ParameterizedTest
+        @DisplayName("Blank fields return BAD_REQUEST")
+        @CsvSource({
+                "'', '123456'",
+                "'test@gmail.com', ''"
+        })
+        void verifyOtp_blankFields_returnsBadRequest(String email, String otpCode) {
+            request.setEmail(email);
+            request.setOtp(otpCode);
+            ResponseEntity<ApiResponse> response = authService.verifyOtp(request, httpSession);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
     }
 
     @Nested
@@ -466,6 +479,33 @@ class AuthServiceImplementTest {
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("Error", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("UC-034: MessagingException returns INTERNAL_SERVER_ERROR")
+        void sendOtp_messagingException_returnsServerError() throws Exception {
+            SendOtpRequest request = new SendOtpRequest();
+            request.setEmail("test@gmail.com");
+            when(accountRepository.findByEmail(anyString())).thenReturn(java.util.Optional.of(sampleAccount));
+            doThrow(new MessagingException("Mail error")).when(emailServiceVerificationImplement).sendVerificationEmail(any());
+
+            ResponseEntity<ApiResponse> response = authService.resendOtpUnified(httpSession, request);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Mail error", response.getBody().getMessage());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Email trống trả về BAD_REQUEST")
+        @CsvSource({
+                "''",
+                "'   '"
+        })
+        void sendOtp_blankEmail_returnsBadRequest(String email) throws Exception {
+            SendOtpRequest request = new SendOtpRequest();
+            request.setEmail(email);
+            ResponseEntity<ApiResponse> response = authService.resendOtpUnified(httpSession, request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
@@ -513,6 +553,19 @@ class AuthServiceImplementTest {
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("DB error", response.getBody().getMessage());
         }
+
+        @ParameterizedTest
+        @DisplayName("Email trống trả về BAD_REQUEST")
+        @CsvSource({
+                "''",
+                "'   '"
+        })
+        void forgotPassword_blankEmail_returnsBadRequest(String email) {
+            ForgotPasswordRequest request = new ForgotPasswordRequest();
+            request.setEmail(email);
+            ResponseEntity<ApiResponse> response = authService.forgotPassword(request, httpSession);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
     }
 
     @Nested
@@ -558,6 +611,20 @@ class AuthServiceImplementTest {
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("DB error", response.getBody().getMessage());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank fields return BAD_REQUEST")
+        @CsvSource({
+                "'', 'NewPass1@'",
+                "'test@gmail.com', ''"
+        })
+        void newPassword_blankFields_returnsBadRequest(String email, String newPassword) {
+            NewPasswordRequest request = new NewPasswordRequest();
+            request.setEmail(email);
+            request.setNewPassword(newPassword);
+            ResponseEntity<ApiResponse> response = authService.newPassword(request, httpSession);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

@@ -232,7 +232,9 @@ class MembershipPlanServiceImplementTest {
         @CsvSource({
                 "'', '100000', '1'",
                 "'Name', '0', '1'",
-                "'Name', '100000', '0'"
+                "'Name', '100000', '0'",
+                "'', '0', '0'", // Empty fields
+                "'Name', '-50000', '-1'" // Negative numbers
         })
         void createMembershipPlan_blankFields_returnsBadRequest(String name, String price, int quantity) {
             request.setName(name);
@@ -284,11 +286,25 @@ class MembershipPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void updateMembershipPlan_exception_returnsServerError() {
-            when(membershipPlanRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            when(membershipPlanRepository.findById(1)).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = membershipPlanService.updateMembershipPlan(1, request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank or negative fields return BAD_REQUEST")
+        @CsvSource({
+                "'', '0', '0'", // Empty fields
+                "'Name', '-50000', '-1'" // Negative numbers
+        })
+        void updateMembershipPlan_blankFields_returnsBadRequest(String name, String price, int quantity) {
+            request.setName(name);
+            request.setPrice(new BigDecimal(price));
+            request.setQuantity(quantity);
+            ResponseEntity<ApiResponse> response = membershipPlanService.updateMembershipPlan(1, request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
