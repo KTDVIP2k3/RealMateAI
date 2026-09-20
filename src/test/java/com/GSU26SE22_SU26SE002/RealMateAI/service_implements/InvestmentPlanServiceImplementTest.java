@@ -16,6 +16,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -470,37 +472,20 @@ class InvestmentPlanServiceImplementTest {
             assertEquals("Investment strategy not found.", response.getBody().getMessage());
         }
 
-        @Test
-        @DisplayName("Missing Validation: Negative Equity returns BAD_REQUEST")
-        void createPlan_negativeEquity_returnsBadRequest() {
-            planRequest.setEquity(-50000L);
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
+        @ParameterizedTest
+        @DisplayName("Missing Validation: Invalid fields returns BAD_REQUEST")
+        @CsvSource({
+                "'-50000', '100000', '5', 'Name'",
+                "'100000', '-100000', '5', 'Name'",
+                "'100000', '100000', '-5', 'Name'",
+                "'100000', '100000', '5', ''"
+        })
+        void createPlan_invalidFields_returnsBadRequest(String equity, String loanCapital, String longTermYear, String consciousName) {
+            planRequest.setEquity(Long.parseLong(equity));
+            planRequest.setLoanCapital(Long.parseLong(loanCapital));
+            planRequest.setLongTermYear(Integer.parseInt(longTermYear));
+            planRequest.setConsciousName(consciousName);
 
-        @Test
-        @DisplayName("Missing Validation: Negative Loan Capital returns BAD_REQUEST")
-        void createPlan_negativeLoanCapital_returnsBadRequest() {
-            planRequest.setLoanCapital(-100000L);
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
-
-        @Test
-        @DisplayName("Missing Validation: Negative Long Term Year returns BAD_REQUEST")
-        void createPlan_negativeLongTermYear_returnsBadRequest() {
-            planRequest.setLongTermYear(-5);
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
-
-        @Test
-        @DisplayName("Missing Validation: Blank Conscious Name returns BAD_REQUEST")
-        void createPlan_blankConsciousName_returnsBadRequest() {
-            planRequest.setConsciousName("");
             when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

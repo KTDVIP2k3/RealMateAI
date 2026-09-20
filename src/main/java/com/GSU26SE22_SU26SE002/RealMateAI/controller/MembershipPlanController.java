@@ -41,14 +41,14 @@ public class MembershipPlanController {
     @PostMapping(value = "/admin/membership-plans")
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Admin: Tạo MỚI một gói thành viên")
-    public ResponseEntity<ApiResponse> createMembershipPlan(@RequestBody MembershipPlanRequest membershipPlanRequest) {
+    public ResponseEntity<ApiResponse> createMembershipPlan(@jakarta.validation.Valid @RequestBody MembershipPlanRequest membershipPlanRequest) {
         return membershipPlanServiceInterface.createMembershipPlan(membershipPlanRequest);
     }
 
     @PutMapping(value = "/admin/membership-plans/{membershipPlanId}")
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Admin: CẬP NHẬT thông tin gói thành viên")
-    public ResponseEntity<ApiResponse> updateMembershipPlan(@PathVariable("membershipPlanId") Integer id, @RequestBody MembershipPlanRequest membershipPlanRequest) {
+    public ResponseEntity<ApiResponse> updateMembershipPlan(@PathVariable("membershipPlanId") Integer id, @jakarta.validation.Valid @RequestBody MembershipPlanRequest membershipPlanRequest) {
         return membershipPlanServiceInterface.updateMembershipPlan(id, membershipPlanRequest);
     }
 

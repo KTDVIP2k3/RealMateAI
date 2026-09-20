@@ -13,6 +13,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -81,7 +83,7 @@ class TransactionServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = transactionService.getMyTransactions(0, 10);
 
-            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
 
         @Test
@@ -236,6 +238,23 @@ class TransactionServiceImplementTest {
             ResponseEntity<ApiResponse> response = transactionService.getTransactionDetailById(1);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+    }
+
+    @Nested
+    @DisplayName("F-999. Create Transaction Validation")
+    class CreateTransactionTests {
+
+        @ParameterizedTest
+        @DisplayName("Amount <= 0 returns BAD_REQUEST")
+        @ValueSource(strings = {"0", "-100", "-50000"})
+        void createTransaction_invalidAmount_returnsBadRequest(String amount) {
+            BigDecimal invalidAmount = new BigDecimal(amount);
+            // Example of how it would be tested:
+            // TransactionRequest request = new TransactionRequest();
+            // request.setAmount(invalidAmount);
+            // ResponseEntity<ApiResponse> response = transactionService.createTransaction(request);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 }

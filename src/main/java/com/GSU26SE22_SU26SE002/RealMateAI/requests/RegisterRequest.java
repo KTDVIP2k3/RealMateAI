@@ -8,12 +8,21 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Date;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
 
 @Data
 public class RegisterRequest {
+    @NotBlank(message = "Tên đăng nhập không được để trống")
     private String userName;
+    
+    @NotBlank(message = "Mật khẩu không được để trống")
     private String password;
+    
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Định dạng Email không hợp lệ")
     private String email;
+    
     private String fullName;
     private String phone;
 

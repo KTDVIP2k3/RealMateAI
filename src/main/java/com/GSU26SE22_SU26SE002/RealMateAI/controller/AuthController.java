@@ -16,38 +16,38 @@ public class AuthController {
     AuthServiceInterface authServiceInterface;
 
     @PostMapping(value = "register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse> register(@ModelAttribute RegisterRequest registerRequest, HttpSession httpSession){
+    public ResponseEntity<ApiResponse> register(@jakarta.validation.Valid @ModelAttribute RegisterRequest registerRequest, HttpSession httpSession){
         return authServiceInterface.register(registerRequest, httpSession);
     }
 
     @PostMapping(value = "login")
-    public ResponseEntity<ApiResponse> login(@RequestBody LoginRequest loginRequest, HttpSession httpSession){
+    public ResponseEntity<ApiResponse> login(@jakarta.validation.Valid @RequestBody LoginRequest loginRequest, HttpSession httpSession){
         return authServiceInterface.login(loginRequest, httpSession);
     }
 
     @PostMapping(value = "send-otp")
-    public ResponseEntity<ApiResponse> sendOtp(HttpSession httpSession,@RequestBody SendOtpRequest sendOtpRequest) {
+    public ResponseEntity<ApiResponse> sendOtp(HttpSession httpSession, @jakarta.validation.Valid @RequestBody SendOtpRequest sendOtpRequest) {
         return authServiceInterface.resendOtpUnified(httpSession, sendOtpRequest);
     }
 
 
     @PostMapping(value = "verify-otp")
-    public ResponseEntity<ApiResponse> verifyOtp(@RequestBody OtpRequest otpRequest, HttpSession httpSession) {
+    public ResponseEntity<ApiResponse> verifyOtp(@jakarta.validation.Valid @RequestBody OtpRequest otpRequest, HttpSession httpSession) {
         return authServiceInterface.verifyOtp(otpRequest, httpSession);
     }
 
     @PostMapping(value = "forgot-password")
-    public ResponseEntity<ApiResponse> forgotPassword(@RequestBody ForgotPasswordRequest forgotPasswordRequest, HttpSession httpSession){
+    public ResponseEntity<ApiResponse> forgotPassword(@jakarta.validation.Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest, HttpSession httpSession){
         return authServiceInterface.forgotPassword(forgotPasswordRequest, httpSession);
     }
 
     @PutMapping(value = "new-password")
-    public ResponseEntity<ApiResponse> newPassword(@RequestBody NewPasswordRequest newPasswordRequest, HttpSession httpSession){
+    public ResponseEntity<ApiResponse> newPassword(@jakarta.validation.Valid @RequestBody NewPasswordRequest newPasswordRequest, HttpSession httpSession){
         return authServiceInterface.newPassword(newPasswordRequest, httpSession);
     }
 
     @PutMapping(value = "reset-password")
-    public ResponseEntity<ApiResponse> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest, HttpSession session){
+    public ResponseEntity<ApiResponse> resetPassword(@jakarta.validation.Valid @RequestBody ResetPasswordRequest resetPasswordRequest, HttpSession session){
         return authServiceInterface.resetPassword(resetPasswordRequest, session);
     }
 //

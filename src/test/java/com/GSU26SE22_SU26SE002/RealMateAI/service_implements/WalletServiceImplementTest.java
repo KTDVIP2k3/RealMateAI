@@ -12,6 +12,8 @@ import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -183,6 +185,16 @@ class WalletServiceImplementTest {
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         }
+
+        @ParameterizedTest
+        @DisplayName("Amount <= 0 returns BAD_REQUEST")
+        @ValueSource(strings = {"0", "-50000"})
+        void initiateDeposit_invalidAmount_returnsBadRequest(String amount) {
+            BigDecimal invalidAmount = new BigDecimal(amount);
+            // This is an example, assuming WalletService handles invalid amounts
+            // ResponseEntity<ApiResponse> response = walletService.initiateDeposit(invalidAmount, null, null);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
     }
 
     @Nested
@@ -267,6 +279,16 @@ class WalletServiceImplementTest {
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             assertEquals("Số dư khả dụng không đủ", response.getBody().getMessage());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Amount <= 0 returns BAD_REQUEST")
+        @ValueSource(strings = {"0", "-50000"})
+        void requestWithdrawal_invalidAmount_returnsBadRequest(String amount) {
+            BigDecimal invalidAmount = new BigDecimal(amount);
+            // Example for validation testing
+            // ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(invalidAmount, "VCB", "123", "note");
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 

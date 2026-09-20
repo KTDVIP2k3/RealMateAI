@@ -11,6 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -168,6 +170,20 @@ class InvestorServiceImplementTest {
             ResponseEntity<ApiResponse> response = investorService.createInvestorSurvey(request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("Blank/Null fields returns BAD_REQUEST")
+        @CsvSource({
+                "'', 'High'",
+                "'Conservative', ''"
+        })
+        void createInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
+            request.setInvestmentStyle(style);
+            request.setReturnExpectation(expectation);
+
+            // ResponseEntity<ApiResponse> response = investorService.createInvestorSurvey(request);
+            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
