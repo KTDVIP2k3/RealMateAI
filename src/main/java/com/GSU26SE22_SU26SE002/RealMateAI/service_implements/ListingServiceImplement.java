@@ -133,7 +133,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     || isBlankWhenPresent(request.getPropDirection())
                     || isBlankWhenPresent(request.getPropLegalStatus())
                     || isBlankWhenPresent(request.getPropAddressParticular())
-                    || isBlankWhenPresent(request.getPropProjectName())
+//                    || isBlankWhenPresent(request.getPropProjectName())
                     || isBlankWhenPresent(request.getPropFurniture())
                     || request.getDraftImagePublicIds() == null
                     || request.getDraftImagePublicIds().isEmpty()
