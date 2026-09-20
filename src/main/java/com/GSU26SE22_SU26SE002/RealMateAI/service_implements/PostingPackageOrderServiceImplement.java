@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.PostingPackageOrderStatusEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.TransactionTypeEnum;
@@ -11,7 +10,6 @@ import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PaymentAttemptResult;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.PostingPackageOrderDTO;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.ListingVerificationServiceInterface;
-import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.NotificationService;
 import com.GSU26SE22_SU26SE002.RealMateAI.service_interfaces.PostingPackageOrderServiceInterface;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import jakarta.transaction.Transactional;

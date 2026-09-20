@@ -7,9 +7,7 @@ import com.GSU26SE22_SU26SE002.RealMateAI.requests.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
 import com.google.genai.Client;
-import com.google.genai.types.GenerateContentResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.mockito.Answers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +30,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.when;
+
 import org.mockito.Mockito;
 
 @ExtendWith(MockitoExtension.class)
@@ -447,6 +445,9 @@ class InvestmentPlanServiceImplementTest {
             planRequest = new InvestmentPlanRequest();
             planRequest.setStrategyId(1);
             planRequest.setEquity(1000000000L);
+        planRequest.setLoanCapital(500000000L);
+        planRequest.setLongTermYear(10);
+        planRequest.setConsciousName("Test Name");
 
             strategy = new Strategy();
             strategy.setStrategyId(1);
@@ -563,6 +564,9 @@ class InvestmentPlanServiceImplementTest {
             updateRequest = new UpdateInvestmentPlanRequest();
             updateRequest.setStrategyId(1);
             updateRequest.setEquity(1000000000L);
+        updateRequest.setLoanCapital(500000000L);
+        updateRequest.setLongTermYear(10);
+        updateRequest.setConsciousName("Test Name");
 
             strategy = new Strategy();
             strategy.setStrategyId(1);

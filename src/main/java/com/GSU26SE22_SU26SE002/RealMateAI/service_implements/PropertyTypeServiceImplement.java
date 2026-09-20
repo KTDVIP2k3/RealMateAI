@@ -1,6 +1,5 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
-import com.GSU26SE22_SU26SE002.RealMateAI.model.Property;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.PropertyType;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.PropertyTypeRepository;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;

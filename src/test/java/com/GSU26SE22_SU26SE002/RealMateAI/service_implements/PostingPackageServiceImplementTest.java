@@ -260,8 +260,8 @@ class PostingPackageServiceImplementTest {
             request.setPosting_package_price(new BigDecimal(price));
             request.setDuration(new BigDecimal(duration));
             
-            // ResponseEntity<ApiResponse> response = postingPackageService.createPostingPackage(request);
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            ResponseEntity<ApiResponse> response = postingPackageService.createPostingPackage(request);
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
@@ -289,7 +289,7 @@ class PostingPackageServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(99, request);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         }
 
         @Test

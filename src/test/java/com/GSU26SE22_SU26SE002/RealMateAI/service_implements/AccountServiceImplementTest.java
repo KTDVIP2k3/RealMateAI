@@ -169,12 +169,12 @@ class AccountServiceImplementTest {
         }
 
         @ParameterizedTest
-        @DisplayName("Blank mandatory fields should return BAD_REQUEST")
+        @DisplayName("Blank fields return BAD_REQUEST")
         @CsvSource({
-                "''", // blank fullname
-                "'   '" // spaces only fullname
+                "'', '0987654321'",
+                "'Updated Name', ''"
         })
-        void updateAccount_blankFields_returnsBadRequest(String fullName) {
+        void updateAccount_blankFields_returnsBadRequest(String fullName, String phone) {
             validRequest.setFullName(fullName);
             // This assumes accountService checks for empty fullName, otherwise validation handles it
             // ResponseEntity<ApiResponse> response = accountService.updateAccount(validRequest);
