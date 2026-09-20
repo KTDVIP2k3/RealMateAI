@@ -60,7 +60,7 @@ class HeatmapZoneServiceImplementTest {
 
     // ── 112. View Heatmap ──────────────────────────────────────────────────
     @Nested
-    @DisplayName("112. getListingsByViewportPaged")
+    @DisplayName("getListingsByViewportPaged")
     class GetListingsByViewportPagedTests {
 
         @Test

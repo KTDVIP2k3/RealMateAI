@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -73,131 +75,203 @@ class TransactionServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-032. View My Transactions")
+    @DisplayName("View My Transactions")
     class ViewMyTransactionsTests {
 
         @Test
-        @DisplayName("UC-154: Valid request returns OK")
+        @DisplayName("Valid request returns OK")
         void getMyTransactions_valid_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = transactionService.getMyTransactions(0, 10);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Lấy lịch sử giao dịch ví thành công", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-155: Unauthenticated returns UNAUTHORIZED")
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
         void getMyTransactions_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
             ResponseEntity<ApiResponse> response = transactionService.getMyTransactions(0, 10);
 
             assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-156: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMyTransactions_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = transactionService.getMyTransactions(0, 10);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
         }
     }
 
     @Nested
-    @DisplayName("F-033. View Transactions (Admin)")
+    @DisplayName("View Transactions (Admin)")
     class ViewTransactionsAdminTests {
 
         @Test
-        @DisplayName("UC-157: Valid request returns OK")
+        @DisplayName("Valid request returns OK")
         void getTransactionsByAdminOrStaff_valid_returnsOk() {
             when(transactionRepository.findAll()).thenReturn(sampleTransactions);
 
-            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
+            ResponseEntity<ApiResponse> response =
+                    transactionService.getTransactionsByAdminOrStaff(0, 10);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(
+                    "Lấy lịch sử giao dịch ví thành công",
+                    response.getBody().getMessage()
+            );
         }
 
         @Test
-        @DisplayName("UC-160: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getTransactionsByAdminOrStaff_exception_returnsServerError() {
+            sampleAccount.setRole(RoleEnum.Admin);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(transactionRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
+        void getTransactionsByAdminOrStaff_unauthenticated_returnsUnauthorized() {
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
+
+            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Non-admin/staff role returns FORBIDDEN")
+        void getTransactionsByAdminOrStaff_forbidden_returnsForbidden() {
+            sampleAccount.setRole(RoleEnum.Investor);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaff(0, 10);
+
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         }
     }
 
     @Nested
-    @DisplayName("F-034. View My Transactions By Transaction Type")
+    @DisplayName("View My Transactions By Transaction Type")
     class ViewMyTransactionsByTypeTests {
-
         @Test
-        @DisplayName("UC-161: Valid request returns OK")
-        void getMyTransactionsByType_valid_returnsOk() {
+        @DisplayName("Valid request returns OK")
+        void getMyTransaction_valid_returnsOk() {
+            sampleAccount.setRole(RoleEnum.Admin);
+
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
-            ResponseEntity<ApiResponse> response = transactionService.getMyTransactionsByType(0, 10, "WALLET_DEPOSIT");
+
+            ResponseEntity<ApiResponse> response =
+                    transactionService.getMyTransactionsByType(
+                            0, 10, "WALLET_DEPOSIT"
+                    );
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(
+                    "Lấy lịch sử giao dịch ví thành công",
+                    response.getBody().getMessage()
+            );
         }
 
         @Test
-        @DisplayName("UC-162: Unauthenticated returns UNAUTHORIZED")
-        void getMyTransactionsByType_unauthenticated_returnsUnauthorized() {
-            when(authenUntil.getCurrentUSer()).thenReturn(null);
-
-            ResponseEntity<ApiResponse> response = transactionService.getMyTransactionsByType(0, 10, "WALLET_DEPOSIT");
-
-            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        }
-
-        @Test
-        @DisplayName("UC-163: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMyTransactionsByType_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = transactionService.getMyTransactionsByType(0, 10, "WALLET_DEPOSIT");
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
         }
-    }
 
+        @Test
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
+        void getMyTransactionsByType_unauthenticated_returnsUnauthorized() {
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = transactionService.getMyTransactionsByType(0, 10, "WALLET_DEPOSIT");
+
+            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
+        }
+
+    }
     @Nested
-    @DisplayName("F-035. View Transactions By Type (Admin)")
+    @DisplayName("View Transactions By Type (Admin)")
     class ViewTransactionsByTypeAdminTests {
 
         @Test
-        @DisplayName("UC-164: Valid request returns OK")
+        @DisplayName("Valid request returns OK")
         void getTransactionsByAdminOrStaffByType_valid_returnsOk() {
-            when(transactionRepository.findAll()).thenReturn(sampleTransactions);
+            sampleAccount.setRole(RoleEnum.Admin);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            lenient().when(transactionRepository.findAll()).thenReturn(sampleTransactions);
 
             ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaffByType(0, 10, "WALLET_DEPOSIT");
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Lấy lịch sử giao dịch ví thành công", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-167: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getTransactionsByAdminOrStaffByType_exception_returnsServerError() {
-            when(transactionRepository.findAll()).thenThrow(new RuntimeException("DB error"));
+            sampleAccount.setRole(RoleEnum.Admin);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            lenient().when(transactionRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaffByType(0, 10, "WALLET_DEPOSIT");
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
+        void getTransactionsByAdminOrStaffByType_unauthenticated_returnsUnauthorized() {
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaffByType(0, 10, "WALLET_DEPOSIT");
+
+            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+//            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Non-admin/staff role returns FORBIDDEN")
+        void getTransactionsByAdminOrStaffByType_forbidden_returnsForbidden() {
+            sampleAccount.setRole(RoleEnum.Investor);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = transactionService.getTransactionsByAdminOrStaffByType(0, 10, "WALLET_DEPOSIT");
+
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         }
     }
 
     @Nested
-    @DisplayName("F-036. View Transaction Details")
+    @DisplayName("View Transaction Details")
     class ViewTransactionDetailsTests {
 
         @Test
-        @DisplayName("UC-168: Existent transaction returns OK")
+        @DisplayName("Valid request returns OK")
         void getTransactionDetailById_valid_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(transactionRepository.findById(1)).thenReturn(Optional.of(sampleTransaction));
@@ -209,17 +283,30 @@ class TransactionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-169: Unauthenticated returns UNAUTHORIZED")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void getTransactionDetailById_exception_returnsServerError() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(transactionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = transactionService.getTransactionDetailById(1);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
         void getTransactionDetailById_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
             ResponseEntity<ApiResponse> response = transactionService.getTransactionDetailById(1);
 
             assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-170: Non-existent transaction returns NOT_FOUND")
+        @DisplayName("Non-existent transaction returns NOT_FOUND")
         void getTransactionDetailById_notFound_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(transactionRepository.findById(99)).thenReturn(Optional.empty());
@@ -229,20 +316,10 @@ class TransactionServiceImplementTest {
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Không tìm thấy thông tin chi tiết giao dịch này", response.getBody().getMessage());
         }
-
-        @Test
-        @DisplayName("UC-171: Exception returns INTERNAL_SERVER_ERROR")
-        void getTransactionDetailById_exception_returnsServerError() {
-            when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
-
-            ResponseEntity<ApiResponse> response = transactionService.getTransactionDetailById(1);
-
-            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        }
     }
 
     @Nested
-    @DisplayName("F-999. Create Transaction Validation")
+    @DisplayName("Create Transaction Validation")
     class CreateTransactionTests {
 
         @ParameterizedTest

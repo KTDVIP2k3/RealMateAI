@@ -74,12 +74,16 @@ public class ListingServiceImplement implements ListingServiceInterface {
 
     private static class ListingConflictException extends RuntimeException {
         final HttpStatus status;
+        ListingConflictException(HttpStatus status) {
+            super();
+            this.status = status;
+        }
         ListingConflictException(HttpStatus status, String message) {
             super(message);
             this.status = status;
         }
     }
-    private Seller getCurrentSeller(Account currentUser) {
+    protected Seller getCurrentSeller(Account currentUser) {
         if (currentUser == null) {
             throw new RuntimeException("Unauthorized");
         }
@@ -97,16 +101,53 @@ public class ListingServiceImplement implements ListingServiceInterface {
             Account currentUser = authenUntil.getCurrentUSer();
             Seller seller = getCurrentSeller(currentUser);
 
-            if (request.getPostingPackageId() != null) {
-                if (request.getDuration() == null || request.getDuration() <= 0) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request",
-                                    "duration phải lớn hơn 0 khi có postingPackageId"));
+            if (request == null
+                    || request.getReuseExistingProperty() == null
+                    || isBlank(request.getTitle())
+                    || isBlank(request.getDescription())
+                    || isNonPositive(request.getPrice())
+                    || isBlankWhenPresent(request.getContactPerson())
+                    || isBlankWhenPresent(request.getContactPersonPhone())
+                    || isBlankWhenPresent(request.getContactEmail())
+                    || isBlankWhenPresent(request.getViewingDate())) {
+                return badRequestWithoutMessage();
+            }
+
+            if (Boolean.TRUE.equals(request.getReuseExistingProperty())) {
+                if (isNonPositive(request.getExistingPropertyId())) {
+                    return badRequestWithoutMessage();
                 }
-                if (request.getTotalAmount() == null) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(ApiResponse.fail("Bad_Request",
-                                    "totalAmount không được để trống khi có postingPackageId"));
+            } else if (isBlank(request.getPropTitle())
+                    || isBlankWhenPresent(request.getPropDescription())
+                    || isNonPositive(request.getPropPrice())
+                    || isNonPositive(request.getPropArea())
+                    || isNonPositive(request.getPropPropertyTypeId())
+                    || isNonPositiveWhenPresent(request.getPropPropertyConditionId())
+                    || request.getPropLatitude() == null
+                    || request.getPropLongitude() == null
+                    || isBlank(request.getPropWardCode())
+                    || isBlankWhenPresent(request.getPropPostalCode())
+                    || isNonPositiveWhenPresent(request.getPropFloor())
+                    || isNonPositiveWhenPresent(request.getPropBedroom())
+                    || isNonPositiveWhenPresent(request.getPropBathroom())
+                    || isBlankWhenPresent(request.getPropDirection())
+                    || isBlankWhenPresent(request.getPropLegalStatus())
+                    || isBlankWhenPresent(request.getPropAddressParticular())
+                    || isBlankWhenPresent(request.getPropProjectName())
+                    || isBlankWhenPresent(request.getPropFurniture())
+                    || request.getDraftImagePublicIds() == null
+                    || request.getDraftImagePublicIds().isEmpty()
+                    || request.getDraftImagePublicIds().stream().anyMatch(this::isBlank)
+                    || invalidThumbnailIndex(request.getThumbnailImageIndex(), request.getDraftImagePublicIds())) {
+                return badRequestWithoutMessage();
+            }
+
+            if (request.getPostingPackageId() != null) {
+                if (request.getPostingPackageId() <= 0
+                        || isNonPositive(request.getDuration())
+                        || request.getTotalAmount() == null
+                        || request.getTotalAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    return badRequestWithoutMessage();
                 }
             }
 
@@ -179,8 +220,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         if (reuseExisting) {
             // ── Nhánh: dùng lại tài sản ĐÃ CÓ SẴN ────────────────────────
             if (request.getExistingPropertyId() == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST,
-                        "existingPropertyId không được để trống khi reuseExistingProperty=true");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
 
             property = propertyRepository.findById(request.getExistingPropertyId()).orElse(null);
@@ -197,54 +237,50 @@ public class ListingServiceImplement implements ListingServiceInterface {
         } else {
             // ── Nhánh: tạo tài sản MỚI ───────────────────────────────────
             if (request.getPropTitle() == null || request.getPropTitle().isBlank()) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propTitle không được để trống");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
             if (request.getPropPrice() == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propPrice không được để trống");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
             if (request.getPropArea() == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propArea không được để trống");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
             if (request.getPropPropertyTypeId() == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propPropertyTypeId không được để trống");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
             if (request.getPropLatitude() == null || request.getPropLongitude() == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propLatitude/propLongitude không được để trống");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
             if (request.getPropWardCode() == null || request.getPropWardCode().isBlank()) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propWardCode không được để trống");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
             // Tài sản mới chưa có ảnh nào để tự động dùng lại → bắt buộc Seller
             // phải upload ảnh trước và truyền publicId vào draftImagePublicIds.
             if (request.getDraftImagePublicIds() == null || request.getDraftImagePublicIds().isEmpty()) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST,
-                        "Tạo tài sản mới phải kèm ít nhất 1 ảnh (draftImagePublicIds) — "
-                                + "upload trước qua POST /media/upload/multiple");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
 
             PropertyType propertyType = propertyTypeRepository
                     .findById(request.getPropPropertyTypeId()).orElse(null);
             if (propertyType == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST, "Loại bất động sản không hợp lệ");
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
 
             PropertyCondition propertyCondition = null;
             Integer conditionId = request.getPropPropertyConditionId();
             if (conditionId != null) {
                 if (conditionId <= 0) {
-                    throw new ListingConflictException(HttpStatus.BAD_REQUEST, "propPropertyConditionId phải lớn hơn 0");
+                    throw new ListingConflictException(HttpStatus.BAD_REQUEST);
                 }
                 propertyCondition = propertyConditionRepository.findById(conditionId).orElse(null);
                 if (propertyCondition == null) {
-                    throw new ListingConflictException(HttpStatus.BAD_REQUEST,
-                            "Tình trạng bất động sản không tồn tại với id = " + conditionId);
+                    throw new ListingConflictException(HttpStatus.BAD_REQUEST);
                 }
             }
 
             Ward ward = wardRepository.findById(request.getPropWardCode()).orElse(null);
             if (ward == null) {
-                throw new ListingConflictException(HttpStatus.BAD_REQUEST,
-                        "Mã phường/xã không hợp lệ: " + request.getPropWardCode());
+                throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
 
             Location location = Location.builder()
@@ -358,8 +394,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
     // Helper xử lý exception auth
-    private ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
+    protected  ResponseEntity<ApiResponse> handleAuthException(RuntimeException e) {
         if (e instanceof ListingConflictException lce) {
+            if (lce.status == HttpStatus.BAD_REQUEST) {
+                return badRequestWithoutMessage();
+            }
             return ResponseEntity.status(lce.status).body(ApiResponse.fail(lce.status.toString(), e.getMessage()));
         }
         if (e.getMessage().contains("Unauthorized")) {
@@ -372,6 +411,31 @@ public class ListingServiceImplement implements ListingServiceInterface {
         }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("Server_Error", e.getMessage()));
+    }
+
+    private ResponseEntity<ApiResponse> badRequestWithoutMessage() {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private boolean isBlankWhenPresent(String value) {
+        return value != null && value.isBlank();
+    }
+
+    private boolean isNonPositive(Number value) {
+        return value == null || value.doubleValue() <= 0;
+    }
+
+    private boolean isNonPositiveWhenPresent(Number value) {
+        return value != null && value.doubleValue() <= 0;
+    }
+
+    private boolean invalidThumbnailIndex(Integer index, List<String> publicIds) {
+        if (index == null) return false;
+        return index < 0 || publicIds == null || index >= publicIds.size();
     }
 
 
@@ -580,6 +644,37 @@ public class ListingServiceImplement implements ListingServiceInterface {
     public ResponseEntity<ApiResponse> updateListing(Integer listingId, UpdateListingRequest request) {
         try {
             Account currentUser = authenUntil.getCurrentUSer();
+
+            if (request == null
+                    || isNonPositive(listingId)
+                    || isBlankWhenPresent(request.getTitle())
+                    || isBlankWhenPresent(request.getDescription())
+                    || isNonPositiveWhenPresent(request.getPrice())
+                    || isBlankWhenPresent(request.getContactPerson())
+                    || isBlankWhenPresent(request.getContactPersonPhone())
+                    || isBlankWhenPresent(request.getContactEmail())
+                    || isBlankWhenPresent(request.getViewingDate())
+                    || isBlankWhenPresent(request.getPropertyTitle())
+                    || isBlankWhenPresent(request.getPropertyDescription())
+                    || isNonPositiveWhenPresent(request.getPropertyPrice())
+                    || isNonPositiveWhenPresent(request.getArea())
+                    || isNonPositiveWhenPresent(request.getFloor())
+                    || isNonPositiveWhenPresent(request.getBedroom())
+                    || isNonPositiveWhenPresent(request.getBathroom())
+                    || isBlankWhenPresent(request.getDirection())
+                    || isBlankWhenPresent(request.getFurniture())
+                    || isNonPositiveWhenPresent(request.getPropertyTypeId())
+                    || isNonPositiveWhenPresent(request.getPropertyConditionId())
+                    || isBlankWhenPresent(request.getPostalCode())
+                    || isBlankWhenPresent(request.getWardCode())
+                    || isNonPositiveWhenPresent(request.getThumbnailListingImageId())
+                    || (request.getDraftImagePublicIds() != null
+                    && (request.getDraftImagePublicIds().isEmpty()
+                    || request.getDraftImagePublicIds().stream().anyMatch(this::isBlank)))
+                    || invalidThumbnailIndex(request.getThumbnailImageIndex(), request.getDraftImagePublicIds())) {
+                return badRequestWithoutMessage();
+            }
+
             if (currentUser == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ApiResponse.fail("Unauthorized", "Bạn cần đăng nhập"));
@@ -648,9 +743,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
                         .findByListingImageIdAndListing_ListingId(request.getThumbnailListingImageId(), listingId)
                         .orElse(null);
                 if (targetImage == null) {
-                    return ResponseEntity.badRequest().body(ApiResponse.fail("Bad_Request",
-                            "thumbnailListingImageId=" + request.getThumbnailListingImageId()
-                                    + " không tồn tại hoặc không thuộc bài đăng này"));
+                    return badRequestWithoutMessage();
                 }
                 listingImageRepository.clearThumbnailByListingId(listingId);
                 targetImage.setIsThumbnail(true);

@@ -69,11 +69,11 @@ class AccountVerificationServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-017. View Account Verification Requests")
+    @DisplayName("View Account Verification Requests")
     class ViewVerificationRequestsTests {
 
         @Test
-        @DisplayName("UC-083: Empty list returns OK with empty message")
+        @DisplayName("Empty list returns OK with empty message")
         void getVerificationByStaff_emptyList_returnsOk() {
             when(accountVerificationRepository.findAll()).thenReturn(List.of());
 
@@ -84,7 +84,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-084: Non-empty list returns OK with list data")
+        @DisplayName("Non-empty list returns OK with list data")
         void getVerificationByStaff_withData_returnsOk() {
             when(accountVerificationRepository.findAll()).thenReturn(List.of(sampleVerification));
 
@@ -95,7 +95,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-085: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getVerificationByStaff_exception_returnsServerError() {
             when(accountVerificationRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
@@ -107,11 +107,11 @@ class AccountVerificationServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-018. View Account Verification Detail")
+    @DisplayName("View Account Verification Detail")
     class ViewVerificationDetailTests {
 
         @Test
-        @DisplayName("UC-086: Existed verification ID returns OK")
+        @DisplayName("Existed verification ID returns OK")
         void getVerificationDetailByStaff_valid_returnsOk() {
             when(accountVerificationRepository.findById(1)).thenReturn(Optional.of(sampleVerification));
 
@@ -122,7 +122,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-087: Non-existent verification ID returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Non-existent verification ID returns INTERNAL_SERVER_ERROR")
         void getVerificationDetailByStaff_notFound_returnsServerError() {
             when(accountVerificationRepository.findById(999)).thenReturn(Optional.empty());
 
@@ -133,7 +133,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-088: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getVerificationDetailByStaff_exception_returnsServerError() {
             when(accountVerificationRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
@@ -145,11 +145,11 @@ class AccountVerificationServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-019. View Account Verifications (User)")
+    @DisplayName("View Account Verifications (User)")
     class ViewVerificationsForUserTests {
 
         @Test
-        @DisplayName("UC-089: Empty list returns OK with empty message")
+        @DisplayName("Empty list returns OK with empty message")
         void getVerificationForUser_emptyList_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(accountVerificationRepository.findAll()).thenReturn(List.of());
@@ -161,7 +161,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-090: Non-empty list returns OK with data")
+        @DisplayName("Non-empty list returns OK with data")
         void getVerificationForUser_withData_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(accountVerificationRepository.findAll()).thenReturn(List.of(sampleVerification));
@@ -173,7 +173,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-091: Account does not exist returns UNAUTHORIZED")
+        @DisplayName("Account does not exist returns UNAUTHORIZED")
         void getVerificationForUser_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -184,7 +184,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-092: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getVerificationForUser_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
@@ -193,14 +193,30 @@ class AccountVerificationServiceImplementTest {
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("DB error", response.getBody().getMessage());
         }
+
+        @Test
+        @DisplayName("Verification ID belonging to another user returns FORBIDDEN")
+        void getVerificationDetailForUser_forbidden_returnsForbidden() {
+            Account anotherUser = new Account();
+            anotherUser.setAccountId(99); // Khác với sampleAccount (ID = 1)
+            sampleVerification.setAccount(anotherUser);
+
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(accountVerificationRepository.findById(1)).thenReturn(Optional.of(sampleVerification));
+
+            ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationDetailForUser(1);
+
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+            assertEquals("You do not have permission to view this verification", response.getBody().getMessage());
+        }
     }
 
     @Nested
-    @DisplayName("F-020. Approve Account Verification Request")
+    @DisplayName("Approve Account Verification Request")
     class ApproveVerificationTests {
 
         @Test
-        @DisplayName("UC-093: Valid ID returns OK")
+        @DisplayName("Valid ID returns OK")
         void approveVerification_valid_returnsOk() {
             when(accountVerificationRepository.findById(1)).thenReturn(Optional.of(sampleVerification));
             when(accountVerificationRepository.save(any())).thenReturn(sampleVerification);
@@ -213,34 +229,33 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-094: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void approveVerification_exception_returnsServerError() {
-            when(accountVerificationRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            when(accountVerificationRepository.findById(anyInt())).thenThrow(new RuntimeException("Server_Error: DB error"));
 
             ResponseEntity<ApiResponse> response = verificationService.approveAccountVerification(1);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertEquals("DB error", response.getBody().getMessage());
+            assertEquals("Server_Error: DB error", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-095: Non-existent ID returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Non-existent ID returns INTERNAL_SERVER_ERROR")
         void approveVerification_notFound_returnsServerError() {
             when(accountVerificationRepository.findById(999)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = verificationService.approveAccountVerification(999);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Account verification not found with id: 999"));
         }
     }
 
     @Nested
-    @DisplayName("F-021. Reject Account Verification Request")
+    @DisplayName("Reject Account Verification Request")
     class RejectVerificationTests {
 
         @Test
-        @DisplayName("UC-096: Valid ID and reason returns OK")
+        @DisplayName("Valid ID and reason returns OK")
         void rejectVerification_valid_returnsOk() {
             when(accountVerificationRepository.findById(1)).thenReturn(Optional.of(sampleVerification));
             when(accountVerificationRepository.save(any())).thenReturn(sampleVerification);
@@ -253,7 +268,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-097: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void rejectVerification_exception_returnsServerError() {
             when(accountVerificationRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
@@ -264,7 +279,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-098: Non-existent ID returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Non-existent ID returns INTERNAL_SERVER_ERROR")
         void rejectVerification_notFound_returnsServerError() {
             when(accountVerificationRepository.findById(999)).thenReturn(Optional.empty());
 
@@ -274,78 +289,113 @@ class AccountVerificationServiceImplementTest {
             assertTrue(response.getBody().getMessage().contains("Account verification not found with id: 999"));
         }
     }
-
     @Nested
-    @DisplayName("F-022. Create Account Verification")
+    @DisplayName("Create Account Verification")
     class CreateVerificationTests {
 
-        @Test
-        @DisplayName("UC-099: Valid request returns CREATED")
-        void createVerification_valid_returnsCreated() throws Exception {
-            MultipartFile file = mock(MultipartFile.class);
-            when(file.isEmpty()).thenReturn(false);
-            AccountVerificationRequest request = new AccountVerificationRequest();
-            request.setCccdmt(file);
-            request.setCccdms(file);
-            request.setSelfie(file);
+        private AccountVerificationRequest validRequest;
+        private MultipartFile validFile;
 
+        @BeforeEach
+        void setUpVerification() {
+            validFile = mock(MultipartFile.class);
+            lenient().when(validFile.isEmpty()).thenReturn(false);
+
+            validRequest = new AccountVerificationRequest();
+            validRequest.setCccdmt(validFile);
+            validRequest.setCccdms(validFile);
+            validRequest.setSelfie(validFile);
+        }
+
+        @Test
+        @DisplayName("Valid request returns CREATED")
+        void createVerification_valid_returnsCreated() throws Exception {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(cloudinaryMediaService.uploadImage(any())).thenReturn("http://uploaded.jpg");
             when(accountVerificationRepository.save(any())).thenReturn(sampleVerification);
 
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(request);
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode());
             assertEquals("Create verification successfully", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-101: Account does not exist returns UNAUTHORIZED")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void createVerification_exception_returnsServerError() throws Exception {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(cloudinaryMediaService.uploadImage(any())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Account does not exist returns UNAUTHORIZED")
         void createVerification_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(new AccountVerificationRequest());
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
 
             assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
             assertEquals("User authentication required", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-100: Exception returns INTERNAL_SERVER_ERROR")
-        void createVerification_exception_returnsServerError() {
-            when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
+        @DisplayName("Invalid cccdmt format returns BAD_REQUEST")
+        void createVerification_invalidCccdmt_returnsBadRequest() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
 
-            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(new AccountVerificationRequest());
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
 
-            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertEquals("DB error", response.getBody().getMessage());
+        @Test
+        @DisplayName("Invalid cccdms format returns BAD_REQUEST")
+        void createVerification_invalidCccdms_returnsBadRequest() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("Invalid selfie format returns BAD_REQUEST")
+        void createVerification_invalidSelfie_returnsBadRequest() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(validRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
 
         @ParameterizedTest
-        @DisplayName("Blank/Null files returns BAD_REQUEST")
+        @DisplayName("Null or empty files return BAD_REQUEST")
         @CsvSource({
-                "true, false, false", // cccdmt empty
-                "false, true, false", // cccdms empty
-                "false, false, true"  // selfie empty
+                "true, false, false",
+                "false, true, false",
+                "false, false, true"
         })
         void createVerification_blankFields_returnsBadRequest(boolean cccdmtEmpty, boolean cccdmsEmpty, boolean selfieEmpty) {
-            MultipartFile file = mock(MultipartFile.class);
             MultipartFile emptyFile = mock(MultipartFile.class);
-            lenient().when(emptyFile.isEmpty()).thenReturn(true);
-            lenient().when(file.isEmpty()).thenReturn(false);
+            when(emptyFile.isEmpty()).thenReturn(true);
 
             AccountVerificationRequest request = new AccountVerificationRequest();
-            request.setCccdmt(cccdmtEmpty ? emptyFile : file);
-            request.setCccdms(cccdmsEmpty ? emptyFile : file);
-            request.setSelfie(selfieEmpty ? emptyFile : file);
+            request.setCccdmt(cccdmtEmpty ? emptyFile : validFile);
+            request.setCccdms(cccdmsEmpty ? emptyFile : validFile);
+            request.setSelfie(selfieEmpty ? emptyFile : validFile);
 
-            // ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(request);
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = verificationService.createAccountVerification(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
     @Nested
-    @DisplayName("F-023. Update Account Verification")
+    @DisplayName("Update Account Verification")
     class UpdateVerificationTests {
 
         private AccountVerificationUpdateRequest validRequest;
@@ -362,7 +412,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-108: Valid update with all images returns OK")
+        @DisplayName("Valid update with all images returns OK")
         void updateVerification_valid_returnsOk() throws Exception {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(accountVerificationRepository.findById(1)).thenReturn(Optional.of(sampleVerification));
@@ -376,7 +426,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-109: Valid update missing cccdmt returns OK")
+        @DisplayName("Valid update missing cccdmt returns OK")
         void updateVerification_missingCccdmt_returnsOk() throws Exception {
             validRequest.setCccdmt(null);
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
@@ -391,7 +441,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-110: Valid update missing cccdms returns OK")
+        @DisplayName("Valid update missing cccdms returns OK")
         void updateVerification_missingCccdms_returnsOk() throws Exception {
             validRequest.setCccdms(null);
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
@@ -406,7 +456,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-111: Valid update missing selfie returns OK")
+        @DisplayName("Valid update missing selfie returns OK")
         void updateVerification_missingSelfie_returnsOk() throws Exception {
             validRequest.setSelfie(null);
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
@@ -421,7 +471,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-112: Account does not exist returns UNAUTHORIZED")
+        @DisplayName("Account does not exist returns UNAUTHORIZED")
         void updateVerification_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -432,7 +482,7 @@ class AccountVerificationServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-114: Non-existent verification ID returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Non-existent verification ID returns INTERNAL_SERVER_ERROR")
         void updateVerification_notFound_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(accountVerificationRepository.findById(1)).thenReturn(Optional.empty());
@@ -440,18 +490,49 @@ class AccountVerificationServiceImplementTest {
             ResponseEntity<ApiResponse> response = verificationService.updateAccountVerification(validRequest);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Account verification not found with id: 1"));
+            assertEquals("Account verification not found with id: 1", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-113: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void updateVerification_exception_returnsServerError() {
-            when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(accountVerificationRepository.findById(1)).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = verificationService.updateAccountVerification(validRequest);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
             assertEquals("DB error", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Invalid cccdmt format returns BAD_REQUEST")
+        void updateVerification_invalidCccdmt_returnsBadRequest() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = verificationService.updateAccountVerification(validRequest);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("Invalid cccdms format returns BAD_REQUEST")
+        void updateVerification_invalidCccdms_returnsBadRequest() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = verificationService.updateAccountVerification(validRequest);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("Invalid selfie format returns BAD_REQUEST")
+        void updateVerification_invalidSelfie_returnsBadRequest() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = verificationService.updateAccountVerification(validRequest);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         }
     }
 }

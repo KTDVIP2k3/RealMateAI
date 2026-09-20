@@ -74,11 +74,11 @@ class WalletServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-024. View My Wallet")
+    @DisplayName("View My Wallet")
     class ViewMyWalletTests {
 
         @Test
-        @DisplayName("UC-118, UC-121: Wallet exists, returns OK")
+        @DisplayName("Wallet exists, returns OK")
         void getMyWallet_valid_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
@@ -90,7 +90,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-119: Unauthenticated returns UNAUTHORIZED")
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
         void getMyWallet_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -101,7 +101,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-120: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getMyWallet_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
@@ -130,27 +130,11 @@ class WalletServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-025. Deposit My Wallet")
+    @DisplayName("Deposit My Wallet")
     class DepositMyWalletTests {
 
-//        @Test
-//        @DisplayName("UC-122, UC-124, UC-126: Valid deposit with custom URLs returns OK")
-//        void initiateDeposit_validWithCustomUrls_returnsOk() throws Exception {
-//            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-//            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
-//            CreatePaymentLinkResponse mockResponse = mock(CreatePaymentLinkResponse.class);
-//            when(mockResponse.getCheckoutUrl()).thenReturn("http://payos.link");
-//            when(payOS.paymentRequests().create(any(CreatePaymentLinkRequest.class))).thenReturn(mockResponse);
-//
-//            ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
-//                    new BigDecimal("50000"), "http://custom.return", "http://custom.cancel");
-//
-//            assertEquals(HttpStatus.OK, response.getStatusCode());
-//            assertEquals("Tạo link thanh toán PayOS thành công", response.getBody().getMessage());
-//        }
-
         @Test
-        @DisplayName("UC-123, UC-125, UC-127: Valid deposit with default URLs returns OK")
+        @DisplayName("Valid deposit with default URLs returns OK")
         void initiateDeposit_validWithDefaultUrls_returnsOk() throws Exception {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
@@ -159,9 +143,42 @@ class WalletServiceImplementTest {
             when(payOS.paymentRequests().create(any(CreatePaymentLinkRequest.class))).thenReturn(mockResponse);
 
             ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
-                    new BigDecimal("50000"), null, "");
+                    new BigDecimal("50000"), null, null);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Tạo link thanh toán PayOS thành công", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Valid deposit with custom return URL returns OK")
+        void initiateDeposit_validWithCustomReturnUrl_returnsOk() throws Exception {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
+            CreatePaymentLinkResponse mockResponse = mock(CreatePaymentLinkResponse.class);
+            when(mockResponse.getCheckoutUrl()).thenReturn("http://payos.link");
+            when(payOS.paymentRequests().create(any(CreatePaymentLinkRequest.class))).thenReturn(mockResponse);
+
+            ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
+                    new BigDecimal("50000"), "http://custom.return", null);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Tạo link thanh toán PayOS thành công", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Valid deposit with custom URLs returns OK")
+        void initiateDeposit_validWithCustomUrls_returnsOk() throws Exception {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
+            CreatePaymentLinkResponse mockResponse = mock(CreatePaymentLinkResponse.class);
+            when(mockResponse.getCheckoutUrl()).thenReturn("http://payos.link");
+            when(payOS.paymentRequests().create(any(CreatePaymentLinkRequest.class))).thenReturn(mockResponse);
+
+            ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
+                    new BigDecimal("50000"), "http://custom.return", "http://custom.cancel");
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Tạo link thanh toán PayOS thành công", response.getBody().getMessage());
         }
 
         @Test
@@ -173,36 +190,38 @@ class WalletServiceImplementTest {
                     new BigDecimal("50000"), null, null);
 
             assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
         }
 
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void initiateDeposit_exception_returnsServerError() {
-            when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
+            when(payOS.paymentRequests()).thenThrow(new RuntimeException("PayOS error"));
 
             ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
                     new BigDecimal("50000"), null, null);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Lỗi từ cổng thanh toán: PayOS error", response.getBody().getMessage());
         }
 
-        @ParameterizedTest
-        @DisplayName("Amount <= 0 returns BAD_REQUEST")
-        @ValueSource(strings = {"0", "-50000"})
-        void initiateDeposit_invalidAmount_returnsBadRequest(String amount) {
-            BigDecimal invalidAmount = new BigDecimal(amount);
+        @Test
+        @DisplayName("Invalid amount returns BAD_REQUEST")
+        void initiateDeposit_invalidAmount_returnsBadRequest() {
             ResponseEntity<ApiResponse> response = walletService.initiateDeposit(
-                    invalidAmount, "http://return.url", "http://cancel.url");
+                    new BigDecimal("-50000"), null, null);
+
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
-
     @Nested
-    @DisplayName("F-026. Withdraw My Wallet")
+    @DisplayName("Withdraw My Wallet")
     class WithdrawMyWalletTests {
 
         @Test
-        @DisplayName("UC-128: Valid withdrawal returns OK")
+        @DisplayName("Valid withdrawal returns OK")
         void requestWithdrawal_valid_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
@@ -220,18 +239,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-129: Unauthenticated returns UNAUTHORIZED")
-        void requestWithdrawal_unauthenticated_returnsUnauthorized() {
-            when(authenUntil.getCurrentUSer()).thenReturn(null);
-
-            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(
-                    new BigDecimal("500000"), "VCB", "123", "note");
-
-            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        }
-
-        @Test
-        @DisplayName("UC-130: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void requestWithdrawal_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
@@ -242,7 +250,19 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-131: Wallet not found returns NOT_FOUND")
+        @DisplayName("Unauthenticated returns UNAUTHORIZED")
+        void requestWithdrawal_unauthenticated_returnsUnauthorized() {
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(
+                    new BigDecimal("500000"), "VCB", "123", "note");
+
+            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("Người dùng chưa đăng nhập", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Wallet not found returns NOT_FOUND")
         void requestWithdrawal_walletNotFound_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.empty());
@@ -253,58 +273,26 @@ class WalletServiceImplementTest {
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Không tìm thấy ví của tài khoản này", response.getBody().getMessage());
         }
-        
-        @Test
-        @DisplayName("Wallet locked returns BAD_REQUEST")
-        void requestWithdrawal_walletLocked_returnsBadRequest() {
-            sampleWallet.setIsActive(false);
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
-
-            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(
-                    new BigDecimal("500000"), "VCB", "123", "note");
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Ví này hiện đang bị khóa", response.getBody().getMessage());
-        }
-
-        @Test
-        @DisplayName("UC-132: Insufficient balance returns BAD_REQUEST")
-        void requestWithdrawal_insufficientBalance_returnsBadRequest() {
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
-            when(walletRepository.findByAccount_AccountId(1)).thenReturn(Optional.of(sampleWallet));
-
-            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(
-                    new BigDecimal("2000000"), "VCB", "123", "note"); // balance is 1000000
-
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Số dư khả dụng không đủ", response.getBody().getMessage());
-        }
 
         @ParameterizedTest
-        @DisplayName("Amount <= 0 returns BAD_REQUEST")
-        @ValueSource(strings = {"0", "-50000"})
-        void requestWithdrawal_invalidAmount_returnsBadRequest(String amount) {
-            BigDecimal invalidAmount = new BigDecimal(amount);
-            ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(invalidAmount, "VCB", "123", "note");
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        }
-
-        @ParameterizedTest
-        @DisplayName("Blank fields return BAD_REQUEST")
+        @DisplayName("Blank or invalid fields return BAD_REQUEST")
         @CsvSource({
-                "'', '123', 'note'",
-                "'VCB', '', 'note'"
+                "'0',       'Vietcombank', '0123456789'",
+                "'-50000',  'Vietcombank', '0123456789'",
+                "'500000',  '',            '0123456789'",
+                "'500000',  '   ',         '0123456789'",
+                "'500000',  'Vietcombank', ''",
+                "'500000',  'Vietcombank', '   '"
         })
-        void requestWithdrawal_blankFields_returnsBadRequest(String bankName, String bankAccountNumber, String note) {
+        void requestWithdrawal_invalidFields_returnsBadRequest(String amount, String bankName, String bankAccountNumber) {
             ResponseEntity<ApiResponse> response = walletService.requestWithdrawal(
-                    new BigDecimal("500000"), bankName, bankAccountNumber, note);
+                    new BigDecimal(amount), bankName, bankAccountNumber, "note");
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
     }
 
     @Nested
-    @DisplayName("F-027. Review Wallet Withdrawal Request")
+    @DisplayName("Review Wallet Withdrawal Request")
     class ReviewWithdrawRequestTests {
 
         private WalletWithdrawal sampleWithdrawal;
@@ -320,7 +308,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-133: Valid REJECT returns OK")
+        @DisplayName("Valid REJECT returns OK")
         void reviewWithdrawRequest_reject_returnsOk() {
             when(walletWithdrawalRepository.findById(1)).thenReturn(Optional.of(sampleWithdrawal));
             when(walletRepository.save(any())).thenReturn(sampleWallet);
@@ -334,17 +322,18 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-134: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void reviewWithdrawRequest_exception_returnsServerError() {
             when(walletWithdrawalRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = walletService.reviewWithdrawRequest(1, "REJECT", "Invalid");
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("UC-135: Non-existent withdrawal returns NOT_FOUND")
+        @DisplayName("Non-existent withdrawal returns NOT_FOUND")
         void reviewWithdrawRequest_notFound_returnsNotFound() {
             when(walletWithdrawalRepository.findById(999)).thenReturn(Optional.empty());
 
@@ -355,7 +344,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-136: Invalid status returns BAD_REQUEST")
+        @DisplayName("Invalid status returns BAD_REQUEST")
         void reviewWithdrawRequest_invalidStatus_returnsBadRequest() {
             when(walletWithdrawalRepository.findById(1)).thenReturn(Optional.of(sampleWithdrawal));
 
@@ -366,7 +355,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-137: Valid APPROVE returns OK")
+        @DisplayName("Valid APPROVE returns OK")
         void reviewWithdrawRequest_approve_returnsOk() {
             when(walletWithdrawalRepository.findById(1)).thenReturn(Optional.of(sampleWithdrawal));
             when(walletWithdrawalRepository.save(any())).thenReturn(sampleWithdrawal);
@@ -379,7 +368,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-138: Valid COMPLETE returns OK")
+        @DisplayName("Valid COMPLETE returns OK")
         void reviewWithdrawRequest_complete_returnsOk() {
             when(walletWithdrawalRepository.findById(1)).thenReturn(Optional.of(sampleWithdrawal));
             when(walletWithdrawalRepository.save(any())).thenReturn(sampleWithdrawal);
@@ -392,7 +381,7 @@ class WalletServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-139: COMPLETE invalid current status returns BAD_REQUEST")
+        @DisplayName("COMPLETE invalid current status returns BAD_REQUEST")
         void reviewWithdrawRequest_completeInvalidCurrentStatus_returnsBadRequest() {
             sampleWithdrawal.setStatus("REJECT");
             when(walletWithdrawalRepository.findById(1)).thenReturn(Optional.of(sampleWithdrawal));

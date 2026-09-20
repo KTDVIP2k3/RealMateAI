@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.WalletWithdrawal;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.WalletWithdrawalRepository;
@@ -32,6 +33,10 @@ public class WalletWithdrawalServiceImplement implements WalletWithDrawlServiceI
             if (currentAccount == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ApiResponse.fail("UNAUTHORIZED", "Người dùng chưa đăng nhập"));
+            }
+
+            if (!currentAccount.getRole().equals(RoleEnum.Admin)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
             List<WalletWithdrawal> allWithdrawals = walletWithdrawalRepository.findAll();

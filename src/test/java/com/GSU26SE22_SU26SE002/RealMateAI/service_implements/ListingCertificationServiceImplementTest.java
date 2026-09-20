@@ -66,7 +66,7 @@ class ListingCertificationServiceImplementTest {
 
     // ── 64. Send/Create Listing Certification Request ─────────────────────
     @Nested
-    @DisplayName("64. submitCertificationRequest")
+    @DisplayName("submitCertificationRequest")
     class SubmitCertificationRequestTests {
         @Test
         @DisplayName("Trả 409 khi bài đăng đã được tích xanh trước đó")
@@ -114,7 +114,7 @@ class ListingCertificationServiceImplementTest {
 
     // ── 62. View Listing Certifications ─────────────────────────────────────
     @Nested
-    @DisplayName("62. getMyCertificationRequests")
+    @DisplayName("getMyCertificationRequests")
     class GetMyCertificationRequestsTests {
         @Test
         @DisplayName("Trả về danh sách yêu cầu tích xanh của Seller hiện tại")
@@ -131,7 +131,7 @@ class ListingCertificationServiceImplementTest {
 
     // ── 63. View Listing Certification Details (Seller) ─────────────────────
     @Nested
-    @DisplayName("63. getMyCertificationRequestDetail")
+    @DisplayName("getMyCertificationRequestDetail")
     class GetMyCertificationRequestDetailTests {
         @Test
         @DisplayName("Trả 404 khi yêu cầu không tồn tại")
@@ -179,7 +179,7 @@ class ListingCertificationServiceImplementTest {
 
     // ── 69. Verify Listing Certification Request ────────────────────────────
     @Nested
-    @DisplayName("69. reviewCertificationRequest")
+    @DisplayName("reviewCertificationRequest")
     class ReviewCertificationRequestTests {
         @Test
         @DisplayName("Trả 400 khi từ chối (REJECTED) nhưng không kèm reviewerNote")

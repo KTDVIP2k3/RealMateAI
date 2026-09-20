@@ -55,7 +55,7 @@ class FavoriteListingServiceImplementTest {
 
     // ── 59. View Favourite Listing ────────────────────────────────────────
     @Nested
-    @DisplayName("59. getMyFavorites")
+    @DisplayName("getMyFavorites")
     class GetMyFavoritesTests {
         @Test
         @DisplayName("Trả về danh sách yêu thích của Investor hiện tại")
@@ -75,7 +75,7 @@ class FavoriteListingServiceImplementTest {
 
     // ── 60. Like Favourite Listing ────────────────────────────────────────
     @Nested
-    @DisplayName("60. addFavorite")
+    @DisplayName("addFavorite")
     class AddFavoriteTests {
         @Test
         @DisplayName("Thêm yêu thích thành công khi listing đang active và chưa lưu trước đó")
@@ -126,7 +126,7 @@ class FavoriteListingServiceImplementTest {
 
     // ── 61. Delete Favourite Listing ──────────────────────────────────────
     @Nested
-    @DisplayName("61. removeFavorite")
+    @DisplayName("removeFavorite")
     class RemoveFavoriteTests {
         @Test
         @DisplayName("Xoá thành công mục yêu thích thuộc đúng Investor")

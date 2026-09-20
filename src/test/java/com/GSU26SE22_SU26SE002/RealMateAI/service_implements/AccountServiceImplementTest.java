@@ -1,7 +1,9 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.RoleEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.AccountRepository;
+import com.GSU26SE22_SU26SE002.RealMateAI.requests.CreateAccountRequestV2;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.UpdateAccountRequest;
 import com.GSU26SE22_SU26SE002.RealMateAI.responses.ApiResponse;
 import com.GSU26SE22_SU26SE002.RealMateAI.utils.AuthenUntil;
@@ -15,6 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,12 +57,14 @@ class AccountServiceImplementTest {
         sampleAccount.setIsActive(true);
     }
 
+
+
     @Nested
-    @DisplayName("F-008. View My Account")
+    @DisplayName("View My Account")
     class GetMyAccountTests {
 
         @Test
-        @DisplayName("UC-043: Valid account returns OK with profile")
+        @DisplayName("Valid account returns OK with profile")
         void getAccountProfile_valid_returnsOk() {
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
@@ -69,7 +75,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-044: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getAccountProfile_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
@@ -79,8 +85,158 @@ class AccountServiceImplementTest {
             assertEquals("DB error", response.getBody().getMessage());
         }
 
+        @Nested
+        @DisplayName("Create Account V2")
+        class CreateAccountV2Tests {
+
+            private CreateAccountRequestV2 validRequest;
+
+            @BeforeEach
+            void setupRequest() {
+                validRequest = new CreateAccountRequestV2();
+                validRequest.setUserName("newuser");
+                validRequest.setPassword("Valid1@Pass");
+                validRequest.setEmail("new@gmail.com");
+                validRequest.setFullName("New User");
+                validRequest.setRole(RoleEnum.Seller);
+            }
+
+            @Test
+            @DisplayName("Valid account creation returns OK")
+            void createAccount_valid_returnsOk() {
+                when(accountRepository.findAll()).thenReturn(List.of());
+                when(accountRepository.save(any(Account.class))).thenReturn(sampleAccount);
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.OK, response.getStatusCode());
+                assertEquals("Create account successfully", response.getBody().getMessage());
+                verify(accountRepository).save(any(Account.class));
+            }
+
+            @Test
+            @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+            void createAccount_exception_returnsServerError() {
+                when(accountRepository.findAll()).thenThrow(new RuntimeException("DB error"));
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+                assertEquals("DB error", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Existed username returns BAD_REQUEST")
+            void createAccount_existedUsername_returnsBadRequest() {
+                sampleAccount.setUserName("newuser");
+                when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("User Name exists", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Username containing space returns BAD_REQUEST")
+            void createAccount_usernameWithSpace_returnsBadRequest() {
+                validRequest.setUserName("new user");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Tên đăng nhập không được chứa khoảng trắng", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Username containing special chars returns BAD_REQUEST")
+            void createAccount_usernameSpecialChars_returnsBadRequest() {
+                validRequest.setUserName("newuser@!");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Tên đăng nhập không được chứa dấu tiếng Việt hoặc ký tự đặc biệt", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Username invalid length returns BAD_REQUEST")
+            void createAccount_usernameInvalidLength_returnsBadRequest() {
+                validRequest.setUserName("ab");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Tên đăng nhập phải từ 3 đến 20 ký tự", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Empty password returns BAD_REQUEST")
+            void createAccount_emptyPassword_returnsBadRequest() {
+                validRequest.setPassword("");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Mật khẩu không được để trống", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Password containing space returns BAD_REQUEST")
+            void createAccount_passwordWithSpace_returnsBadRequest() {
+                validRequest.setPassword("Valid 1@");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Mật khẩu không được chứa khoảng trắng", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Password invalid length returns BAD_REQUEST")
+            void createAccount_passwordInvalidLength_returnsBadRequest() {
+                validRequest.setPassword("Val1@");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Mật khẩu phải từ 8 đến 32 ký tự", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Password missing required format returns BAD_REQUEST")
+            void createAccount_passwordInvalidFormat_returnsBadRequest() {
+                validRequest.setPassword("password123");
+                when(accountRepository.findAll()).thenReturn(List.of());
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Mật khẩu phải bao gồm cả chữ hoa, chữ thường, số và ký tự đặc biệt", response.getBody().getMessage());
+            }
+
+            @Test
+            @DisplayName("Existed email with same role returns BAD_REQUEST")
+            void createAccount_existedEmailWithRole_returnsBadRequest() {
+                sampleAccount.setEmail("new@gmail.com");
+                sampleAccount.setRole(RoleEnum.Seller);
+                when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
+
+                ResponseEntity<ApiResponse> response = accountService.createAccount(validRequest);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+                assertEquals("Email này đã được đăng ký cho vai trò tương ứng", response.getBody().getMessage());
+            }
+        }
+
         @Test
-        @DisplayName("UC-045: Non-existent account returns NOT_FOUND")
+        @DisplayName("Non-existent account returns NOT_FOUND")
         void getAccountProfile_accountNull_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -92,7 +248,7 @@ class AccountServiceImplementTest {
     }
 
     @Nested
-    @DisplayName("F-015. Update My Account")
+    @DisplayName("Update My Account")
     class UpdateMyAccountTests {
 
         private UpdateAccountRequest validRequest;
@@ -107,7 +263,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-074: Valid update with new avatar returns OK")
+        @DisplayName("Valid update with new avatar returns OK")
         void updateAccount_withNewAvatar_returnsOk() throws Exception {
             sampleAccount.setAvatar(null);
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
@@ -122,7 +278,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-075: Valid update without avatar (null) returns OK")
+        @DisplayName("Valid update without avatar (null) returns OK")
         void updateAccount_withoutAvatar_returnsOk() throws Exception {
             sampleAccount.setAvatar("http://old-avatar.jpg");
             validRequest.setAvatar(null);
@@ -136,7 +292,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-076: Non-existent account returns NOT_FOUND")
+        @DisplayName("Non-existent account returns NOT_FOUND")
         void updateAccount_accountNull_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -147,7 +303,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-077: Account does not exist with avatar returns NOT_FOUND")
+        @DisplayName("Account does not exist with avatar returns NOT_FOUND")
         void updateAccount_accountNullWithAvatar_returnsNotFound() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
@@ -158,7 +314,7 @@ class AccountServiceImplementTest {
         }
 
         @Test
-        @DisplayName("UC-078: Exception returns INTERNAL_SERVER_ERROR")
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void updateAccount_exception_returnsServerError() {
             when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
@@ -176,9 +332,12 @@ class AccountServiceImplementTest {
         })
         void updateAccount_blankFields_returnsBadRequest(String fullName, String phone) {
             validRequest.setFullName(fullName);
-            // This assumes accountService checks for empty fullName, otherwise validation handles it
-            // ResponseEntity<ApiResponse> response = accountService.updateAccount(validRequest);
-            // assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            validRequest.setPhone(phone);
+
+            ResponseEntity<ApiResponse> response = accountService.updateAccount(validRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Fields cannot be blank", response.getBody().getMessage());
         }
     }
 }

@@ -53,7 +53,7 @@ class RecommendationServiceImplementTest {
 
     // ── 58. View Listing Recommendations ─────────────────────────────────
     @Nested
-    @DisplayName("58. getRecommendationsForCurrentUser")
+    @DisplayName("getRecommendationsForCurrentUser")
     class GetRecommendationsTests {
 
         @Test

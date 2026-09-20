@@ -73,6 +73,12 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .body(ApiResponse.fail("Unauthorized", "Không tìm thấy thông tin nhà đầu tư."));
             }
 
+            // Chỉ validate các tham số người dùng có truyền để tạo Future Plan.
+            // sourceVersionId giữ nguyên luồng kiểm tra tồn tại ở phía trên.
+            if (hasInvalidFuturePlanParameters(request)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+
             if (request.getSelectedProperties() == null || request.getSelectedProperties().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail("No_Properties", "Vui lòng chọn ít nhất 1 bất động sản đã mua để phân tích."));
@@ -284,6 +290,54 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
+    }
+
+    private boolean hasInvalidFuturePlanParameters(GenerateFuturePlanRequest request) {
+        if (isBlankWhenPresent(request.getPlanName())
+                || isNonPositiveWhenPresent(request.getEquity())
+                || isNonPositiveWhenPresent(request.getLoanCapital())
+                || isNonPositiveWhenPresent(request.getCurrentCashFlow())
+                || isBlankWhenPresent(request.getConsciousName())
+                || isNonPositiveWhenPresent(request.getLongTermYear())
+                || isNonPositiveWhenPresent(request.getStrategyId())
+                || (request.getWardNames() != null
+                && (request.getWardNames().isEmpty()
+                || request.getWardNames().stream().anyMatch(this::isBlank)))
+                || (request.getInvestmentStrategyDetail() != null
+                && request.getInvestmentStrategyDetail().isEmpty())) {
+            return true;
+        }
+
+        if (request.getSelectedProperties() == null) {
+            return false;
+        }
+
+        for (GenerateFuturePlanRequest.SelectedPropertyItem item : request.getSelectedProperties()) {
+            if (item == null
+                    || isNonPositiveWhenPresent(item.getListingId())
+                    || isNonPositiveWhenPresent(item.getManualPropertyId())
+                    || isBlankWhenPresent(item.getPropertySource())
+                    || isBlankWhenPresent(item.getUsagePurpose())
+                    || isNonPositiveWhenPresent(item.getActualPurchasePrice())
+                    || isNonPositiveWhenPresent(item.getMonthlyRevenue())
+                    || isNonPositiveWhenPresent(item.getMonthlyOperatingCost())
+                    || isNonPositiveWhenPresent(item.getHoldingMonths())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private boolean isBlankWhenPresent(String value) {
+        return value != null && value.isBlank();
+    }
+
+    private boolean isNonPositiveWhenPresent(Number value) {
+        return value != null && value.doubleValue() <= 0;
     }
 
     // =====================================================================
