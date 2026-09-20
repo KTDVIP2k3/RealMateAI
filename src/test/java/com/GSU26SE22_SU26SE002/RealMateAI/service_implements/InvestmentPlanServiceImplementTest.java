@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
+import org.mockito.Mockito;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("InvestmentPlanServiceImplement - Investment Plan")
@@ -115,7 +116,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void getListProfileByInvestor_valid_returnsOk() {
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListProfileByInvestor();
 
@@ -127,7 +128,7 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("Empty profiles returns OK")
         void getListProfileByInvestor_empty_returnsOk() {
             sampleInvestor.setInvestmentProfiles(new ArrayList<>());
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListProfileByInvestor();
 
@@ -137,7 +138,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Unauthenticated returns UNAUTHORIZED")
         void getListProfileByInvestor_unauth_returnsUnauthorized() {
-            when(authenUntil.getCurrentUSer()).thenReturn(null);
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(null);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListProfileByInvestor();
 
@@ -147,7 +148,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getListProfileByInvestor_exception_returnsServerError() {
-            when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListProfileByInvestor();
 
@@ -162,7 +163,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void getListViewsByProfileId_valid_returnsOk() {
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListViewsByProfileId(1);
 
@@ -172,7 +173,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns NOT_FOUND")
         void getListViewsByProfileId_notFound_returnsNotFound() {
-            when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListViewsByProfileId(99);
 
@@ -182,7 +183,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getListViewsByProfileId_exception_returnsServerError() {
-            when(investmentProfileRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getListViewsByProfileId(1);
 
@@ -197,7 +198,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void getProfileVersionDetailById_valid_returnsOk() {
-            when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getProfileVersionDetailById(1);
 
@@ -207,7 +208,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns NOT_FOUND")
         void getProfileVersionDetailById_notFound_returnsNotFound() {
-            when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getProfileVersionDetailById(99);
 
@@ -217,7 +218,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getProfileVersionDetailById_exception_returnsServerError() {
-            when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getProfileVersionDetailById(1);
 
@@ -232,7 +233,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void getInvestmentPlanDetailByVersionId_valid_returnsOk() {
-            when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getInvestmentPlanDetailByVersionId(1);
 
@@ -242,7 +243,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns NOT_FOUND")
         void getInvestmentPlanDetailByVersionId_notFound_returnsNotFound() {
-            when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getInvestmentPlanDetailByVersionId(99);
 
@@ -252,7 +253,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void getInvestmentPlanDetailByVersionId_exception_returnsServerError() {
-            when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.getInvestmentPlanDetailByVersionId(1);
 
@@ -267,7 +268,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void deleteInvestmentPlan_valid_returnsOk() {
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlan(1);
 
@@ -278,7 +279,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns BAD_REQUEST")
         void deleteInvestmentPlan_notFound_returnsBadRequest() {
-            when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlan(99);
 
@@ -288,7 +289,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void deleteInvestmentPlan_exception_returnsServerError() {
-            when(investmentProfileRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlan(1);
 
@@ -303,8 +304,8 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void deleteInvestmentPlanVersion_valid_returnsOk() {
-            when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
-            when(investmentProfileVersionRepository.existsByInvestmentProfile_InvestmentProfileIdAndIsActiveTrue(1)).thenReturn(true);
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
+            Mockito.lenient().when(investmentProfileVersionRepository.existsByInvestmentProfile_InvestmentProfileIdAndIsActiveTrue(1)).thenReturn(true);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlanVersion(1);
 
@@ -315,7 +316,7 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("Already deleted returns BAD_REQUEST")
         void deleteInvestmentPlanVersion_alreadyDeleted_returnsBadRequest() {
             sampleVersion.setIsActive(false);
-            when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlanVersion(1);
 
@@ -325,7 +326,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns NOT_FOUND")
         void deleteInvestmentPlanVersion_notFound_returnsNotFound() {
-            when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlanVersion(99);
 
@@ -335,7 +336,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void deleteInvestmentPlanVersion_exception_returnsServerError() {
-            when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlanVersion(1);
 
@@ -350,7 +351,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void updateProfileName_valid_returnsOk() {
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateProfileName(1, "New Name");
 
@@ -370,7 +371,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns BAD_REQUEST")
         void updateProfileName_notFound_returnsBadRequest() {
-            when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateProfileName(99, "New Name");
 
@@ -381,7 +382,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void updateProfileName_exception_returnsServerError() {
-            when(investmentProfileRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateProfileName(1, "New Name");
 
@@ -396,7 +397,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Valid request returns OK")
         void updateVersionName_valid_returnsOk() {
-            when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(1)).thenReturn(Optional.of(sampleVersion));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateVersionName(1, "New Version Name");
 
@@ -416,7 +417,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Non-existent ID returns BAD_REQUEST")
         void updateVersionName_notFound_returnsBadRequest() {
-            when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateVersionName(99, "New Version Name");
 
@@ -427,7 +428,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void updateVersionName_exception_returnsServerError() {
-            when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(investmentProfileVersionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateVersionName(1, "New Version Name");
 
@@ -464,7 +465,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Strategy not found returns BAD_REQUEST")
         void createPlan_noStrategy_returnsBadRequest() {
-            when(strategyRepository.findById(1)).thenReturn(Optional.empty());
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
@@ -487,7 +488,7 @@ class InvestmentPlanServiceImplementTest {
             planRequest.setLongTermYear(Integer.parseInt(longTermYear));
             planRequest.setConsciousName(consciousName);
 
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         }
@@ -496,8 +497,8 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("Investor not found returns BAD_REQUEST")
         void createPlan_noInvestor_returnsBadRequest() {
             sampleAccount.setInvestor(null);
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
@@ -508,8 +509,8 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("Wallet not found returns BAD_REQUEST")
         void createPlan_noWallet_returnsBadRequest() {
             sampleAccount.setWallet(null);
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
@@ -520,8 +521,8 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("No subscription returns BAD_REQUEST")
         void createPlan_noSubscription_returnsBadRequest() {
             sampleInvestor.setMembershipSubscriptions(new ArrayList<>());
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
@@ -532,8 +533,8 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("Quantity exhausted returns BAD_REQUEST")
         void createPlan_quantityExhausted_returnsBadRequest() {
             sampleInvestor.getMembershipSubscriptions().get(0).setQuantity_using(0);
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
@@ -543,7 +544,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
         void createPlan_exception_returnsServerError() {
-            when(strategyRepository.findById(1)).thenThrow(new RuntimeException("DB error"));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
@@ -580,7 +581,7 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Profile not found returns BAD_REQUEST")
         void createVersion_noProfile_returnsBadRequest() {
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
 
@@ -591,8 +592,8 @@ class InvestmentPlanServiceImplementTest {
         @Test
         @DisplayName("Strategy not found returns BAD_REQUEST")
         void createVersion_noStrategy_returnsBadRequest() {
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
-            when(strategyRepository.findById(1)).thenReturn(Optional.empty());
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
 
@@ -603,9 +604,9 @@ class InvestmentPlanServiceImplementTest {
         @DisplayName("Investor not found returns BAD_REQUEST")
         void createVersion_noInvestor_returnsBadRequest() {
             sampleAccount.setInvestor(null);
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
-            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
 
@@ -623,8 +624,8 @@ class InvestmentPlanServiceImplementTest {
             updateRequest.setLongTermYear(Integer.parseInt(longTermYear));
             updateRequest.setConsciousName(consciousName);
 
-            when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
-            when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

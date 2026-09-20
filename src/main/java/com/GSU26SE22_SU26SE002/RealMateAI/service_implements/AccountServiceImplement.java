@@ -219,6 +219,11 @@ public class AccountServiceImplement implements AccountServiceInterface {
     @Transactional
     public ResponseEntity<ApiResponse> updateAccountByAdmin(Integer accountId, AdminUpdateAccountRequest request) {
         try {
+            if (request.getFullName() != null && request.getFullName().trim().isEmpty() ||
+                request.getPhone() != null && request.getPhone().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Fields cannot be blank"));
+            }
             Account account = accountRepository.findById(accountId).orElse(null);
             if (account == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -242,6 +247,11 @@ public class AccountServiceImplement implements AccountServiceInterface {
     @Override
     public ResponseEntity<ApiResponse> updateAccount(UpdateAccountRequest updateAccountRequest) {
         try{
+            if (updateAccountRequest.getFullName() != null && updateAccountRequest.getFullName().trim().isEmpty() ||
+                updateAccountRequest.getPhone() != null && updateAccountRequest.getPhone().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("Bad_Request", "Fields cannot be blank"));
+            }
             Account account = authenUntil.getCurrentUSer();
             if(account == null){
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
