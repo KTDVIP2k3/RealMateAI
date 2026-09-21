@@ -289,6 +289,7 @@ public class ListingController {
     // Recent Search (nhóm cuối chỉ có khi đã đăng nhập).
     // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/investor/listings/search/suggestions")
+    @PreAuthorize("hasRole('Investor')")
     @Operation(summary = "Autocomplete Suggestion cho ô tìm kiếm (Location / Listing / Property Type / Recent Search)")
     public ResponseEntity<ApiResponse> getSearchSuggestions(
             @RequestParam(required = false) String q) {
