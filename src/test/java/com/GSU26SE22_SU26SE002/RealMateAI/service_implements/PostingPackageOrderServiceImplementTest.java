@@ -162,20 +162,20 @@ class PostingPackageOrderServiceImplementTest {
                     .save(any(PostingPackageOrder.class));
         }
         @Test
-        @DisplayName("Trả 400 khi postingPackageId không tồn tại")
-        void pay_packageNotFound_returnsBadRequest() {
+        @DisplayName("Trả 404 khi postingPackageId không tồn tại")
+        void pay_packageNotFound_return_Not_Found() {
             when(postingPackageRepository.findById(999)).thenReturn(Optional.empty());
             PostingPackageOrderRequest req = new PostingPackageOrderRequest();
             req.setPostingPackageId(999);
 
             ResponseEntity<ApiResponse> response = postingPackageOrderService.payPostingPackage(req);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         }
 
         @Test
-        @DisplayName("Trả 400 khi listingId không tồn tại")
-        void pay_listingNotFound_returnsBadRequest() {
+        @DisplayName("Trả 404 khi listingId không tồn tại")
+        void pay_listingNotFound_returnsNotFound() {
             PostingPackage pkg = PostingPackage.builder().postingPackageId(1).build();
             when(postingPackageRepository.findById(1)).thenReturn(Optional.of(pkg));
             when(listingRepository.findById(999)).thenReturn(Optional.empty());
@@ -185,7 +185,7 @@ class PostingPackageOrderServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = postingPackageOrderService.payPostingPackage(req);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         }
     }
 

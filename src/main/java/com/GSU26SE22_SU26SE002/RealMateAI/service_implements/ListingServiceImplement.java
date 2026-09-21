@@ -218,7 +218,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         boolean isNewProperty;
 
         if (reuseExisting) {
-            // ── Nhánh: dùng lại tài sản ĐÃ CÓ SẴN ────────────────────────
+
             if (request.getExistingPropertyId() == null) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
@@ -235,7 +235,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             isNewProperty = false;
 
         } else {
-            // ── Nhánh: tạo tài sản MỚI ───────────────────────────────────
+
             if (request.getPropTitle() == null || request.getPropTitle().isBlank()) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
@@ -254,8 +254,8 @@ public class ListingServiceImplement implements ListingServiceInterface {
             if (request.getPropWardCode() == null || request.getPropWardCode().isBlank()) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }
-            // Tài sản mới chưa có ảnh nào để tự động dùng lại → bắt buộc Seller
-            // phải upload ảnh trước và truyền publicId vào draftImagePublicIds.
+
+
             if (request.getDraftImagePublicIds() == null || request.getDraftImagePublicIds().isEmpty()) {
                 throw new ListingConflictException(HttpStatus.BAD_REQUEST);
             }

@@ -69,9 +69,14 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("Bad_Request", "This account has investor so just update investor"));
            }
 
-           if (investorSurveyRequest.getInvestmentStyle() == null || investorSurveyRequest.getInvestmentStyle().trim().isEmpty() ||
-               investorSurveyRequest.getReturnExpectation() == null || investorSurveyRequest.getReturnExpectation().trim().isEmpty()) {
-               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Investment style and return expectation are required"));
+           if (investorSurveyRequest.getStableIncome() == null ||
+               investorSurveyRequest.getInvestmentStyle() == null || investorSurveyRequest.getInvestmentStyle().trim().isEmpty() ||
+               investorSurveyRequest.getReturnExpectation() == null || investorSurveyRequest.getReturnExpectation().trim().isEmpty() ||
+               investorSurveyRequest.getPropertyPreference() == null || investorSurveyRequest.getPropertyPreference().trim().isEmpty() ||
+               investorSurveyRequest.getDecisionFactor() == null || investorSurveyRequest.getDecisionFactor().trim().isEmpty() ||
+               investorSurveyRequest.getManagementAbility() == null || investorSurveyRequest.getManagementAbility().trim().isEmpty() ||
+               investorSurveyRequest.getInvestmentMethod() == null || investorSurveyRequest.getInvestmentMethod().trim().isEmpty()) {
+               return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
            }
 
            Investor investor = new Investor();
@@ -105,9 +110,15 @@ public class InvestorServiceImplement implements InvestorServiceInterface {
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("Not_Found", "Investor does not exist"));
            }
 
-           if (investorSurveyRequest.getInvestmentStyle() == null || investorSurveyRequest.getInvestmentStyle().trim().isEmpty() ||
-               investorSurveyRequest.getReturnExpectation() == null || investorSurveyRequest.getReturnExpectation().trim().isEmpty()) {
-               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", "Investment style and return expectation are required"));
+           if (investorSurveyRequest.getInvestmentExperience() == null || investorSurveyRequest.getInvestmentExperience().trim().isEmpty() ||
+               investorSurveyRequest.getStableIncome() == null ||
+               investorSurveyRequest.getInvestmentGoal() == null || investorSurveyRequest.getInvestmentGoal().trim().isEmpty() ||
+               investorSurveyRequest.getInvestmentPriority() == null || investorSurveyRequest.getInvestmentPriority().trim().isEmpty() ||
+               investorSurveyRequest.getInvestmentStyle() == null || investorSurveyRequest.getInvestmentStyle().trim().isEmpty() ||
+               investorSurveyRequest.getReturnExpectation() == null || investorSurveyRequest.getReturnExpectation().trim().isEmpty() ||
+               investorSurveyRequest.getPropertyPreference() == null || investorSurveyRequest.getPropertyPreference().trim().isEmpty() ||
+               investorSurveyRequest.getInvestmentMethod() == null || investorSurveyRequest.getInvestmentMethod().trim().isEmpty()) {
+               return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
            }
            investor.setInvestmentExperience(investorSurveyRequest.getInvestmentExperience());
            investor.setStableIncome(investorSurveyRequest.getStableIncome());

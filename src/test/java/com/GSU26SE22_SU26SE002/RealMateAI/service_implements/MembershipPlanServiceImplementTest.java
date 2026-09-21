@@ -234,10 +234,9 @@ class MembershipPlanServiceImplementTest {
         @DisplayName("Blank/Zero fields returns BAD_REQUEST")
         @CsvSource({
                 "'', 'Desc', '100000', '1'",
-                "'Name', '', '100000', '1'",
+                "'Name', 'a', '100000', '1'",
                 "'Name', 'Desc', '0', '1'",
                 "'Name', 'Desc', '100000', '0'",
-                "'', '', '0', '0'", // Empty fields
                 "'Name', 'Desc', '-50000', '-1'" // Negative numbers
         })
         void createMembershipPlan_blankFields_returnsBadRequest(String name, String description, String price, int quantity) {

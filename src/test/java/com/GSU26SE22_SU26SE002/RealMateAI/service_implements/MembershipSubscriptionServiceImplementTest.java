@@ -257,13 +257,13 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent subscription returns BAD_REQUEST")
-        void renewMemberShipSubscriptions_notFoundSub_returnsBadRequest() {
+        @DisplayName("Non-existent subscription returns Not_Found")
+        void renewMemberShipSubscriptions_notFoundSub_returnsNotFound() {
             when(membershipSubscriptionRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = subscriptionService.renewMemberShipSubscriptions(99);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         }
 
         @Test

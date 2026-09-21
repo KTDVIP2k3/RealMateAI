@@ -211,13 +211,13 @@ class PostingPackageServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent category returns BAD_REQUEST")
-        void createPostingPackage_nonExistentCategory_returnsBadRequest() {
+        @DisplayName("Non-existent category returns Not_Found")
+        void createPostingPackage_nonExistentCategory_returnsNotFound() {
             when(postingPackageCategoryRepository.findById(1)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = postingPackageService.createPostingPackage(request);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Posting package category id does not exist", response.getBody().getMessage());
         }
 
@@ -283,14 +283,14 @@ class PostingPackageServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent category returns BAD_REQUEST")
-        void updatePostingPackage_nonExistentCategory_returnsBadRequest() {
+        @DisplayName("Non-existent category returns Not_Found")
+        void updatePostingPackage_nonExistentCategory_returnsNotFound() {
             when(postingPackageRepository.findById(1)).thenReturn(Optional.of(activePackage));
             when(postingPackageCategoryRepository.findById(1)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(1, request);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Posting package category id does not exist", response.getBody().getMessage());
         }
 

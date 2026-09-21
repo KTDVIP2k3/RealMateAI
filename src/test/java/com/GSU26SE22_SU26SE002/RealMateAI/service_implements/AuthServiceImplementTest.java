@@ -35,7 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AuthServiceImplement â€” Authentication")
+@DisplayName("AuthServiceImplement - Authentication")
 class AuthServiceImplementTest {
 
     @Mock
@@ -380,25 +380,25 @@ class AuthServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent email returns BAD_REQUEST")
-        void verifyOtp_nonExistentEmail_returnsBadRequest() {
+        @DisplayName("Non-existent email returns Not_Found")
+        void verifyOtp_nonExistentEmail_returnsNot_Found() {
             when(accountRepository.findAll()).thenReturn(List.of());
 
             ResponseEntity<ApiResponse> response = authService.verifyOtp(request, httpSession);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Email does not exist", response.getBody().getMessage());
         }
 
         @Test
-        @DisplayName("OTP not found in DB returns BAD_REQUEST")
-        void verifyOtp_otpNotFound_returnsBadRequest() {
+        @DisplayName("OTP not found in DB returns Not_Found")
+        void verifyOtp_otpNotFound_returnsNotFound() {
             sampleAccount.setOtp(null);
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
 
             ResponseEntity<ApiResponse> response = authService.verifyOtp(request, httpSession);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("OTP not found", response.getBody().getMessage());
         }
 
