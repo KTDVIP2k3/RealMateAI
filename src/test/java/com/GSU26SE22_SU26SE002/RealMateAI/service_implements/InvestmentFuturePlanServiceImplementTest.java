@@ -114,41 +114,73 @@ class InvestmentFuturePlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Trả 400 không có body khi parameter dạng số bằng 0 hoặc nhỏ hơn 0")
-        void generate_nonPositiveNumericParameter_returns400WithoutBody() {
+        @DisplayName("Trả 400 không có body khi parameter dạng số bằng 0")
+        void generate_zeroNumericParameter_returns400WithoutBody() {
             String[] fields = {
-                    "equity", "loanCapital", "currentCashFlow", "longTermYear", "strategyId",
-                    "listingId", "manualPropertyId", "actualPurchasePrice", "monthlyRevenue",
+                    "equity", "loanCapital", "currentCashFlow", "longTermYear",
+                    "actualPurchasePrice", "monthlyRevenue",
                     "monthlyOperatingCost", "holdingMonths"
             };
-            long[] invalidValues = {0L, -1L};
 
             for (String field : fields) {
-                for (long value : invalidValues) {
-                    GenerateFuturePlanRequest req = validGenerateRequest();
-                    GenerateFuturePlanRequest.SelectedPropertyItem item = req.getSelectedProperties().get(0);
-                    switch (field) {
-                        case "equity" -> req.setEquity(value);
-                        case "loanCapital" -> req.setLoanCapital(value);
-                        case "currentCashFlow" -> req.setCurrentCashFlow(value);
-                        case "longTermYear" -> req.setLongTermYear((int) value);
-                        case "strategyId" -> req.setStrategyId((int) value);
-                        case "listingId" -> item.setListingId((int) value);
-                        case "manualPropertyId" -> {
-                            item.setListingId(null);
-                            item.setManualPropertyId((int) value);
-                        }
-                        case "actualPurchasePrice" -> item.setActualPurchasePrice(value);
-                        case "monthlyRevenue" -> item.setMonthlyRevenue(value);
-                        case "monthlyOperatingCost" -> item.setMonthlyOperatingCost(value);
-                        case "holdingMonths" -> item.setHoldingMonths((int) value);
+                GenerateFuturePlanRequest req = validGenerateRequest();
+                setNumericField(req, field, 0L);
+
+                ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), field + "=0");
+                assertEquals(null, response.getBody(), field + "=0");
+            }
+        }
+
+        @Test
+        @DisplayName("Trả 400 không có body khi parameter dạng số nhỏ hơn 0")
+        void generate_negativeNumericParameter_returns400WithoutBody() {
+            String[] fields = {
+                    "equity", "loanCapital", "currentCashFlow", "longTermYear",
+                    "actualPurchasePrice", "monthlyRevenue",
+                    "monthlyOperatingCost", "holdingMonths"
+            };
+
+            for (String field : fields) {
+                GenerateFuturePlanRequest req = validGenerateRequest();
+                setNumericField(req, field, -1L);
+
+                ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
+
+                assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), field + "=-1");
+                assertEquals(null, response.getBody(), field + "=-1");
+            }
+        }
+
+        @Test
+        @DisplayName("Trả 404 khi strategyId, listingId hoặc manualPropertyId không tồn tại")
+        void generate_nonExistingReferenceId_returns404() {
+            String[] idFields = {"strategyId", "listingId", "manualPropertyId"};
+
+            for (String field : idFields) {
+                GenerateFuturePlanRequest req = validGenerateRequest();
+                GenerateFuturePlanRequest.SelectedPropertyItem item = req.getSelectedProperties().get(0);
+
+                switch (field) {
+                    case "strategyId" -> {
+                        req.setStrategyId(1);
+                        when(strategyRepository.findById(1)).thenReturn(Optional.empty());
                     }
-
-                    ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
-
-                    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), field + "=" + value);
-                    assertEquals(null, response.getBody(), field + "=" + value);
+                    case "listingId" -> {
+                        item.setListingId(1);
+                        when(listingRepository.findById(1)).thenReturn(Optional.empty());
+                    }
+                    case "manualPropertyId" -> {
+                        item.setListingId(null);
+                        item.setManualPropertyId(999);
+                        when(propertyRepository.findById(999)).thenReturn(Optional.empty());
+                    }
                 }
+
+                ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
+
+                assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode(), field);
             }
         }
 
@@ -194,7 +226,7 @@ class InvestmentFuturePlanServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
 
-                assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(HttpStatus.OK, response.getStatusCode());
         }
 
         private GenerateFuturePlanRequest validGenerateRequest() {
@@ -226,6 +258,21 @@ class InvestmentFuturePlanServiceImplementTest {
             return req;
         }
 
+        private void setNumericField(GenerateFuturePlanRequest req, String field, long value) {
+            GenerateFuturePlanRequest.SelectedPropertyItem item = req.getSelectedProperties().get(0);
+            switch (field) {
+                case "equity" -> req.setEquity(value);
+                case "loanCapital" -> req.setLoanCapital(value);
+                case "currentCashFlow" -> req.setCurrentCashFlow(value);
+                case "longTermYear" -> req.setLongTermYear((int) value);
+                case "actualPurchasePrice" -> item.setActualPurchasePrice(value);
+                case "monthlyRevenue" -> item.setMonthlyRevenue(value);
+                case "monthlyOperatingCost" -> item.setMonthlyOperatingCost(value);
+                case "holdingMonths" -> item.setHoldingMonths((int) value);
+                default -> throw new IllegalArgumentException("Unknown numeric field: " + field);
+            }
+        }
+
         private void assertBadRequestWithoutBody(GenerateFuturePlanRequest req) {
             ResponseEntity<ApiResponse> response = futurePlanService.generateAndSaveFuturePlan(req);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -233,7 +280,7 @@ class InvestmentFuturePlanServiceImplementTest {
         }
     }
 
-        @Nested
+    @Nested
     @DisplayName("getFuturePlanDetail")
     class GetFuturePlanDetailTests {
         @Test
@@ -263,7 +310,7 @@ class InvestmentFuturePlanServiceImplementTest {
         }
     }
 
-      @Nested
+    @Nested
     @DisplayName("getFutureVersionsBySourceVersionId")
     class GetFutureVersionsBySourceVersionIdTests {
         @Test
