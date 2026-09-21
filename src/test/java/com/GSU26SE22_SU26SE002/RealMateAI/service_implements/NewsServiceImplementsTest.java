@@ -68,6 +68,18 @@ class NewsServiceImplementsTest {
             ResponseEntity<ApiResponse> response = newsService.getAllNewsPaged(0, 10);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Get news successfully", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void getAllNewsPaged_exception_returnsServerError() {
+            when(newsRepository.findAll()).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = newsService.getAllNewsPaged(0, 10);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test
@@ -94,8 +106,20 @@ class NewsServiceImplementsTest {
             ResponseEntity<ApiResponse> response = newsService.getNewsDetailById(1);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Get news detail successfully", response.getBody().getMessage());
             assertEquals(11, activeNews.getViewCount());
             verify(newsRepository).save(activeNews);
+        }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void getNewsDetailById_exception_returnsServerError() {
+            when(newsRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = newsService.getNewsDetailById(1);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test
@@ -106,6 +130,7 @@ class NewsServiceImplementsTest {
             ResponseEntity<ApiResponse> response = newsService.getNewsDetailById(999);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("News not found", response.getBody().getMessage());
         }
 
         @Test
@@ -117,6 +142,7 @@ class NewsServiceImplementsTest {
             ResponseEntity<ApiResponse> response = newsService.getNewsDetailById(3);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("News not found", response.getBody().getMessage());
         }
     }
 }

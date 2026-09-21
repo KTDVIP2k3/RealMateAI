@@ -283,6 +283,33 @@ class PostingPackageServiceImplementTest {
         }
 
         @Test
+        @DisplayName("Non-existent category returns BAD_REQUEST")
+        void updatePostingPackage_nonExistentCategory_returnsBadRequest() {
+            when(postingPackageRepository.findById(1)).thenReturn(Optional.of(activePackage));
+            when(postingPackageCategoryRepository.findById(1)).thenReturn(Optional.empty());
+
+            ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(1, request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Posting package category id does not exist", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Existed name returns BAD_REQUEST")
+        void updatePostingPackage_existedName_returnsBadRequest() {
+            request.setName("VIP Package 2");
+            when(postingPackageRepository.findById(1)).thenReturn(Optional.of(activePackage));
+            when(postingPackageCategoryRepository.findById(1)).thenReturn(Optional.of(category));
+            when(postingPackageRepository.findAll()).thenReturn(Collections.singletonList(inactivePackage));
+
+            ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(1, request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Posting package name exist", response.getBody().getMessage());
+        }
+
+
+        @Test
         @DisplayName("Non-existent package returns NOT_FOUND")
         void updatePostingPackage_notFound_returnsNotFound() {
             when(postingPackageRepository.findById(99)).thenReturn(Optional.empty());
@@ -290,6 +317,7 @@ class PostingPackageServiceImplementTest {
             ResponseEntity<ApiResponse> response = postingPackageService.updatePostingPackage(99, request);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Posting package id does not exist", response.getBody().getMessage());
         }
 
         @Test
@@ -341,6 +369,7 @@ class PostingPackageServiceImplementTest {
             ResponseEntity<ApiResponse> response = postingPackageService.deletePostingPackage(99);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Posting package id does not exist", response.getBody().getMessage());
         }
 
         @Test
@@ -388,6 +417,7 @@ class PostingPackageServiceImplementTest {
             ResponseEntity<ApiResponse> response = postingPackageService.toggleActivePostingPackage(99, true);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Posting package id does not exist", response.getBody().getMessage());
         }
 
         @Test

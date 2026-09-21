@@ -18,6 +18,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -69,6 +70,10 @@ class InvestmentPlanServiceImplementTest {
     @Mock
     private PropertyScenarioRepository propertyScenarioRepository;
 
+    @Mock
+    private ListingRepository listingRepository;
+
+    @Spy
     @InjectMocks
     private InvestmentPlanServiceImplement investmentPlanService;
 
@@ -166,6 +171,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.getListViewsByProfileId(1);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Lấy danh sách lịch sử phiên bản thành công", response.getBody().getMessage());
         }
 
         @Test
@@ -176,6 +182,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.getListViewsByProfileId(99);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Không tìm thấy kế hoạch đầu tư với ID: 99", response.getBody().getMessage());
         }
 
         @Test
@@ -201,6 +208,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.getProfileVersionDetailById(1);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Lấy thông tin chi tiết profile version và tiêu chí thành công", response.getBody().getMessage());
         }
 
         @Test
@@ -211,6 +219,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.getProfileVersionDetailById(99);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Investment profile version không tồn tại với ID: 99", response.getBody().getMessage());
         }
 
         @Test
@@ -236,6 +245,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.getInvestmentPlanDetailByVersionId(1);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Lấy chi tiết kế hoạch đầu tư thành công", response.getBody().getMessage());
         }
 
         @Test
@@ -246,6 +256,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.getInvestmentPlanDetailByVersionId(99);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Không tìm thấy phiên bản kế hoạch với ID: 99", response.getBody().getMessage());
         }
 
         @Test
@@ -329,6 +340,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlanVersion(99);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Không tìm thấy phiên bản kế hoạch với ID: 99", response.getBody().getMessage());
         }
 
         @Test
@@ -492,6 +504,7 @@ class InvestmentPlanServiceImplementTest {
             Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Invalid fields", response.getBody().getMessage());
         }
 
         @Test
@@ -504,6 +517,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Investor survey does not exist. Please create to use this function", response.getBody().getMessage());
         }
 
         @Test
@@ -516,6 +530,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("You don't have a wallet. Please deposit money into your wallet to use this feature.", response.getBody().getMessage());
         }
 
         @Test
@@ -528,6 +543,24 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("You don't have any membership subscription. Please purchase a plan to use this feature.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Subscription NOT activated returns BAD_REQUEST")
+        void createPlan_subscriptionNotActivated_returnsBadRequest() {
+            MembershipSubscription inactiveSub = new MembershipSubscription();
+            inactiveSub.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            inactiveSub.setIsActive(false);
+            inactiveSub.setQuantity_using(5);
+            sampleInvestor.setMembershipSubscriptions(new ArrayList<>(Collections.singletonList(inactiveSub)));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("You have purchased a membership subscription, but it is not activated yet. Please activate your subscription to use this feature.", response.getBody().getMessage());
         }
 
         @Test
@@ -540,6 +573,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Your membership subscription has run out of usage limit. Please renew or purchase a new plan.", response.getBody().getMessage());
         }
 
         @Test
@@ -550,6 +584,25 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        }
+
+        @Test
+        @DisplayName("Valid request returns OK")
+        void createPlan_valid_returnsOk() throws Exception {
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            InvestmentPlanDTO mockDTO = new InvestmentPlanDTO();
+            Mockito.doReturn(mockDTO).when(investmentPlanService).buildInvestmentPlan(any(), any());
+
+            Mockito.lenient().when(investmentProfileRepository.save(any())).thenReturn(sampleProfile);
+            Mockito.lenient().when(investmentProfileVersionRepository.save(any())).thenReturn(sampleVersion);
+            Mockito.lenient().when(membershipSubscriptionRepository.save(any())).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.generateCompleteInvestmentPlan(planRequest);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Generate and save complete investment plan successfully", response.getBody().getMessage());
         }
     }
 
@@ -564,13 +617,14 @@ class InvestmentPlanServiceImplementTest {
             updateRequest = new UpdateInvestmentPlanRequest();
             updateRequest.setStrategyId(1);
             updateRequest.setEquity(1000000000L);
-        updateRequest.setLoanCapital(500000000L);
-        updateRequest.setLongTermYear(10);
-        updateRequest.setConsciousName("Test Name");
+            updateRequest.setLoanCapital(500000000L);
+            updateRequest.setLongTermYear(10);
+            updateRequest.setConsciousName("Test Name");
+            updateRequest.setCriteriaList(new ArrayList<>());
 
             strategy = new Strategy();
             strategy.setStrategyId(1);
-            strategy.setName("Strategy 1");
+            strategy.setName("mua sua ban");
 
             Wallet wallet = new Wallet();
             sampleAccount.setWallet(wallet);
@@ -602,6 +656,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Investment strategy not found.", response.getBody().getMessage());
         }
         
         @Test
@@ -615,6 +670,7 @@ class InvestmentPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Investor survey does not exist. Please create to use this function", response.getBody().getMessage());
         }
 
         @ParameterizedTest
@@ -639,6 +695,86 @@ class InvestmentPlanServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Invalid fields", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Wallet not found returns BAD_REQUEST")
+        void createVersion_noWallet_returnsBadRequest() {
+            sampleAccount.setWallet(null);
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("You don't have a wallet. Please deposit money into your wallet to use this feature.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("No subscription returns BAD_REQUEST")
+        void createVersion_noSubscription_returnsBadRequest() {
+            sampleInvestor.setMembershipSubscriptions(new ArrayList<>());
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("You don't have any membership subscription. Please purchase a plan to use this feature.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Subscription NOT activated returns BAD_REQUEST")
+        void createVersion_subscriptionNotActivated_returnsBadRequest() {
+            MembershipSubscription inactiveSub = new MembershipSubscription();
+            inactiveSub.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            inactiveSub.setIsActive(false);
+            inactiveSub.setQuantity_using(5);
+            sampleInvestor.setMembershipSubscriptions(new ArrayList<>(Collections.singletonList(inactiveSub)));
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("You have purchased a membership subscription, but it is not activated yet. Please activate your subscription to use this feature.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Quantity exhausted returns BAD_REQUEST")
+        void createVersion_quantityExhausted_returnsBadRequest() {
+            sampleInvestor.getMembershipSubscriptions().get(0).setQuantity_using(0);
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Your membership subscription has run out of usage limit. Please renew or purchase a new plan.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Valid request returns OK")
+        void createVersion_valid_returnsOk() throws Exception {
+            Mockito.lenient().when(investmentProfileRepository.findById(1)).thenReturn(Optional.of(sampleProfile));
+            Mockito.lenient().when(strategyRepository.findById(1)).thenReturn(Optional.of(strategy));
+            Mockito.lenient().when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+
+            InvestmentPlanDTO mockDTO = new InvestmentPlanDTO();
+            Mockito.doReturn(mockDTO).when(investmentPlanService).buildInvestmentPlan(any(), any());
+
+            Mockito.lenient().when(investmentProfileVersionRepository.save(any())).thenReturn(sampleVersion);
+            Mockito.lenient().when(membershipSubscriptionRepository.save(any())).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = investmentPlanService.updateExistingInvestmentPlan(1, updateRequest);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Update investment plan version successfully", response.getBody().getMessage());
         }
     }
 }
