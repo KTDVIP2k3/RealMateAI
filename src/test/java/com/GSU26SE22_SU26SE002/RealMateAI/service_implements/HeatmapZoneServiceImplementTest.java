@@ -106,5 +106,19 @@ class HeatmapZoneServiceImplementTest {
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
         }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void getListings_exception_returnsServerError() {
+            when(listingRepository.findAll()).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = heatmapZoneService.getListingsByViewportPaged(
+                    new BigDecimal("10.70"), new BigDecimal("10.80"),
+                    new BigDecimal("106.60"), new BigDecimal("106.80"),
+                    0, 10);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
+        }
     }
 }

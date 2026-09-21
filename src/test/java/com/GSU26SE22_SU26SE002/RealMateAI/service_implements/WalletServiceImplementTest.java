@@ -108,7 +108,7 @@ class WalletServiceImplementTest {
             ResponseEntity<ApiResponse> response = walletService.getMyWallet();
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Lỗi hệ thống:"));
+            assertEquals("Lỗi hệ thống: DB error", response.getBody().getMessage());
         }
         
         @Test
@@ -247,6 +247,7 @@ class WalletServiceImplementTest {
                     new BigDecimal("500000"), "VCB", "123", "note");
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test

@@ -118,12 +118,12 @@ class AuthServiceImplementTest {
             request.setUserName("testuser");
             request.setPassword("password");
 
-            when(accountRepository.findAll()).thenThrow(new RuntimeException("Database error"));
+            when(accountRepository.findAll()).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = authService.login(request, httpSession);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertEquals("Database error", response.getBody().getMessage());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test
@@ -134,7 +134,7 @@ class AuthServiceImplementTest {
             request.setPassword("wrongpassword");
 
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
-            when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+            when(authenticationManager.authenticate(any()))
                     .thenThrow(new BadCredentialsException("Bad credentials"));
 
             ResponseEntity<ApiResponse> response = authService.login(request, httpSession);
@@ -150,7 +150,10 @@ class AuthServiceImplementTest {
             request.setUserName("unknownuser");
             request.setPassword("password");
 
+            // Mock repository to return the account so it proceeds to authenticationManager
             when(accountRepository.findAll()).thenReturn(List.of(sampleAccount));
+            lenient().when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                    .thenThrow(new org.springframework.security.core.userdetails.UsernameNotFoundException("Account does not exist"));
 
             ResponseEntity<ApiResponse> response = authService.login(request, httpSession);
 
@@ -196,13 +199,12 @@ class AuthServiceImplementTest {
         @ParameterizedTest
         @DisplayName("Blank fields return BAD_REQUEST")
         @CsvSource({
-                // username, password, email, phone
-                "'', 'Valid1@Password', 'newuser@gmail.com', '0123456789'",
-                "'newuser', '', 'newuser@gmail.com', '0123456789'",
-                "'newuser', 'Valid1@Password', '', '0123456789'",
-                "'newuser', 'Valid1@Password', 'newuser@gmail.com', ''"
+                "'', 'Valid1@Password', 'newuser@gmail.com', '0123456789', 'Thông tin không được để trống'",
+                "'newuser', '', 'newuser@gmail.com', '0123456789', 'Mật khẩu không được để trống'",
+                "'newuser', 'Valid1@Password', '', '0123456789', 'Thông tin không được để trống'",
+                "'newuser', 'Valid1@Password', 'newuser@gmail.com', '', 'Thông tin không được để trống'"
         })
-        void register_blankFields_returnsBadRequest(String username, String password, String email, String phone) {
+        void register_blankFields_returnsBadRequest(String username, String password, String email, String phone, String expectedMessage) {
             validRequest.setUserName(username);
             validRequest.setPassword(password);
             validRequest.setEmail(email);
@@ -210,6 +212,7 @@ class AuthServiceImplementTest {
             
             ResponseEntity<ApiResponse> response = authService.register(validRequest, httpSession);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(expectedMessage, response.getBody().getMessage());
         }
 
         @Test
@@ -473,12 +476,12 @@ class AuthServiceImplementTest {
         void sendOtp_exception_returnsServerError() {
             SendOtpRequest request = new SendOtpRequest();
             request.setEmail("test@gmail.com");
-            when(accountRepository.findByEmail(anyString())).thenThrow(new RuntimeException("Error"));
+            when(accountRepository.findByEmail(anyString())).thenThrow(new RuntimeException("DB error"));
 
             ResponseEntity<ApiResponse> response = authService.resendOtpUnified(httpSession, request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertEquals("Error", response.getBody().getMessage());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test
@@ -487,12 +490,12 @@ class AuthServiceImplementTest {
             SendOtpRequest request = new SendOtpRequest();
             request.setEmail("test@gmail.com");
             when(accountRepository.findByEmail(anyString())).thenReturn(java.util.Optional.of(sampleAccount));
-            doThrow(new MessagingException("Mail error")).when(emailServiceVerificationImplement).sendVerificationEmail(any());
+            doThrow(new MessagingException("DB error")).when(emailServiceVerificationImplement).sendVerificationEmail(any());
 
             ResponseEntity<ApiResponse> response = authService.resendOtpUnified(httpSession, request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertEquals("Mail error", response.getBody().getMessage());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @ParameterizedTest

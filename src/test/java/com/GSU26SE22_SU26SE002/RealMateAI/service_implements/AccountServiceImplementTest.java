@@ -85,6 +85,17 @@ class AccountServiceImplementTest {
             assertEquals("DB error", response.getBody().getMessage());
         }
 
+        @Test
+        @DisplayName("Non-existent account returns NOT_FOUND")
+        void getAccountProfile_nonExistent_returnsNotFound() {
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = accountService.getAccountProfile();
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Account does not exist", response.getBody().getMessage());
+        }
+
         @Nested
         @DisplayName("Create Account V2")
         class CreateAccountV2Tests {

@@ -130,6 +130,14 @@ public class TransactionServiceImplement implements TransactionServiceInterface 
     @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse> getTransactionsByAdminOrStaff(int page, int size) {
         try {
+            Account account = authenUntil.getCurrentUSer();
+            if(account == null){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            if(!account.getRole().equals(RoleEnum.Admin) && !account.getRole().equals(RoleEnum.Staff)){
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
             List<Transaction> allTransactions = transactionRepository.findAll();
             if (allTransactions == null) {
                 allTransactions = Collections.emptyList();

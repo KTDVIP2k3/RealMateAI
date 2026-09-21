@@ -90,6 +90,7 @@ class AdminAccountServiceImplementTest {
             ResponseEntity<ApiResponse> response = adminService.getAllAccounts(pageable, null, null);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
 
         @Test
@@ -100,7 +101,7 @@ class AdminAccountServiceImplementTest {
             ResponseEntity<ApiResponse> response = adminService.getAllAccounts(pageable, "INVALID_ROLE", "");
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Role không hợp lệ:"));
+            assertEquals("Role không hợp lệ: INVALID_ROLE", response.getBody().getMessage());
         }
     }
 
@@ -138,7 +139,7 @@ class AdminAccountServiceImplementTest {
             ResponseEntity<ApiResponse> response = adminService.getAccountById(999);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Không tìm thấy tài khoản ID: 999"));
+            assertEquals("Không tìm thấy tài khoản ID: 999", response.getBody().getMessage());
         }
     }
 
@@ -328,7 +329,7 @@ class AdminAccountServiceImplementTest {
             ResponseEntity<ApiResponse> response = adminService.changeRole(999, "Investor");
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Không tìm thấy tài khoản ID: 999"));
+            assertEquals("Không tìm thấy tài khoản ID: 999", response.getBody().getMessage());
         }
 
         @Test
@@ -339,7 +340,7 @@ class AdminAccountServiceImplementTest {
             ResponseEntity<ApiResponse> response = adminService.changeRole(1, "INVALID_ROLE");
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Role không hợp lệ:"));
+            assertEquals("Role không hợp lệ: INVALID_ROLE. Các role hợp lệ: Investor, Seller, Staff, Admin", response.getBody().getMessage());
         }
     }
 

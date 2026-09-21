@@ -186,6 +186,7 @@ class InvestorServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = investorService.createInvestorSurvey(request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Investment style and return expectation are required", response.getBody().getMessage());
         }
     }
 
@@ -244,6 +245,7 @@ class InvestorServiceImplementTest {
 
             ResponseEntity<ApiResponse> response = investorService.updateInvestorSurvey(request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Investment style and return expectation are required", response.getBody().getMessage());
         }
     }
 }

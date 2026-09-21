@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.enums.NotificationTypeEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Account;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.Investor;
@@ -123,8 +124,8 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Unauthenticated returns NOT_FOUND")
-        void getMembershipSubscriptions_unauthenticated_returnsNotFound() {
+        @DisplayName("Unauthenticated returns Not Found")
+        void getMembershipSubscriptions_unauthenticated_returnsUnauthorized() {
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
             ResponseEntity<ApiResponse> response = subscriptionService.getMembershipSubscriptions(0, 10);
@@ -141,6 +142,7 @@ class MembershipSubscriptionServiceImplementTest {
             ResponseEntity<ApiResponse> response = subscriptionService.getMembershipSubscriptions(0, 10);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
     }
 
@@ -186,14 +188,15 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Unauthenticated returns UNAUTHORIZED")
-        void payMemberShipSubscriptions_unauthenticated_returnsNotFound() {
+        @DisplayName("Unauthenticated returns Not Found")
+        void payMemberShipSubscriptions_unauthenticated_returnsUnauthorized() {
             when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(samplePlan));
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
             ResponseEntity<ApiResponse> response = subscriptionService.payMemberShipSubscriptions(1);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Account does not exists", response.getBody().getMessage());
         }
 
         @Test
@@ -231,6 +234,7 @@ class MembershipSubscriptionServiceImplementTest {
             ResponseEntity<ApiResponse> response = subscriptionService.payMemberShipSubscriptions(1);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
     }
 
@@ -263,14 +267,15 @@ class MembershipSubscriptionServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Unauthenticated returns NOT_FOUND")
-        void renewMemberShipSubscriptions_unauth_returnsNotFound() {
+        @DisplayName("Unauthenticated returns Not Found")
+        void renewMemberShipSubscriptions_unauth_returnsUnauthorized() {
             when(membershipSubscriptionRepository.findById(1)).thenReturn(Optional.of(sampleSubscription));
             when(authenUntil.getCurrentUSer()).thenReturn(null);
 
             ResponseEntity<ApiResponse> response = subscriptionService.renewMemberShipSubscriptions(1);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Account does not exist", response.getBody().getMessage());
         }
 
         @Test
@@ -285,6 +290,17 @@ class MembershipSubscriptionServiceImplementTest {
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             assertEquals("Insufficient wallet balance", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void renewMemberShipSubscriptions_exception_returnsServerError() {
+            when(membershipSubscriptionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = subscriptionService.renewMemberShipSubscriptions(1);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
     }
 
@@ -317,6 +333,57 @@ class MembershipSubscriptionServiceImplementTest {
             ResponseEntity<ApiResponse> response = subscriptionService.cancelMembershipSubscriptions(1);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Membership subscription is already in PENDING status and cannot be canceled.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Already Outdated returns BAD_REQUEST")
+        void cancelMembershipSubscriptions_alreadyOutdated_returnsBadRequest() {
+            sampleSubscription.setInvestor(sampleInvestor);
+            sampleSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(membershipSubscriptionRepository.findById(1)).thenReturn(Optional.of(sampleSubscription));
+
+            ResponseEntity<ApiResponse> response = subscriptionService.cancelMembershipSubscriptions(1);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Membership subscription is already OUTDATED and cannot be canceled.", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated returns Not_Found")
+        void cancelMembershipSubscriptions_unauth_returnsUnauthorized() {
+            lenient().when(membershipSubscriptionRepository.findById(1)).thenReturn(Optional.of(sampleSubscription));
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = subscriptionService.cancelMembershipSubscriptions(1);
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Account does not exist", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Non-existent subscription returns NOT_FOUND")
+        void cancelMembershipSubscriptions_notFound_returnsNotFound() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(membershipSubscriptionRepository.findById(99)).thenReturn(Optional.empty());
+
+            ResponseEntity<ApiResponse> response = subscriptionService.cancelMembershipSubscriptions(99);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Membership subscription ID does not exist", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void cancelMembershipSubscriptions_exception_returnsServerError() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(membershipSubscriptionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = subscriptionService.cancelMembershipSubscriptions(1);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
     }
 
@@ -352,6 +419,43 @@ class MembershipSubscriptionServiceImplementTest {
             ResponseEntity<ApiResponse> response = subscriptionService.activeMembershipSubscriptions(1);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Membership subscription is already in using status", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Unauthenticated returns Not Found")
+        void activeMembershipSubscriptions_unauth_returnsUnauthorized() {
+            lenient().when(membershipSubscriptionRepository.findById(1)).thenReturn(Optional.of(sampleSubscription));
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = subscriptionService.activeMembershipSubscriptions(1);
+
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Account does not exist", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Non-existent subscription returns NOT_FOUND")
+        void activeMembershipSubscriptions_notFound_returnsNotFound() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(membershipSubscriptionRepository.findById(99)).thenReturn(Optional.empty());
+
+            ResponseEntity<ApiResponse> response = subscriptionService.activeMembershipSubscriptions(99);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Membership subscription ID does not exist", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void activeMembershipSubscriptions_exception_returnsServerError() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(membershipSubscriptionRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = subscriptionService.activeMembershipSubscriptions(1);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
         }
     }
 }

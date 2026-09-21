@@ -100,6 +100,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.getMembershipPlanListIsActive();
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
     }
 
@@ -137,6 +138,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.getMembershipPlanDetail(1);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
     }
 
@@ -174,6 +176,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.getMembershipPlanListByAdmin();
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
     }
 
@@ -224,24 +227,28 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.createMembershipPlan(request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
 
         @ParameterizedTest
         @DisplayName("Blank/Zero fields returns BAD_REQUEST")
         @CsvSource({
-                "'', '100000', '1'",
-                "'Name', '0', '1'",
-                "'Name', '100000', '0'",
-                "'', '0', '0'", // Empty fields
-                "'Name', '-50000', '-1'" // Negative numbers
+                "'', 'Desc', '100000', '1'",
+                "'Name', '', '100000', '1'",
+                "'Name', 'Desc', '0', '1'",
+                "'Name', 'Desc', '100000', '0'",
+                "'', '', '0', '0'", // Empty fields
+                "'Name', 'Desc', '-50000', '-1'" // Negative numbers
         })
-        void createMembershipPlan_blankFields_returnsBadRequest(String name, String price, int quantity) {
+        void createMembershipPlan_blankFields_returnsBadRequest(String name, String description, String price, int quantity) {
             request.setName(name);
+            request.setDescription(description);
             request.setPrice(new BigDecimal(price));
             request.setQuantity(quantity);
 
             ResponseEntity<ApiResponse> response = membershipPlanService.createMembershipPlan(request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Fields cannot be blank and numeric fields must be > 0", response.getBody().getMessage());
         }
     }
 
@@ -280,6 +287,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.updateMembershipPlan(99, request);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Membership plan id does not exist", response.getBody().getMessage());
         }
 
         @Test
@@ -290,20 +298,27 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.updateMembershipPlan(1, request);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
 
         @ParameterizedTest
         @DisplayName("Blank or negative fields return BAD_REQUEST")
         @CsvSource({
-                "'', '0', '0'", // Empty fields
-                "'Name', '-50000', '-1'" // Negative numbers
+                "'', 'Desc', '100000', '1'",
+                "'Name', '', '100000', '1'",
+                "'Name', 'Desc', '0', '1'",
+                "'Name', 'Desc', '100000', '0'",
+                "'', '', '0', '0'", // Empty fields
+                "'Name', 'Desc', '-50000', '-1'" // Negative numbers
         })
-        void updateMembershipPlan_blankFields_returnsBadRequest(String name, String price, int quantity) {
+        void updateMembershipPlan_blankFields_returnsBadRequest(String name, String description, String price, int quantity) {
             request.setName(name);
+            request.setDescription(description);
             request.setPrice(new BigDecimal(price));
             request.setQuantity(quantity);
             ResponseEntity<ApiResponse> response = membershipPlanService.updateMembershipPlan(1, request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals("Fields cannot be blank and numeric fields must be > 0", response.getBody().getMessage());
         }
     }
 
@@ -341,6 +356,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.deleteMembershipPlan(1);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
     }
 
@@ -360,6 +376,17 @@ class MembershipPlanServiceImplementTest {
         }
 
         @Test
+        @DisplayName("Valid request (Activate) returns OK")
+        void toggleActiveMembershipPlan_activate_returnsOk() {
+            when(membershipPlanRepository.findById(1)).thenReturn(Optional.of(activePlan));
+
+            ResponseEntity<ApiResponse> response = membershipPlanService.toggleActiveMembershipPlan(1, true);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Activated membership plan successfully", response.getBody().getMessage());
+        }
+
+        @Test
         @DisplayName("Non-existent ID returns NOT_FOUND")
         void toggleActiveMembershipPlan_nonExistentId_returnsNotFound() {
             when(membershipPlanRepository.findById(99)).thenReturn(Optional.empty());
@@ -367,6 +394,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.toggleActiveMembershipPlan(99, true);
 
             assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+            assertEquals("Membership plan id does not exist", response.getBody().getMessage());
         }
 
         @Test
@@ -377,6 +405,7 @@ class MembershipPlanServiceImplementTest {
             ResponseEntity<ApiResponse> response = membershipPlanService.toggleActiveMembershipPlan(1, true);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Server error: DB error", response.getBody().getMessage());
         }
     }
 }

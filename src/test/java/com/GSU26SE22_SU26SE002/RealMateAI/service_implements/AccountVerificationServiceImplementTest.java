@@ -129,7 +129,7 @@ class AccountVerificationServiceImplementTest {
             ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationByIdByStaffOrAdmin(999);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Account verification not found with id: 999"));
+            assertEquals("Account verification not found with id: 999", response.getBody().getMessage());
         }
 
         @Test
@@ -209,6 +209,53 @@ class AccountVerificationServiceImplementTest {
             assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
             assertEquals("You do not have permission to view this verification", response.getBody().getMessage());
         }
+
+        @Test
+        @DisplayName("Valid verification ID returns OK")
+        void getVerificationDetailForUser_valid_returnsOk() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(accountVerificationRepository.findById(1)).thenReturn(Optional.of(sampleVerification));
+
+            ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationDetailForUser(1);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("Get your verification detail successfully", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Account does not exist returns UNAUTHORIZED")
+        void getVerificationDetailForUser_unauthenticated_returnsUnauthorized() {
+            when(authenUntil.getCurrentUSer()).thenReturn(null);
+
+            ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationDetailForUser(1);
+
+            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+            assertEquals("User authentication required", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Non-existent verification ID returns INTERNAL_SERVER_ERROR")
+        void getVerificationDetailForUser_notFound_returnsServerError() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(accountVerificationRepository.findById(999)).thenReturn(Optional.empty());
+
+            ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationDetailForUser(999);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Account verification not found with id: 999", response.getBody().getMessage());
+        }
+
+        @Test
+        @DisplayName("Exception returns INTERNAL_SERVER_ERROR")
+        void getVerificationDetailForUser_exception_returnsServerError() {
+            when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
+            when(accountVerificationRepository.findById(anyInt())).thenThrow(new RuntimeException("DB error"));
+
+            ResponseEntity<ApiResponse> response = verificationService.getAccountVerificationDetailForUser(1);
+
+            assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("DB error", response.getBody().getMessage());
+        }
     }
 
     @Nested
@@ -247,6 +294,7 @@ class AccountVerificationServiceImplementTest {
             ResponseEntity<ApiResponse> response = verificationService.approveAccountVerification(999);
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+            assertEquals("Account verification not found with id: 999", response.getBody().getMessage());
         }
     }
 
@@ -286,7 +334,7 @@ class AccountVerificationServiceImplementTest {
             ResponseEntity<ApiResponse> response = verificationService.rejectAccountVerification(999, "reason");
 
             assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-            assertTrue(response.getBody().getMessage().contains("Account verification not found with id: 999"));
+            assertEquals("Account verification not found with id: 999", response.getBody().getMessage());
         }
     }
     @Nested
