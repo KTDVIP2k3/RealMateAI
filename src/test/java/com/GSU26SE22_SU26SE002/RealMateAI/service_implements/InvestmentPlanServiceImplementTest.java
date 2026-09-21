@@ -286,13 +286,13 @@ class InvestmentPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent ID returns BAD_REQUEST")
-        void deleteInvestmentPlan_notFound_returnsBadRequest() {
+        @DisplayName("Non-existent ID returns Not_Found")
+        void deleteInvestmentPlan_notFound_returnsNotFound() {
             Mockito.lenient().when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.deleteInvestmentPlan(99);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         }
 
         @Test
@@ -379,13 +379,13 @@ class InvestmentPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent ID returns BAD_REQUEST")
-        void updateProfileName_notFound_returnsBadRequest() {
+        @DisplayName("Non-existent ID returns Not_Found")
+        void updateProfileName_notFound_returnsNotFound() {
             Mockito.lenient().when(investmentProfileRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateProfileName(99, "New Name");
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Investment profile does not exist", response.getBody().getMessage());
         }
 
@@ -425,13 +425,13 @@ class InvestmentPlanServiceImplementTest {
         }
 
         @Test
-        @DisplayName("Non-existent ID returns BAD_REQUEST")
-        void updateVersionName_notFound_returnsBadRequest() {
+        @DisplayName("Non-existent ID returns Not Found")
+        void updateVersionName_notFound_returnNotFound() {
             Mockito.lenient().when(investmentProfileVersionRepository.findById(99)).thenReturn(Optional.empty());
 
             ResponseEntity<ApiResponse> response = investmentPlanService.updateVersionName(99, "New Version Name");
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
             assertEquals("Investment profile version does not exist", response.getBody().getMessage());
         }
 

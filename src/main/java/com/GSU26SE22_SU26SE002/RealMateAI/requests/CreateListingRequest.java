@@ -33,7 +33,7 @@ public class CreateListingRequest {
     private String description;
 
     @NotNull(message = "Giá đăng không được để trống")
-    @Min(value = 0, message = "Giá phải >= 0")
+//    @Min(value = 0, message = "Giá phải >= 0")
     @Schema(example = "3500000000")
     private Long price;
 
@@ -62,7 +62,7 @@ public class CreateListingRequest {
     @Schema(example = "Căn hộ cao cấp, nội thất nhập khẩu")
     private String propDescription;
 
-    @Schema(example = "4200000000")
+//    @Schema(example = "4200000000")
     private Long propPrice;
 
     @Schema(example = "75.5")

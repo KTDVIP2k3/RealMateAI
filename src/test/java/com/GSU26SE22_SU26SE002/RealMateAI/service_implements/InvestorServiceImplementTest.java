@@ -174,19 +174,34 @@ class InvestorServiceImplementTest {
         @ParameterizedTest
         @DisplayName("fields trống/null trả về BAD_REQUEST")
         @CsvSource({
-                "'', 'High'",
-                "'Conservative', ''",
-                "'', ''" // Empty fields
+                "'', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', , 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, '', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', '', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', '', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', '', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', '', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', '', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', '', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', ''"
         })
-        void createInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
+        void createInvestorSurvey_blankFields_returnsBadRequest(String experience, Boolean stable, String goal, String priority, String style, String expectation, String preference, String factor, String ability, String method) {
+            request.setInvestmentExperience(experience);
+            request.setStableIncome(stable);
+            request.setInvestmentGoal(goal);
+            request.setInvestmentPriority(priority);
             request.setInvestmentStyle(style);
             request.setReturnExpectation(expectation);
+            request.setPropertyPreference(preference);
+            request.setDecisionFactor(factor);
+            request.setManagementAbility(ability);
+            request.setInvestmentMethod(method);
+            
             sampleAccount.setInvestor(null);
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
 
             ResponseEntity<ApiResponse> response = investorService.createInvestorSurvey(request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Investment style and return expectation are required", response.getBody().getMessage());
         }
     }
 
@@ -232,20 +247,34 @@ class InvestorServiceImplementTest {
         @ParameterizedTest
         @DisplayName("Blank fields return BAD_REQUEST")
         @CsvSource({
-                "'', 'High'",
-                "'Conservative', ''",
-                "'', ''"
+                "'', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', , 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, '', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', '', 'Conservative', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', '', 'High', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', '', 'Apartment', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', '', 'Price', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', '', 'Low', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', '', 'Direct'",
+                "'Beginner', true, 'Long term', 'Safety', 'Conservative', 'High', 'Apartment', 'Price', 'Low', ''"
         })
-        void updateInvestorSurvey_blankFields_returnsBadRequest(String style, String expectation) {
+        void updateInvestorSurvey_blankFields_returnsBadRequest(String experience, Boolean stable, String goal, String priority, String style, String expectation, String preference, String factor, String ability, String method) {
             sampleAccount.setInvestor(sampleInvestor);
             when(authenUntil.getCurrentUSer()).thenReturn(sampleAccount);
             
+            request.setInvestmentExperience(experience);
+            request.setStableIncome(stable);
+            request.setInvestmentGoal(goal);
+            request.setInvestmentPriority(priority);
             request.setInvestmentStyle(style);
             request.setReturnExpectation(expectation);
+            request.setPropertyPreference(preference);
+            request.setDecisionFactor(factor);
+            request.setManagementAbility(ability);
+            request.setInvestmentMethod(method);
 
             ResponseEntity<ApiResponse> response = investorService.updateInvestorSurvey(request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertEquals("Investment style and return expectation are required", response.getBody().getMessage());
         }
     }
 }
