@@ -1,5 +1,6 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.service_implements;
 
+import com.GSU26SE22_SU26SE002.RealMateAI.enums.MembershipSubscriptionEnum;
 import com.GSU26SE22_SU26SE002.RealMateAI.model.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.repositories.*;
 import com.GSU26SE22_SU26SE002.RealMateAI.requests.GenerateFuturePlanRequest;
@@ -72,6 +73,37 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ApiResponse.fail("Unauthorized", "Không tìm thấy thông tin nhà đầu tư."));
             }
+
+
+            if (currentAccount.getWallet() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("WALLET_NOT_FOUND", "You don't have a wallet. Please deposit money into your wallet to use this feature."));
+            }
+
+            Investor investor = currentAccount.getInvestor();
+
+            if (investor.getMembershipSubscriptions() == null || investor.getMembershipSubscriptions().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("MEMBERSHIP_NOT_FOUND", "You don't have any membership subscription. Please purchase a plan to use this feature."));
+            }
+
+            MembershipSubscription activeSubscription = investor.getMembershipSubscriptions().stream()
+                    .filter(sub -> sub.getMembershipSubscriptionEnum_status() != null
+                            && sub.getMembershipSubscriptionEnum_status().equals(MembershipSubscriptionEnum.Using)
+                            && Boolean.TRUE.equals(sub.getIsActive()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (activeSubscription == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("SUBSCRIPTION_NOT_ACTIVATED", "You have purchased a membership subscription, but it is not activated yet. Please activate your subscription to use this feature."));
+            }
+
+            if (activeSubscription.getQuantity_using() == null || activeSubscription.getQuantity_using() <= 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
+            }
+
 
             // Chỉ validate các tham số người dùng có truyền để tạo Future Plan.
             // sourceVersionId giữ nguyên luồng kiểm tra tồn tại ở phía trên.
