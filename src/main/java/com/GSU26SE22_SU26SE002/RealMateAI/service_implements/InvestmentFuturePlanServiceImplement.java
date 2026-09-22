@@ -107,9 +107,9 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
 
             // Chỉ validate các tham số người dùng có truyền để tạo Future Plan.
             // sourceVersionId giữ nguyên luồng kiểm tra tồn tại ở phía trên.
-            if (hasInvalidFuturePlanParameters(request)) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            }
+//            if (hasInvalidFuturePlanParameters(request)) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+//            }
 
             if (request.getSelectedProperties() == null || request.getSelectedProperties().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
