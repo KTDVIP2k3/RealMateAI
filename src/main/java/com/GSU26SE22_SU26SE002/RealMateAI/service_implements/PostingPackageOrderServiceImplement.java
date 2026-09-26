@@ -331,7 +331,7 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
 
             if (Boolean.TRUE.equals(postingPackageOrder.getPostingPackage().getIsDeleted())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tinnày đã bị xoá. Xin vui lòng đăng ký gói khác"));
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tin này đã bị xoá. Xin vui lòng đăng ký gói khác"));
             }
 
             if (!Boolean.TRUE.equals(postingPackageOrder.getPostingPackage().getIsActive())) {
@@ -402,6 +402,17 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
             if (order == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package order id does not exist"));
+            }
+
+
+            if (Boolean.TRUE.equals(order.getPostingPackage().getIsDeleted())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tin này đã bị xoá. Xin vui lòng đăng ký gói khác"));
+            }
+
+            if (!Boolean.TRUE.equals(order.getPostingPackage().getIsActive())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tin này đang được bảo trì. Xin vui lòng đăng ký gói khác"));
             }
 
             // Chỉ đúng Seller sở hữu Listing của order này mới được thanh toán lại.
