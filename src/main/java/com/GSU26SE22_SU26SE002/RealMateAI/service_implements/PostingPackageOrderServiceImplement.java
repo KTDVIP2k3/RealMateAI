@@ -160,6 +160,15 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package id does not exist"));
             }
 
+            if (Boolean.TRUE.equals(postingPackage.getIsDeleted())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tinnày đã bị xoá. Xin vui lòng đăng ký gói khác"));
+            }
+
+            if (!Boolean.TRUE.equals(postingPackage.getIsActive())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tin này đang được bảo trì. Xin vui lòng đăng ký gói khác"));
+            }
             Listing listing = listingRepository.findById(postingPackageOrderRequest.getListingId()).orElse(null);
             if (listing == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Listing id does not exist"));
@@ -320,6 +329,16 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package order id does not exist!!!"));
             }
 
+            if (Boolean.TRUE.equals(postingPackageOrder.getPostingPackage().getIsDeleted())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tinnày đã bị xoá. Xin vui lòng đăng ký gói khác"));
+            }
+
+            if (!Boolean.TRUE.equals(postingPackageOrder.getPostingPackage().getIsActive())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gối đăng tin này đang được bảo trì. Xin vui lòng đăng ký gói khác"));
+            }
+
             Account account = postingPackageOrder.getListing().getSeller().getAccount();
             int accountId = account.getAccountId();
 
@@ -328,13 +347,13 @@ public class PostingPackageOrderServiceImplement implements PostingPackageOrderS
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Wallet does not exists, please deposit it"));
             }
 
-            BigDecimal totalAmount = postingPackageOrder.getTotalAmount();
+            BigDecimal totalAmount = postingPackageOrder.getPostingPackage().getPosting_package_price();
             if (wallet.getBalance().compareTo(totalAmount) < 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Insufficient wallet balance"));
             }
 
             LocalDateTime startDate = LocalDateTime.now();
-            int durationDays = postingPackageOrder.getDuration();
+            int durationDays = postingPackageOrder.getPostingPackage().getDuration().intValue();
 
             postingPackageOrder.setIsActive(true);
             postingPackageOrder.setStartDate(startDate);
