@@ -30,7 +30,7 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
     public ResponseEntity<ApiResponse> getPostingPackageListIsActive() {
         try {
             List<PostingPackageDTO> postingPackageDTOList = postingPackageRepository.findAll().stream()
-                    .filter(p -> Boolean.TRUE.equals(p.getIsActive()) && !Boolean.TRUE.equals(p.getIsDeleted()))
+                    .filter(p ->Boolean.TRUE.equals(p.getIsActive()) && !Boolean.TRUE.equals(p.getIsDeleted()))
                     .map(this::mapToDTO)
                     .collect(Collectors.toList());
 
@@ -169,15 +169,18 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
                             .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package category id does not exist"));
                 }
             }
-
-            boolean existPostingPackageName = postingPackageRepository.findAll().stream()
-                    .filter(p -> !p.getPostingPackageId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted()))
-                    .anyMatch(p -> p.getName().trim().equalsIgnoreCase(postingPackageRequest.getName().trim()));
-
-            if (existPostingPackageName) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
+            if(Boolean.TRUE.equals(postingPackage.getIsActive())){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(),"Phải chuyển đổi gói đăng tin về trạng thái báo trì thì mới được cập nhật"));
             }
+
+//            boolean existPostingPackageName = postingPackageRepository.findAll().stream()
+//                    .filter(p -> !p.getPostingPackageId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted()))
+//                    .anyMatch(p -> p.getName().trim().equalsIgnoreCase(postingPackageRequest.getName().trim()));
+//
+//            if (existPostingPackageName) {
+//                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Posting package name exist"));
+//            }
 
             postingPackage.setName(postingPackageRequest.getName());
             postingPackage.setDescription(postingPackageRequest.getDescription());
@@ -209,7 +212,9 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Posting package id does not exist"));
             }
-            existPostingPackage.setIsActive(false);
+            if(Boolean.TRUE.equals(existPostingPackage.getIsActive())){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(),"Phải chuyển đổi gói đăng tin về trạng thái báo trì thì mới xoá"));
+            }
             existPostingPackage.setIsDeleted(true);
             existPostingPackage.setUpdatedAt(LocalDateTime.now());
             postingPackageRepository.save(existPostingPackage);

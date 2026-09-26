@@ -25,7 +25,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     public ResponseEntity<ApiResponse> getMembershipPlanListIsActive() {
         try {
             List<MembershipPlanDTO> membershipPlanDTOList = membershipPlanRepository.findAll().stream()
-                    .filter(plan -> Boolean.TRUE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))
+                    .filter(plan -> Boolean.FALSE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))
                     .map(membershipPlan -> new MembershipPlanDTO(
                             membershipPlan.getMembershipPlanId(),
                             membershipPlan.getName(),
@@ -144,6 +144,9 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan id does not exist"));
             }
+            if(Boolean.TRUE.equals(membershipPlan.getIsActive())){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Phải chuyển đổi trạng thái gói thành viên về bảo trì thì mới được cập nhật"));
+            }
 
 //            boolean existName = membershipPlanRepository.findAll().stream()
 //                    .filter(p -> !p.getMembershipPlanId().equals(id) && !Boolean.TRUE.equals(p.getIsDeleted())) // Tránh tự trùng với chính nó khi không đổi tên
@@ -178,7 +181,10 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
                         .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan id does not exist"));
             }
 
-            existMembershipPlan.setIsActive(false);
+            if(Boolean.TRUE.equals(existMembershipPlan.getIsActive())){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Phải chuyển đổi trạng thái gói thành viên về bảo trì thì mới được xoá"));
+            }
+
             existMembershipPlan.setIsDeleted(true);
             existMembershipPlan.setUpdatedAt(LocalDateTime.now());
             membershipPlanRepository.save(existMembershipPlan);

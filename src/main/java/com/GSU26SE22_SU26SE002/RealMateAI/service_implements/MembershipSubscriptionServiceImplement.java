@@ -137,6 +137,16 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Membership plan does not exist"));
             }
 
+            if (Boolean.TRUE.equals(membershipPlan.getIsDeleted())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gói thành viên này đã bị xoá. Xin vui lòng đăng ký gói khác"));
+            }
+
+            if (!Boolean.TRUE.equals(membershipPlan.getIsActive())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gói thành viên này đang được bảo trì."));
+            }
+
             Account account = authenUntil.getCurrentUSer();
             if (account == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exists"));
@@ -214,6 +224,16 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
             MembershipPlan membershipPlan = oldSubscription.getMembershipPlan();
             if (membershipPlan == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Membership plan associated with this subscription does not exist"));
+            }
+
+            if (Boolean.TRUE.equals(membershipPlan.getIsDeleted())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gói thành viên này đã bị xoá. Xin vui lòng đăng ký gói khác"));
+            }
+
+            if (!Boolean.TRUE.equals(membershipPlan.getIsActive())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gói thành viên này đang được bảo trì."));
             }
 
             Account account = authenUntil.getCurrentUSer();
