@@ -17,5 +17,4 @@ public class MembershipSubscriptionDTO {
     private MembershipSubscriptionEnum membershipSubscriptionEnum_status;
     private BigDecimal price_pay;
     private Integer quantity_using;
-    private boolean isActive;
 }
