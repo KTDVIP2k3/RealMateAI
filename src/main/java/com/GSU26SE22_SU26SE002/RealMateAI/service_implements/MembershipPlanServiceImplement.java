@@ -25,7 +25,7 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
     public ResponseEntity<ApiResponse> getMembershipPlanListIsActive() {
         try {
             List<MembershipPlanDTO> membershipPlanDTOList = membershipPlanRepository.findAll().stream()
-                    .filter(plan -> Boolean.FALSE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))
+                    .filter(plan -> Boolean.TRUE.equals(plan.getIsActive()) && !Boolean.TRUE.equals(plan.getIsDeleted()))
                     .map(membershipPlan -> new MembershipPlanDTO(
                             membershipPlan.getMembershipPlanId(),
                             membershipPlan.getName(),
