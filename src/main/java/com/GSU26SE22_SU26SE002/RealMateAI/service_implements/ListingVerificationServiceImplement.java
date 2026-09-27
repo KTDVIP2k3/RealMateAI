@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -55,6 +56,7 @@ public class ListingVerificationServiceImplement implements ListingVerificationS
             getCurrentStaffOrAdmin();
             var queue = listingVerificationRepository.findPendingQueue(ListingStatusEnum.PENDING)
                     .stream()
+                    .sorted(Comparator.comparing(ListingVerification::getListingVerificationId).reversed())
                     .map(this::toVerificationResponse)
                     .toList();
 
