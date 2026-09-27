@@ -107,14 +107,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
             }
 
-            int remainingQuantity = activeSubscription.getQuantity_using() - 1;
-            activeSubscription.setQuantity_using(remainingQuantity);
-            if (remainingQuantity <= 0) {
-                activeSubscription.setIsActive(false);
-                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
-            }
-            activeSubscription.setUpdatedAt(LocalDateTime.now());
-            membershipSubscriptionRepository.save(activeSubscription);
 
 
             // Chỉ validate các tham số người dùng có truyền để tạo Future Plan.
@@ -326,6 +318,27 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .createdAt(now)
                     .skippedItems(skippedItems)
                     .build();
+
+            int remainingQuantity = activeSubscription.getQuantity_using() - 1;
+            activeSubscription.setQuantity_using(remainingQuantity);
+            if(remainingQuantity == 1){
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(response, "Tạo kế hoạch tương lai thành công. Gói thành viên "
+                                + activeSubscription.getMembershipPlan().getName() + "sắp hết") );
+
+            }
+
+            if(remainingQuantity == 0){
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(response, "Tạo kế hoạch tương lai thành công. Gói thành viên "
+                                + activeSubscription.getMembershipPlan().getName() + "đã hết") );
+            }
+            if (remainingQuantity <= 0) {
+                activeSubscription.setIsActive(false);
+                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            }
+            activeSubscription.setUpdatedAt(LocalDateTime.now());
+            membershipSubscriptionRepository.save(activeSubscription);
 
             return ResponseEntity.ok(ApiResponse.success(response, "Tạo kế hoạch tương lai thành công"));
 
