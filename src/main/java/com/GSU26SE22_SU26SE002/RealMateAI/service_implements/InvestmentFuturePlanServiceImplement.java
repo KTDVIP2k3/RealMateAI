@@ -43,6 +43,9 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     private StrategyRepository strategyRepository;
 
     @Autowired
+    private MembershipSubscriptionRepository membershipSubscriptionRepository;
+
+    @Autowired
     private FutureInvestmentPlanRepository futureInvestmentPlanRepository;
 
     // MỚI: dùng CHUNG bean hạ tầng Client Gemini (KHÔNG gọi lại business logic
@@ -103,6 +106,15 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
             }
+
+            int remainingQuantity = activeSubscription.getQuantity_using() - 1;
+            activeSubscription.setQuantity_using(remainingQuantity);
+            if (remainingQuantity <= 0) {
+                activeSubscription.setIsActive(false);
+                activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
+            }
+            activeSubscription.setUpdatedAt(LocalDateTime.now());
+            membershipSubscriptionRepository.save(activeSubscription);
 
 
             // Chỉ validate các tham số người dùng có truyền để tạo Future Plan.
