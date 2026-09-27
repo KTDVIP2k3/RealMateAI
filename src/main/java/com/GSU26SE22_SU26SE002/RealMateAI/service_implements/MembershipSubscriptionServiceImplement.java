@@ -245,6 +245,10 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gói thành viên này đang được bảo trì."));
             }
+            if (!MembershipSubscriptionEnum.Using.equals(oldSubscription.getMembershipSubscriptionEnum_status())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Gói thành viên phải đang hoạt động mới được gia hạn"));
+            }
 
             Account account = authenUntil.getCurrentUSer();
             if (account == null) {
@@ -264,7 +268,7 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
             wallet.setBalance(wallet.getBalance().subtract(price));
             wallet.setUpdatedAt(LocalDateTime.now());
 
-            oldSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.Pending);
+//            oldSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.Pending);
             oldSubscription.setPrice_pay(price);
             oldSubscription.setQuantity_using(oldSubscription.getQuantity_using() + membershipPlan.getQuantity());
             oldSubscription.setIsActive(true);
