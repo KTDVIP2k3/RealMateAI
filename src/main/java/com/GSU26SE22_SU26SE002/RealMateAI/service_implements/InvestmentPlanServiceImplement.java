@@ -376,6 +376,18 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             int remainingQuantity = activeSubscription.getQuantity_using() - 1;
             activeSubscription.setQuantity_using(remainingQuantity);
+            if(remainingQuantity == 1){
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(finalOutput, "Generate and save complete investment plan successfully. Membership "
+                                + activeSubscription.getMembershipPlan().getName() + "expiring soon") );
+
+            }
+
+            if(remainingQuantity == 0){
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(finalOutput, "Generate and save complete investment plan successfully. Membership "
+                                + activeSubscription.getMembershipPlan().getName() + "have expired") );
+            }
             if (remainingQuantity <= 0) {
                 activeSubscription.setIsActive(false);
                 activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
@@ -487,6 +499,18 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
             int remainingQuantity = activeSubscription.getQuantity_using() - 1;
             activeSubscription.setQuantity_using(remainingQuantity);
+            if(remainingQuantity == 1){
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(finalOutput, "Update investment plan version successfully. Membership "
+                                + activeSubscription.getMembershipPlan().getName() + "expiring soon") );
+
+            }
+
+            if(remainingQuantity == 0){
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(ApiResponse.success(finalOutput, "Update investment plan version successfully. Membership "
+                                + activeSubscription.getMembershipPlan().getName() + "have expired") );
+            }
             if (remainingQuantity <= 0) {
                 activeSubscription.setIsActive(false);
                 activeSubscription.setMembershipSubscriptionEnum_status(MembershipSubscriptionEnum.OutDated);
