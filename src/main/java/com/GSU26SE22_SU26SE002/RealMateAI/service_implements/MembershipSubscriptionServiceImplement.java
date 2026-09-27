@@ -46,22 +46,24 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
 
     @Override
     public ResponseEntity<ApiResponse> getMembershipSubscriptions(int page, int size) {
-        try{
+        try {
             Account account = authenUntil.getCurrentUSer();
-            if(account == null){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exists"));
+            if (account == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.fail(HttpStatus.NOT_FOUND.toString(), "Account does not exist"));
             }
 
-            if(account.getInvestor() == null){
+            if (account.getInvestor() == null) {
                 Investor investor = new Investor();
                 investor.setIsActive(true);
                 investor.setCreatedAt(LocalDateTime.now());
                 investor.setAccount(account);
                 investorRepository.save(investor);
+                account.setInvestor(investor);
             }
 
-            if(account.getInvestor().getMembershipSubscriptions().isEmpty()
-                    || account.getInvestor().getMembershipSubscriptions() == null){
+            if (account.getInvestor().getMembershipSubscriptions() == null
+                    || account.getInvestor().getMembershipSubscriptions().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "List is empty"));
             }
 
@@ -69,18 +71,25 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
                     .stream()
                     .map(membershipSubscriptions ->
                             new MembershipSubscriptionDTO(
-                                    membershipSubscriptions.getMembershipSubscriptionId()
-                                    , membershipSubscriptions.getMembershipPlan().getMembershipPlanId()
-                                    , membershipSubscriptions.getMembershipPlan().getName()
-                                    , membershipSubscriptions.getMembershipSubscriptionEnum_status()
-                                    , membershipSubscriptions.getPrice_pay()
-                                    , membershipSubscriptions.getQuantity_using()))
+                                    membershipSubscriptions.getMembershipSubscriptionId(),
+                                    membershipSubscriptions.getMembershipPlan().getMembershipPlanId(),
+                                    membershipSubscriptions.getMembershipPlan().getName(),
+                                    membershipSubscriptions.getMembershipSubscriptionEnum_status(),
+                                    membershipSubscriptions.getPrice_pay(),
+                                    membershipSubscriptions.getQuantity_using()))
                     .toList();
+
             List<MembershipSubscriptionDTO> sortedList = membershipSubscriptionDTOList.stream()
-                    .sorted(Comparator.comparing(
-                            MembershipSubscriptionDTO::getMembershipSubscriptionId,
-                            Comparator.nullsLast(Comparator.reverseOrder())
-                    ))
+                    .sorted(Comparator
+                            .comparing((MembershipSubscriptionDTO dto) ->
+                                            dto.getMembershipSubscriptionEnum_status() != null &&
+                                                    "USING".equalsIgnoreCase(dto.getMembershipSubscriptionEnum_status().name()),
+                                    Comparator.reverseOrder())
+                            .thenComparing(
+                                    MembershipSubscriptionDTO::getMembershipSubscriptionId,
+                                    Comparator.nullsLast(Comparator.reverseOrder())
+                            )
+                    )
                     .toList();
 
             boolean isGetAll = (page == 0 && size == 0);
@@ -123,8 +132,10 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
             result.put("totalPages", totalPages);
             result.put("last", isLast);
 
-            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "MembershipSubscription list"));    } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
+            return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(result, "MembershipSubscription list"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage()));
         }
     }
 
