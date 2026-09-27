@@ -74,8 +74,7 @@ public class MembershipSubscriptionServiceImplement implements MembershipSubscri
                                     , membershipSubscriptions.getMembershipPlan().getName()
                                     , membershipSubscriptions.getMembershipSubscriptionEnum_status()
                                     , membershipSubscriptions.getPrice_pay()
-                                    , membershipSubscriptions.getQuantity_using()
-                                    , membershipSubscriptions.getIsActive()))
+                                    , membershipSubscriptions.getQuantity_using()))
                     .toList();
             List<MembershipSubscriptionDTO> sortedList = membershipSubscriptionDTOList.stream()
                     .sorted(Comparator.comparing(
