@@ -28,12 +28,23 @@ import java.util.stream.Collectors;
 @Service
 public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInterface {
 
-    private static final double OPTIMISTIC_INTEREST_RATE = 0.08;
-    private static final double PESSIMISTIC_INTEREST_RATE = 0.12;
+    private static final double OPTIMISTIC_INTEREST_RATE = 0.07;
+    private static final double PESSIMISTIC_INTEREST_RATE = 0.105;
+    private static final double SAVING_INTEREST_RATE_PER_YEAR = 0.05;
     private static final double TRANSACTION_COST_RATE = 0.035;
     private static final double CAPEX_RATE = 0.05;
     private static final double GAIN_RATE_OPTIMISTIC = 0.15;
-    private static final double SAVING_INTEREST_RATE_PER_YEAR = 0.06;
+    private static final double CAPITAL_GAIN_MUA_SUA_BAN = 0.20;
+    private static final double CAPITAL_GAIN_DONG_TIEN_BASE = 0.07;
+    private static final double CAPITAL_GAIN_LUOT_SONG = 0.08;
+
+    private static final double RISK_OCCUPANCY_RATE = 0.5;
+    private static final double RISK_CAPEX_MULTIPLIER = 1.3;
+    private static final double RISK_PRICE_GROWTH = 0.0;
+
+    private static final int DEFAULT_LOAN_TERM_YEARS = 20;
+    private static final double DEFAULT_YIELD_RATE = 0.04;
+
     private static final int LOAN_MONTHS = 240;
     private static final int HOLDING_MONTHS_LUOT_SONG = 3;
     private static final int HOLDING_MONTHS_MUA_SUA_BAN = 9;
@@ -317,10 +328,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     @Transactional
     public ResponseEntity<ApiResponse> generateCompleteInvestmentPlan(InvestmentPlanRequest request) {
         try {
-            if (request.getEquity() == null || request.getEquity() <= 0 || 
-                request.getLoanCapital() == null || request.getLoanCapital() < 0 || 
-                request.getLongTermYear() <= 0 || 
-                request.getConsciousName() == null || request.getConsciousName().trim().isEmpty()) {
+            if (request.getEquity() == null || request.getEquity() <= 0 ||
+                    request.getLoanCapital() == null || request.getLoanCapital() < 0 ||
+                    request.getLongTermYear() <= 0 ||
+                    request.getConsciousName() == null || request.getConsciousName().trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail("Bad_Request", "Invalid fields"));
             }
@@ -409,13 +420,6 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     @Transactional
     public ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) {
         try {
-//            if (request.getEquity() == null || request.getEquity() <= 0 ||
-//                request.getLoanCapital() == null || request.getLoanCapital() < 0 ||
-//                request.getLongTermYear() <= 0 ||
-//                request.getConsciousName() == null || request.getConsciousName().trim().isEmpty()) {
-//                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-//                        .body(ApiResponse.fail("Bad_Request", "Invalid fields"));
-//            }
             if (request.getEquity() == null || request.getEquity() <= 0 ||
                     request.getLoanCapital() == null || request.getLoanCapital() < 0 ||
                     request.getLongTermYear() <= 0 ||
@@ -581,7 +585,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         int loanTermYears = request.getLongTermYear() > 0
                 ? request.getLongTermYear()
-                : 20;
+                : DEFAULT_LOAN_TERM_YEARS;
 
         long additionalCostReq = 0L;
 
@@ -721,7 +725,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
 
         QUY TẮC CÔNG THỨC TRẢ GỐC LÃI HÀNG THÁNG (monthlyPrincipalInterest):
         - P = loanCapital. Nếu P <= 0 thì monthlyPrincipalInterest = 0.
-        - Lãi suất Big4: r = 0.07 / 12, số tháng vay: n = longTermYear * 12.
+        - Lãi suất Big4: r = %.3f / 12, số tháng vay: n = longTermYear * 12.
         - Công thức: monthlyPrincipalInterest = P * [r * (1 + r)^n] / [(1 + r)^n - 1]
 
         QUY TẮC TÍNH TOÁN DÒNG TIỀN VÀ LỢI NHUẬN THEO CHIẾN LƯỢC:
@@ -729,13 +733,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
         1. Chiến lược "Đầu Cơ Lướt Sóng" (strategy_id = 1):
            - monthlyRentalCashflow = 0
            - netCashflow = 0
-           - estimatedProfit = valuePrice * (1 + 0.08)^0.25 - valuePrice
+           - estimatedProfit = valuePrice * (1 + %.2f)^0.25 - valuePrice
 
         2. Chiến lược "Mua Sửa Bán" (strategy_id = 2):
            - monthlyRentalCashflow = 0
            - netCashflow = 0
-           - additionalCost: Lấy từ request (nếu = 0 thì mặc định valuePrice * 0.05)
-           - estimatedProfit = [valuePrice * (1 + 0.20)^0.75 - valuePrice] - additionalCost
+           - additionalCost: Lấy từ request (nếu = 0 thì mặc định valuePrice * %.2f)
+           - estimatedProfit = [valuePrice * (1 + %.2f)^0.75 - valuePrice] - additionalCost
 
         3. Chiến lược "BĐS Dòng Tiền" (strategy_id = 3):
            - Yield cho thuê theo property_type_id:
@@ -745,10 +749,10 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
              + property_type_id = 4: Yield = 0.075
              + property_type_id = 5: Yield = 0.040
              + property_type_id = 6: Yield = 0.060
-             + Khác: Yield = 0.040
+             + Khác: Yield = %.3f
            - monthlyRentalCashflow = (valuePrice * Yield) / 12
            - netCashflow = monthlyRentalCashflow - monthlyPrincipalInterest
-           - estimatedProfit = valuePrice * (1 + 0.07 + Yield)^5 - valuePrice
+           - estimatedProfit = valuePrice * (1 + %.2f + Yield)^5 - valuePrice
 
         DANH SÁCH BẤT ĐỘNG SẢN:
         %s
@@ -757,6 +761,12 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                 loanTermYears,
                 additionalCostReq,
                 strategyName,
+                OPTIMISTIC_INTEREST_RATE,
+                CAPITAL_GAIN_LUOT_SONG,
+                CAPEX_RATE,
+                CAPITAL_GAIN_MUA_SUA_BAN,
+                DEFAULT_YIELD_RATE,
+                CAPITAL_GAIN_DONG_TIEN_BASE,
                 propertiesJson
         );
 
@@ -998,7 +1008,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                     if (loanCapitalD > 0) {
 
                         double r =
-                                0.07 / 12.0;
+                                OPTIMISTIC_INTEREST_RATE / 12.0;
 
                         monthlyPI =
                                 loanCapitalD
@@ -1048,7 +1058,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                         case 4 -> 0.075;
                                         case 5 -> 0.040;
                                         case 6 -> 0.060;
-                                        default -> 0.040;
+                                        default -> DEFAULT_YIELD_RATE;
                                     };
 
                             rentalCashflow =
@@ -1067,12 +1077,12 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                                                 * 12.0
                                 )
                                         / valuePrice
-                                        : 0.04;
+                                        : DEFAULT_YIELD_RATE;
 
                         estimatedProfit =
                                 valuePrice
                                         * Math.pow(
-                                        1 + 0.07 + yield,
+                                        1 + CAPITAL_GAIN_DONG_TIEN_BASE + yield,
                                         5
                                 )
                                         - valuePrice;
@@ -1085,13 +1095,13 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         double additionalCost =
                                 additionalCostReq > 0
                                         ? additionalCostReq
-                                        : valuePrice * 0.05;
+                                        : valuePrice * CAPEX_RATE;
 
                         estimatedProfit =
                                 (
                                         valuePrice
                                                 * Math.pow(
-                                                1 + 0.20,
+                                                1 + CAPITAL_GAIN_MUA_SUA_BAN,
                                                 0.75
                                         )
                                                 - valuePrice
@@ -1106,7 +1116,7 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         estimatedProfit =
                                 valuePrice
                                         * Math.pow(
-                                        1 + 0.08,
+                                        1 + CAPITAL_GAIN_LUOT_SONG,
                                         0.25
                                 )
                                         - valuePrice;
@@ -1265,9 +1275,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
                         isLuotSong,
                         holdingMonths * 2,
                         PESSIMISTIC_INTEREST_RATE,
-                        0.5,
-                        0.0,
-                        1.30
+                        RISK_OCCUPANCY_RATE,
+                        RISK_PRICE_GROWTH,
+                        RISK_CAPEX_MULTIPLIER
                 );
 
         scenarios.add(greenScenario);
