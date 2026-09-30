@@ -250,7 +250,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
 
     private void executeCrawlLogic() {
         if (this.currentDailyCrawledCount >= DAILY_TARGET_NEWS) {
-            System.out.println("🎯 [NEWS CRAWLER] Đã cào đủ " + DAILY_TARGET_NEWS + " tin trong ngày hôm nay. Dừng cào!");
+            System.out.println("[NEWS CRAWLER] Đã cào đủ " + DAILY_TARGET_NEWS + " tin trong ngày hôm nay. Dừng cào!");
             return;
         }
 
@@ -323,7 +323,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
                             .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
                             .setTimeout(30000));
                 } catch (Exception e) {
-                    System.err.println("⚠️ Lỗi điều hướng trang danh sách: " + e.getMessage());
+                    System.err.println("Lỗi điều hướng trang danh sách: " + e.getMessage());
                     currentPageNum++;
                     continue;
                 }
@@ -334,7 +334,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
                 Elements articleItems = doc.select(".item-news, .item-news-common, article.item-news");
 
                 if (articleItems.isEmpty()) {
-                    System.out.println("🛑 Không tìm thấy thẻ bài viết nào trên trang " + currentPageNum + ". Kết thúc quét.");
+                    System.out.println("Không tìm thấy thẻ bài viết nào trên trang " + currentPageNum + ". Kết thúc quét.");
                     break;
                 }
 
@@ -364,7 +364,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
                         pageResultList.add(fullNews);
                         this.currentDailyCrawledCount++;
                         totalCrawledInBatch++;
-                        System.out.println(" ✅ [CÀO THÀNH CÔNG " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + "] " + fullNews.getTitle());
+                        System.out.println(" [CÀO THÀNH CÔNG " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + "] " + fullNews.getTitle());
 
                         existingUrls.add(fullNews.getSourceUrl());
                     }
@@ -375,7 +375,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
                 }
 
                 if (this.currentDailyCrawledCount >= DAILY_TARGET_NEWS) {
-                    System.out.println("🎯 [NEWS CRAWLER] Đã đạt đủ chỉ tiêu " + DAILY_TARGET_NEWS + " bài tin tức BĐS.");
+                    System.out.println("[NEWS CRAWLER] Đã đạt đủ chỉ tiêu " + DAILY_TARGET_NEWS + " bài tin tức BĐS.");
                     break;
                 }
 
@@ -384,14 +384,14 @@ public class NewsServiceImplements implements NewsServiceInterface {
             }
 
         } catch (Exception e) {
-            System.err.println("❌ Lỗi hệ thống VnExpress News Crawler: " + e.getMessage());
+            System.err.println("Lỗi hệ thống VnExpress News Crawler: " + e.getMessage());
         } finally {
             if (listPage != null && !listPage.isClosed()) try { listPage.close(); } catch (Exception ignored) {}
             if (context != null) try { context.close(); } catch (Exception ignored) {}
             if (isServer) try { FileSystemUtils.deleteRecursively(userDataDir); } catch (Exception ignored) {}
         }
 
-        System.out.println("\n🎉 HOÀN THÀNH ĐỢT CÀO TIN TỨC VNEXPRESS: + " + totalCrawledInBatch + " bài mới! (Tổng hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + ")");
+        System.out.println("\nHOÀN THÀNH ĐỢT CÀO TIN TỨC VNEXPRESS: + " + totalCrawledInBatch + " bài mới! (Tổng hôm nay: " + this.currentDailyCrawledCount + "/" + DAILY_TARGET_NEWS + ")");
     }
 
     private News extractVnExpressBasicInfo(Element item) {
@@ -526,7 +526,7 @@ public class NewsServiceImplements implements NewsServiceInterface {
             try {
                 newsRepository.save(news);
             } catch (Exception e) {
-                System.err.println("❌ LỖI DB KHI LƯU TIN [" + news.getTitle() + "]: " + e.getMessage());
+                System.err.println("LỖI DB KHI LƯU TIN [" + news.getTitle() + "]: " + e.getMessage());
             }
         }
     }

@@ -27,6 +27,10 @@ import java.util.stream.Collectors;
 @Service
 public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePlanServiceInterface {
 
+    private static final double OPTIMISTIC_INTEREST_RATE = 0.07;
+    private static final int FALLBACK_SCORE_GOOD = 70;
+    private static final int FALLBACK_SCORE_BAD = 40;
+
     @Autowired
     private AuthenUntil authenUntil;
 
@@ -48,17 +52,11 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
     @Autowired
     private FutureInvestmentPlanRepository futureInvestmentPlanRepository;
 
-    // MỚI: dùng CHUNG bean hạ tầng Client Gemini (KHÔNG gọi lại business logic
-    // của InvestmentPlanServiceImplement) — đúng ý "tách riêng biệt".
     @Autowired
     private Client geminiClient;
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    // =====================================================================
-    // GENERATE + SAVE — 1 transaction duy nhất
-    // =====================================================================
 
     @Override
     @Transactional
@@ -107,22 +105,11 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .body(ApiResponse.fail("QUANTITY_EXHAUSTED", "Your membership subscription has run out of usage limit. Please renew or purchase a new plan."));
             }
 
-
-
-            // Chỉ validate các tham số người dùng có truyền để tạo Future Plan.
-            // sourceVersionId giữ nguyên luồng kiểm tra tồn tại ở phía trên.
-//            if (hasInvalidFuturePlanParameters(request)) {
-//                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-//            }
-
             if (request.getSelectedProperties() == null || request.getSelectedProperties().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail("No_Properties", "Vui lòng chọn ít nhất 1 bất động sản đã mua để phân tích."));
             }
 
-            // ── BƯỚC 1 — Tra lại đúng ProposedProperty GỐC (kết quả Investment
-            // Plan) tương ứng mỗi listingId investor phản hồi, gộp toàn bộ
-            // ProposedProperty của sourceVersion vào 1 Map để tra O(1). ──
             Map<Integer, ProposedProperty> plannedByListingId = new HashMap<>();
             if (sourceVersion.getInvestmentCriterias() != null) {
                 for (InvestmentCriteria c : sourceVersion.getInvestmentCriterias()) {
@@ -133,15 +120,9 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 }
             }
 
-            // ── BƯỚC 2 (SỬA THỨ TỰ): resolve effLoanCapital/effLongTermYear
-            // TRƯỚC vòng lặp — cần dùng làm fallback tính monthlyPrincipalInterest
-            // khi property KHÔNG có baseline kế hoạch gốc (xem bên dưới). ──
             Long effLoanCapital = request.getLoanCapital() != null ? request.getLoanCapital() : sourceVersion.getLoanCapital();
             Integer effLongTermYear = request.getLongTermYear() != null ? request.getLongTermYear() : sourceVersion.getLongTermYear();
 
-            // Lọc trước danh sách property HỢP LỆ (có actualPurchasePrice > 0)
-            // để biết chính xác SỐ LƯỢNG property sẽ chia đều loanCapital khi
-            // cần fallback (không thể biết trước nếu vừa lọc vừa xử lý tuần tự).
             List<GenerateFuturePlanRequest.SelectedPropertyItem> validItems = new ArrayList<>();
             List<String> skippedItems = new ArrayList<>();
             for (GenerateFuturePlanRequest.SelectedPropertyItem item : request.getSelectedProperties()) {
@@ -152,8 +133,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 }
             }
 
-            // ── BƯỚC 2 — Tính DÒNG TIỀN THỰC TẾ (Java thuần, KHÔNG AI, KHÔNG
-            // cần giá thẩm định) cho từng property, đối chiếu với kế hoạch gốc. ──
             List<PropertyFutureAnalysisDTO> analysisResults = new ArrayList<>();
 
             for (GenerateFuturePlanRequest.SelectedPropertyItem item : validItems) {
@@ -168,18 +147,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 long actualMonthlyOperatingCost = item.getMonthlyOperatingCost() != null ? item.getMonthlyOperatingCost() : 0L;
                 int actualHoldingMonths = item.getHoldingMonths() != null && item.getHoldingMonths() > 0 ? item.getHoldingMonths() : 1;
 
-                // SỬA (fix bug thật — thiếu trừ nợ ngân hàng khiến so sánh lệch
-                // chuẩn): plannedNetCashflow (kế hoạch gốc) ĐÃ TRỪ monthlyPrincipalInterest
-                // từ trước — nếu actualMonthlyNetCashflow KHÔNG trừ khoản này,
-                // dòng tiền thực tế sẽ bị đội lên ảo, khiến monthlyCashflowDelta
-                // dương giả và AI đánh giá sai lệch hoàn toàn.
-                // Ưu tiên 1: có baseline → dùng ĐÚNG monthlyPrincipalInterest đã
-                // tính sẵn cho ĐÚNG property này lúc lập kế hoạch gốc (chính xác
-                // nhất, vì đó là khoản vay THẬT sự phân bổ riêng cho property đó).
-                // Ưu tiên 2: không có baseline (property MANUAL) → áp dụng công
-                // thức PMT chuẩn, P = loanCapital của kế hoạch chia ĐỀU cho số
-                // property hợp lệ trong request (ước tính hợp lý khi không có
-                // số liệu phân bổ riêng).
                 long actualMonthlyPrincipalInterest;
                 if (planned != null && planned.getMonthlyPrincipalInterest() != null) {
                     actualMonthlyPrincipalInterest = planned.getMonthlyPrincipalInterest();
@@ -221,10 +188,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .body(ApiResponse.fail("No_Valid_Properties", "Không có property nào đủ dữ liệu để phân tích. Chi tiết: " + skippedItems));
             }
 
-            // ── BƯỚC 3 — Effective values (bối cảnh tài chính hiện tại) — ưu
-            // tiên input mới investor nhập, fallback sourceVersion nếu để trống.
-            // (effLoanCapital/effLongTermYear đã resolve sẵn ở BƯỚC 2 phía trên
-            // — dùng lại, không tính lại tránh trùng lặp code.) ──
             Long effEquity = request.getEquity() != null ? request.getEquity() : sourceVersion.getEquity();
             Long effCurrentCashFlow = request.getCurrentCashFlow() != null ? request.getCurrentCashFlow() : sourceVersion.getCurrentCashflow();
             String effConscious = request.getConsciousName() != null ? request.getConsciousName() : sourceVersion.getConscious();
@@ -239,9 +202,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 else skippedItems.add("strategyId=" + request.getStrategyId() + ": không tồn tại, giữ nguyên strategy của sourceVersion");
             }
 
-            // ── BƯỚC 4 — Gọi AI PHÂN TÍCH (1 lần gọi DUY NHẤT, RIÊNG BIỆT khỏi
-            // Investment Plan) — AI CHỈ viết nhận xét/khuyến nghị định tính +
-            // 1 điểm số tổng thể, KHÔNG tính lại số liệu (đã tính ở Bước 2). ──
             AIAnalysisResult aiResult;
             try {
                 aiResult = callAIForFutureAnalysis(analysisResults, effEquity, effLoanCapital, effCurrentCashFlow,
@@ -252,7 +212,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                 skippedItems.add("AI phân tích tạm thời không khả dụng, đã dùng nhận xét mặc định (rule-based): " + e.getMessage());
             }
 
-            // Gán nhận xét AI vào từng property (map theo listingId, giữ đúng thứ tự analysisResults).
             Map<Integer, AIPropertyNote> noteByListingId = aiResult.propertyNotes.stream()
                     .filter(n -> n.listingId != null)
                     .collect(Collectors.toMap(n -> n.listingId, n -> n, (a, b) -> a));
@@ -265,7 +224,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                         .build());
             }
 
-            // ── BƯỚC 5 — Tổng hợp toàn danh mục (Java tính) ──
             long totalPlanned = finalResults.stream().filter(r -> r.getPlannedNetCashflow() != null)
                     .mapToLong(PropertyFutureAnalysisDTO::getPlannedNetCashflow).sum();
             long totalActual = finalResults.stream().mapToLong(PropertyFutureAnalysisDTO::getActualMonthlyNetCashflow).sum();
@@ -279,7 +237,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
             String autoName = (request.getPlanName() != null && !request.getPlanName().isBlank())
                     ? request.getPlanName() : "Kết quả dự đoán " + (existingCount + 1);
 
-            // ── BƯỚC 6 — Lưu snapshot JSON đầy đủ (đọc lại nguyên vẹn khi GET). ──
             Map<String, Object> analysisSnapshot = new LinkedHashMap<>();
             analysisSnapshot.put("propertyAnalysisResults", finalResults.stream().map(this::toMap).collect(Collectors.toList()));
             analysisSnapshot.put("totalPlannedMonthlyNetCashflow", totalPlanned);
@@ -397,10 +354,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         return value != null && value.doubleValue() <= 0;
     }
 
-    // =====================================================================
-    // GET DETAIL — đọc lại nguyên vẹn từ analysisSnapshot JSON, KHÔNG tính
-    // lại / KHÔNG gọi lại AI.
-    // =====================================================================
 
     @Override
     @Transactional
@@ -493,11 +446,6 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
     }
-
-    // =====================================================================
-    // AI CALL — RIÊNG BIỆT, ĐỘC LẬP với Investment Plan. AI CHỈ viết nhận
-    // xét/khuyến nghị định tính + 1 điểm số, KHÔNG tính toán số liệu.
-    // =====================================================================
 
     private static class AIPropertyNote {
         Integer listingId;
@@ -629,12 +577,11 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         return result;
     }
 
-    /** Fallback rule-based đơn giản khi AI lỗi/timeout — KHÔNG để cả API fail chỉ vì AI tạm không khả dụng. */
     private AIAnalysisResult buildFallbackAnalysis(List<PropertyFutureAnalysisDTO> results) {
         AIAnalysisResult r = new AIAnalysisResult();
         long totalDelta = results.stream().filter(x -> x.getMonthlyCashflowDelta() != null)
                 .mapToLong(PropertyFutureAnalysisDTO::getMonthlyCashflowDelta).sum();
-        r.overallScore = totalDelta >= 0 ? 70 : 40;
+        r.overallScore = totalDelta >= 0 ? FALLBACK_SCORE_GOOD : FALLBACK_SCORE_BAD;
         r.overallNote = totalDelta >= 0
                 ? "Dòng tiền thực tế tổng thể đang bằng hoặc tốt hơn kế hoạch ban đầu."
                 : "Dòng tiền thực tế tổng thể đang thấp hơn kế hoạch ban đầu, cần rà soát lại.";
@@ -652,21 +599,11 @@ public class InvestmentFuturePlanServiceImplement implements InvestmentFuturePla
         return r;
     }
 
-    // =====================================================================
-    // HELPERS
-    // =====================================================================
-
-    // MỚI (fix bug thật — thiếu trừ nợ ngân hàng): công thức PMT (trả góp gốc +
-    // lãi đều hàng tháng) — ĐÚNG công thức lãi Big4 dùng chung trong Investment
-    // Plan gốc (r=0.07/12, n=longTermYear*12), viết lại RIÊNG trong Future Plan
-    // Service (không gọi lại InvestmentPlanServiceImplement — giữ 2 module tách
-    // biệt hoàn toàn theo đúng kiến trúc đã thống nhất trước đó) để dùng làm
-    // fallback khi property KHÔNG có baseline kế hoạch gốc để tra cứu.
     private static double calculateMonthlyPrincipalInterest(long loanCapital, Integer longTermYear) {
         if (loanCapital <= 0 || longTermYear == null || longTermYear <= 0) {
             return 0.0;
         }
-        double r = 0.07 / 12.0;
+        double r = OPTIMISTIC_INTEREST_RATE / 12.0;
         int n = longTermYear * 12;
         double factor = Math.pow(1 + r, n);
         return loanCapital * (r * factor) / (factor - 1);
