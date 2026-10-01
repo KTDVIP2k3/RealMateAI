@@ -128,7 +128,7 @@ public class AuthServiceImplement implements AuthServiceInterface {
                         .body(ApiResponse.fail("Bad_Request", "Mật khẩu phải từ 8 đến 32 ký tự"));
             }
 
-            String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$";
+            String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9()])[^()]+$";
             if (!password.matches(passwordPattern)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail("Bad_Request", "Mật khẩu phải bao gồm cả chữ hoa, chữ thường, số và ký tự đặc biệt"));
