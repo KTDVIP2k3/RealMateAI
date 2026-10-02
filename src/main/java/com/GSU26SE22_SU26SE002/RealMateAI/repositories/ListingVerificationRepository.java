@@ -38,8 +38,7 @@ public interface ListingVerificationRepository extends JpaRepository<ListingVeri
     JOIN FETCH l.property p
     LEFT JOIN FETCH p.propertyType pt
     WHERE lv.status = :status
-      AND (l.isActive = true OR l.isActive IS NULL)
-      AND l.deletedAt IS NULL
+      AND (lv.isActive = true OR lv.isActive IS NULL)
       AND l.status = SellerListingStatusEnum.ACTIVE
     ORDER BY lv.listingVerificationId DESC
     """)
