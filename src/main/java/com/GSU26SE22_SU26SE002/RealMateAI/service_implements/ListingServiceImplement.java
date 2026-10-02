@@ -13,6 +13,7 @@ import com.google.genai.Client;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.Schema;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +24,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -56,7 +62,23 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private final Client geminiClient;
     private final ObjectMapper objectMapper;
     private final PostingPackageOrderServiceInterface postingPackageOrderServiceInterface;
+    // MỚI: bean riêng cho ghi lịch sử tìm kiếm (REQUIRES_NEW) — xem javadoc
+    // SearchHistoryTrackingService.
+    private final SearchHistoryTrackingService searchHistoryTrackingService;
+    // MỚI: dùng trong resolveOptionalUser() để tự tra cứu account khi
+    // SecurityContext chưa có (khách gọi API optional-auth) — xem javadoc
+    // resolveOptionalUser(). Không dùng qua AuthenUntil vì AuthenUntil chỉ
+    // đọc SecurityContext hiện có, không tự parse token.
+    private final AccountRepository accountRepository;
 
+
+    // MỚI: field injection + @Lazy (giống pattern field "self" có sẵn ngay
+    // dưới) — JwtServiceImplement cũng được JwtFilterConfig inject theo đúng
+    // kiểu field + @Lazy này, giữ nhất quán và tránh rủi ro khởi tạo sớm nếu
+    // có bean nào phụ thuộc vòng qua AccountRepository/UserDetailsService.
+    @Autowired
+    @Lazy
+    private JwtServiceImplement jwtService;
 
     @Autowired
     @Lazy
@@ -69,8 +91,76 @@ public class ListingServiceImplement implements ListingServiceInterface {
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
     // MỚI: số gợi ý tối đa mỗi nhóm ở GET /listings/search/suggestions.
     private static final int SUGGESTION_LIMIT = 5;
-    // MỚI: số dòng lịch sử tìm kiếm tối đa lưu cho mỗi tài khoản.
-    private static final int SEARCH_HISTORY_CAP = 20;
+    // (SEARCH_HISTORY_CAP = 20 đã chuyển sang SearchHistoryTrackingServiceImplement
+    // cùng với toàn bộ logic ghi lịch sử tìm kiếm — xem class đó. Giá trị giữ
+    // nguyên 20, chỉ đổi NƠI khai báo.)
+
+    // ─────────────────────────────────────────────────────────────────────
+    // MỚI: resolveOptionalUser() — thay cho authenUntil.getCurrentUSer() CHỈ
+    // ở searchListings/getSearchSuggestions (2 API optional-auth). KHÔNG sửa
+    // AuthenUntil/JwtFilterConfig/SecurityConfig theo đúng ràng buộc — thay
+    // vào đó, tự parse JWT ngay tại đây khi SecurityContext chưa có
+    // authentication thật (trường hợp luôn xảy ra với 2 API này, vì
+    // JwtFilterConfig đang bỏ qua parse JWT cho các URL này).
+    //
+    // Quy tắc, ĐÚNG như yêu cầu:
+    // - Bước 1: SecurityContext đã có authentication thật (không null,
+    //   isAuthenticated, KHÔNG phải AnonymousAuthenticationToken) -> dùng
+    //   lại authenUntil như cũ.
+    // - Bước 2: ngược lại, tự đọc header "Authorization" từ request hiện tại
+    //   qua RequestContextHolder -> không có / không "Bearer " -> null.
+    // - Bước 3: parse bằng jwtService (extractUsername, extractRole), tìm
+    //   Account qua accountRepository.findByUserName, rồi validateToken --
+    //   hợp lệ thì trả account, ngược lại null.
+    // - Bước 4: TOÀN BỘ bọc try/catch Exception trả null -- token hết hạn,
+    //   sai chữ ký, user không tồn tại, lỗi bất kỳ đều coi như khách, KHÔNG
+    //   set SecurityContext (method này chỉ ĐỌC, không set lại context --
+    //   tránh rò rỉ trạng thái auth sang các filter/interceptor khác của
+    //   request).
+    // ─────────────────────────────────────────────────────────────────────
+    private Account resolveOptionalUser() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null
+                    && authentication.isAuthenticated()
+                    && !(authentication instanceof AnonymousAuthenticationToken)) {
+                return authenUntil.getCurrentUSer();
+            }
+
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) {
+                return null;
+            }
+            HttpServletRequest request = attrs.getRequest();
+
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return null;
+            }
+            String token = authHeader.substring(7);
+
+            String username = jwtService.extractUsername(token);
+            String role = jwtService.extractRole(token);
+            if (username == null || role == null) {
+                return null;
+            }
+
+            Account account = accountRepository.findByUserName(username).orElse(null);
+            if (account == null) {
+                return null;
+            }
+
+            if (jwtService.validateToken(token, account.getUsername(), role)) {
+                return account;
+            }
+            return null;
+        } catch (Exception e) {
+            // Hết hạn / sai chữ ký / malformed / user không tồn tại / lỗi bất
+            // kỳ -> coi như khách, KHÔNG BAO GIỜ throw ra ngoài (đúng javadoc).
+            return null;
+        }
+    }
 
     private static class ListingConflictException extends RuntimeException {
         final HttpStatus status;
@@ -1255,7 +1345,9 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 );
             }
 
-            Account currentUser = authenUntil.getCurrentUSer();
+            // SỬA: dùng resolveOptionalUser() thay authenUntil.getCurrentUSer()
+            // — endpoint này là optional-auth (xem javadoc resolveOptionalUser).
+            Account currentUser = resolveOptionalUser();
             Set<Integer> favoritedIds = Collections.emptySet();
             if (currentUser != null) {
                 Investor investor = investorRepository
@@ -1266,8 +1358,18 @@ public class ListingServiceImplement implements ListingServiceInterface {
                 }
             }
 
-            if (currentUser != null && request.getKeyword() != null && !request.getKeyword().isBlank()) {
-                recordSearchHistory(currentUser, request.getKeyword().trim());
+            // SỬA: chỉ ghi lịch sử khi (1) đã đăng nhập, (2) đang ở TRANG ĐẦU
+            // (page null hoặc 0 — tránh ghi trùng mỗi lần user bấm "trang sau"
+            // với cùng 1 từ khoá), (3) keyword không blank. Gọi qua BEAN RIÊNG
+            // searchHistoryTrackingService (REQUIRES_NEW) để lỗi ghi lịch sử
+            // không làm rollback/hỏng kết quả search chính (hiện tại đang
+            // chung transaction @Transactional của searchListings nên lỗi
+            // save() gây UnexpectedRollbackException, trả 500 dù search đã
+            // thực hiện xong).
+            boolean isFirstPage = request.getPage() == null || request.getPage() == 0;
+            if (currentUser != null && isFirstPage
+                    && request.getKeyword() != null && !request.getKeyword().isBlank()) {
+                searchHistoryTrackingService.recordSearchHistory(currentUser, request.getKeyword().trim());
             }
 
             List<Integer> pageListingIds = listingPage.getContent().stream().map(Listing::getListingId).toList();
@@ -1422,63 +1524,42 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
 
-    private void recordSearchHistory(Account account, String keyword) {
-        try {
-            String trimmed = keyword.trim();
-            LocalDateTime now = LocalDateTime.now();
-
-            userEventTrackingService.recordSilently(account, UserEventTypeEnum.SEARCH, null);
-
-            SearchHistory existing = searchHistoryRepository
-                    .findByAccount_AccountIdAndKeywordIgnoreCase(account.getAccountId(), trimmed)
-                    .orElse(null);
-
-            if (existing != null) {
-                existing.setUpdatedAt(now);
-                searchHistoryRepository.save(existing);
-                return;
-            }
-
-            SearchHistory history = SearchHistory.builder()
-                    .account(account)
-                    .keyword(trimmed)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            searchHistoryRepository.save(history);
-
-            long total = searchHistoryRepository.countByAccount_AccountId(account.getAccountId());
-            if (total > SEARCH_HISTORY_CAP) {
-                searchHistoryRepository
-                        .findTop5ByAccount_AccountIdOrderByUpdatedAtAsc(account.getAccountId())
-                        .stream()
-                        .limit(total - SEARCH_HISTORY_CAP)
-                        .forEach(searchHistoryRepository::delete);
-            }
-        } catch (Exception e) {
-            log.warn("[ListingService] recordSearchHistory lỗi, bỏ qua: {}", e.getMessage());
-        }
-    }
+    // MỚI: độ dài tối thiểu của q để bắt đầu tìm 3 nhóm Location/Listing/
+    // PropertyType — dưới ngưỡng này (kể cả rỗng/null) chỉ trả Recent Search.
+    private static final int SUGGESTION_MIN_KEYWORD_LENGTH = 2;
+    // MỚI: cắt bớt q trước khi dùng cho LIKE, tránh query bất thường với
+    // chuỗi quá dài (vô tình hoặc cố ý) từ phía client.
+    private static final int SUGGESTION_MAX_KEYWORD_LENGTH = 50;
 
     @Override
     @Transactional
     public ResponseEntity<ApiResponse> getSearchSuggestions(String q) {
         try {
             String keyword = q == null ? "" : q.trim();
+            if (keyword.length() > SUGGESTION_MAX_KEYWORD_LENGTH) {
+                keyword = keyword.substring(0, SUGGESTION_MAX_KEYWORD_LENGTH);
+            }
 
             List<SearchSuggestionItem> locations = Collections.emptyList();
             List<SearchSuggestionItem> listings = Collections.emptyList();
             List<SearchSuggestionItem> propertyTypes = Collections.emptyList();
 
-            if (StringUtils.hasText(keyword)) {
-                locations = buildLocationSuggestions(keyword);
-                listings = buildListingSuggestions(keyword);
-                propertyTypes = buildPropertyTypeSuggestions(keyword);
+            // SỬA: dưới SUGGESTION_MIN_KEYWORD_LENGTH ký tự (gồm cả rỗng/null)
+            // thì bỏ qua 3 nhóm Location/Listing/PropertyType — chỉ còn nhóm
+            // Recent Search (nếu đã đăng nhập) — tránh query LIKE '%%' quá
+            // rộng khi user vừa mới gõ 1 ký tự.
+            if (keyword.length() >= SUGGESTION_MIN_KEYWORD_LENGTH) {
+                String likeKeyword = escapeLikePattern(keyword);
+                locations = buildLocationSuggestions(likeKeyword);
+                listings = buildListingSuggestions(likeKeyword);
+                propertyTypes = buildPropertyTypeSuggestions(likeKeyword);
             }
 
-            Account currentUser = authenUntil.getCurrentUSer();
+            // SỬA: dùng resolveOptionalUser() thay authenUntil.getCurrentUSer()
+            // — endpoint này là optional-auth (xem javadoc resolveOptionalUser).
+            Account currentUser = resolveOptionalUser();
             List<SearchSuggestionItem> recentSearches = currentUser != null
-                    ? buildRecentSearchSuggestions(currentUser, keyword)
+                    ? buildRecentSearchSuggestions(currentUser, keyword.isEmpty() ? keyword : escapeLikePattern(keyword))
                     : Collections.emptyList();
 
             SearchSuggestionResponse result = SearchSuggestionResponse.builder()
@@ -1488,12 +1569,37 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     .recentSearches(recentSearches)
                     .build();
 
-            return ResponseEntity.ok(ApiResponse.success(result, "Gợi ý tìm kiếm"));
+            // MỚI: API này public (optional auth) và response PHỤ THUỘC vào
+            // danh tính người gọi (Recent Search khác nhau theo từng user) —
+            // thêm Cache-Control: private để tránh bị cache chung (CDN/shared
+            // proxy) rồi trả nhầm lịch sử của người này cho người khác. Thêm
+            // ở TẦNG SERVICE (không đụng controller/config thêm) theo đúng
+            // mục 6 — "nếu service đang tạo ResponseEntity thì thêm header".
+            return ResponseEntity.ok()
+                    .header("Cache-Control", "private")
+                    .body(ApiResponse.success(result, "Gợi ý tìm kiếm"));
         } catch (Exception e) {
             log.error("[ListingService] getSearchSuggestions lỗi", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .header("Cache-Control", "private")
                     .body(ApiResponse.fail("Server_Error", e.getMessage()));
         }
+    }
+
+    // MỚI: escape ký tự đại diện của LIKE ('%' và '_') xuất hiện BÊN TRONG
+    // keyword người dùng gõ, để chúng được hiểu là ký tự LITERAL thay vì
+    // wildcard thật. LƯU Ý: Spring Data JPA derived query (ContainingIgnoreCase)
+    // mặc định KHÔNG khai báo ESCAPE clause, nên tự escape ở đây CHỈ có tác
+    // dụng với các Repository method đã được chuyển sang @Query tường minh
+    // có "ESCAPE '\\'" (xem ProvinceRepository, WardRepository,
+    // PropertyTypeRepository, SearchHistoryRepository, và
+    // ListingRepository#searchSuggestionsByTitleOrProjectName — sửa cùng đợt
+    // này). Escape '\' trước (escape chính ký tự escape) rồi mới escape '%'
+    // và '_', tránh escape lồng sai thứ tự.
+    private String escapeLikePattern(String raw) {
+        return raw.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     // Nhóm LOCATION — khớp tên Phường/Xã trước (cụ thể hơn), rồi tới Tỉnh/Thành,

@@ -1,7 +1,11 @@
 package com.GSU26SE22_SU26SE002.RealMateAI.repositories;
 
 import com.GSU26SE22_SU26SE002.RealMateAI.model.SearchHistory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,15 +14,21 @@ import java.util.Optional;
 @Repository
 public interface SearchHistoryRepository extends JpaRepository<SearchHistory, Integer> {
 
-    /** Dùng để UPSERT — nếu tài khoản đã từng tìm đúng keyword này (không phân biệt hoa/thường) thì chỉ cập nhật updatedAt. */
     Optional<SearchHistory> findByAccount_AccountIdAndKeywordIgnoreCase(Integer accountId, String keyword);
 
-    /** Recent Search khi q rỗng — 5 từ khoá tìm gần đây nhất của tài khoản. */
     List<SearchHistory> findTop5ByAccount_AccountIdOrderByUpdatedAtDesc(Integer accountId);
 
-    /** Recent Search khi có q — lọc theo từ khoá đang gõ, mới nhất trước. */
-    List<SearchHistory> findTop5ByAccount_AccountIdAndKeywordContainingIgnoreCaseOrderByUpdatedAtDesc(
-            Integer accountId, String keyword);
+
+    @Query("SELECT sh FROM SearchHistory sh WHERE sh.account.accountId = :accountId "
+            + "AND LOWER(sh.keyword) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\' "
+            + "ORDER BY sh.updatedAt DESC")
+    List<SearchHistory> findTop5ByAccountIdAndKeywordContainingEscaped(
+            @Param("accountId") Integer accountId, @Param("keyword") String keyword, Pageable pageable);
+
+    default List<SearchHistory> findTop5ByAccount_AccountIdAndKeywordContainingIgnoreCaseOrderByUpdatedAtDesc(
+            Integer accountId, String keyword) {
+        return findTop5ByAccountIdAndKeywordContainingEscaped(accountId, keyword, PageRequest.of(0, 5));
+    }
 
     /** Bản ghi cũ nhất — dùng để dọn bớt khi vượt giới hạn SEARCH_HISTORY_CAP mỗi tài khoản. */
     List<SearchHistory> findTop5ByAccount_AccountIdOrderByUpdatedAtAsc(Integer accountId);

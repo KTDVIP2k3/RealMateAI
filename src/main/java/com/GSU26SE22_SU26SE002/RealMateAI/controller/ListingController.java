@@ -173,15 +173,6 @@ public class ListingController {
         return listingService.getMyPropertyDetail(propertyId);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PUT /listings/{listingId}
-    //
-    // Luồng ảnh: giống luồng ① (existing property) — KHÔNG multipart. Nếu
-    // muốn bổ sung thêm ảnh, upload trước qua POST /media/upload/multiple
-    // (entityType=ACCOUNT, entityId=accountId của chính Seller), lấy publicId
-    // trả về đưa vào "draftImagePublicIds" — ảnh mới sẽ được NỐI THÊM vào bộ
-    // ảnh hiện có của Listing (không xoá ảnh cũ).
-    // ─────────────────────────────────────────────────────────────────────────
     @PutMapping("/seller/listings/{listingId}")
     @PreAuthorize("hasAnyRole('Seller', 'Admin', 'Staff')")
     @Operation(summary = "Seller/Admin: Chỉnh sửa nội dung tin đăng và thông số BĐS (ảnh mới — nếu có — upload trước qua POST /media/upload/multiple)")
@@ -231,15 +222,6 @@ public class ListingController {
         return listingService.searchListings(request != null ? request : new ListingSearchRequest());
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // MỚI: GET /listings/search — bản query-string của API tìm kiếm ở trên, để
-    // FE dựng được URL chia sẻ/back-forward được (VD /listings/search?q=vin&province=79)
-    // mà không cần gửi body JSON. KHÔNG viết lại logic lọc/JOIN/phân trang lần 2 —
-    // chỉ map query param sang đúng ListingSearchRequest rồi tái sử dụng lại
-    // ListingServiceInterface#searchListings() đã có, tránh lệch hành vi giữa 2 API.
-    // bedrooms/bathrooms là số lượng TỐI THIỂU (tương đương minBedroom/minBathroom
-    // của bản POST), propertyType là propertyTypeId (số).
-    // ─────────────────────────────────────────────────────────────────────────
     @GetMapping("/listings/search")
     @Operation(summary = "Tìm kiếm nâng cao tin đăng công khai bằng query string (q, propertyType, minPrice, maxPrice, minArea, maxArea, bedrooms, bathrooms, province, ward, sellerId, minLat, maxLat, minLong, maxLong)")
     public ResponseEntity<ApiResponse> searchListingsByQuery(
@@ -282,15 +264,8 @@ public class ListingController {
 
         return listingService.searchListings(request);
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // MỚI: GET /listings/search/suggestions — Autocomplete Suggestion cho ô tìm
-    // kiếm. VD q="vin" -> gợi ý gộp 4 nhóm: Location / Listing / Property Type /
-    // Recent Search (nhóm cuối chỉ có khi đã đăng nhập).
-    // ─────────────────────────────────────────────────────────────────────────
-    @GetMapping("/investor/listings/search/suggestions")
-    @PreAuthorize("hasRole('Investor')")
-    @Operation(summary = "Autocomplete Suggestion cho ô tìm kiếm (Location / Listing / Property Type / Recent Search)")
+    @GetMapping({"/listings/search/suggestions"})
+    @Operation(summary = "Autocomplete Suggestion cho ô tìm kiếm (Location / Listing / Property Type / Recent Search) — công khai, không bắt buộc đăng nhập; đăng nhập thì có thêm Recent Search của chính tài khoản")
     public ResponseEntity<ApiResponse> getSearchSuggestions(
             @RequestParam(required = false) String q) {
         return listingService.getSearchSuggestions(q);
