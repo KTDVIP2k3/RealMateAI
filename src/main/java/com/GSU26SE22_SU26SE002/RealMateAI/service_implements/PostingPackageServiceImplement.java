@@ -93,8 +93,8 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
         try {
             if (postingPackageRequest.getName() == null || postingPackageRequest.getName().trim().isEmpty() ||
                 postingPackageRequest.getDescription() == null || postingPackageRequest.getDescription().trim().isEmpty() ||
-                postingPackageRequest.getPosting_package_price() == null || postingPackageRequest.getPosting_package_price().compareTo(java.math.BigDecimal.ZERO) <= 0 ||
-                postingPackageRequest.getDuration() == null || postingPackageRequest.getDuration().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                postingPackageRequest.getPosting_package_price() == null || postingPackageRequest.getPosting_package_price().compareTo(java.math.BigDecimal.ZERO) < 0 ||
+                postingPackageRequest.getDuration() == null || postingPackageRequest.getDuration().compareTo(java.math.BigDecimal.ZERO) < 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Fields cannot be blank and numeric fields must be > 0"));
             }
@@ -147,8 +147,8 @@ public class PostingPackageServiceImplement implements PostingPackageServiceInte
         try {
             if (postingPackageRequest.getName() == null || postingPackageRequest.getName().trim().isEmpty() ||
                 postingPackageRequest.getDescription() == null || postingPackageRequest.getDescription().trim().isEmpty() ||
-                postingPackageRequest.getPosting_package_price() == null || postingPackageRequest.getPosting_package_price().compareTo(java.math.BigDecimal.ZERO) <= 0 ||
-                postingPackageRequest.getDuration() == null || postingPackageRequest.getDuration().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                postingPackageRequest.getPosting_package_price() == null || postingPackageRequest.getPosting_package_price().compareTo(java.math.BigDecimal.ZERO) < 0 ||
+                postingPackageRequest.getDuration() == null || postingPackageRequest.getDuration().compareTo(java.math.BigDecimal.ZERO) < 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Fields cannot be blank and numeric fields must be > 0"));
             }

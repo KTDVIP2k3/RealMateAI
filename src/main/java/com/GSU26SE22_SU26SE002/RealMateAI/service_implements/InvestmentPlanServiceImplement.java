@@ -328,9 +328,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     @Transactional
     public ResponseEntity<ApiResponse> generateCompleteInvestmentPlan(InvestmentPlanRequest request) {
         try {
-            if (request.getEquity() == null || request.getEquity() <= 0 ||
+            if (request.getEquity() == null || request.getEquity() < 0 ||
                     request.getLoanCapital() == null || request.getLoanCapital() < 0 ||
-                    request.getLongTermYear() <= 0 ||
+                    request.getLongTermYear() < 0 ||
                     request.getConsciousName() == null || request.getConsciousName().trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail("Bad_Request", "Invalid fields"));
@@ -420,9 +420,9 @@ public class InvestmentPlanServiceImplement implements InvestmentPlanServiceInte
     @Transactional
     public ResponseEntity<ApiResponse> updateExistingInvestmentPlan(Integer currentProfileId, UpdateInvestmentPlanRequest request) {
         try {
-            if (request.getEquity() == null || request.getEquity() <= 0 ||
+            if (request.getEquity() == null || request.getEquity() < 0 ||
                     request.getLoanCapital() == null || request.getLoanCapital() < 0 ||
-                    request.getLongTermYear() <= 0 ||
+                    request.getLongTermYear() < 0 ||
                     request.getConsciousName() == null || request.getConsciousName().trim().isEmpty()) {
 
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)

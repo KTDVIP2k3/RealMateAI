@@ -518,11 +518,11 @@ public class ListingServiceImplement implements ListingServiceInterface {
     }
 
     private boolean isNonPositive(Number value) {
-        return value == null || value.doubleValue() <= 0;
+        return value == null || value.doubleValue() < 0;
     }
 
     private boolean isNonPositiveWhenPresent(Number value) {
-        return value != null && value.doubleValue() <= 0;
+        return value != null && value.doubleValue() < 0;
     }
 
     private boolean invalidThumbnailIndex(Integer index, List<String> publicIds) {

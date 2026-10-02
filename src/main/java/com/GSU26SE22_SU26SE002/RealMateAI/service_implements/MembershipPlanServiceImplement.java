@@ -133,8 +133,8 @@ public class MembershipPlanServiceImplement implements MembershipPlanServiceInte
         try {
             if (membershipPlanRequest.getName() == null || membershipPlanRequest.getName().trim().isEmpty() ||
                 membershipPlanRequest.getDescription() == null || membershipPlanRequest.getDescription().trim().isEmpty() ||
-                membershipPlanRequest.getPrice() == null || membershipPlanRequest.getPrice().compareTo(java.math.BigDecimal.ZERO) <= 0 ||
-                membershipPlanRequest.getQuantity() <= 0) {
+                membershipPlanRequest.getPrice() == null || membershipPlanRequest.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0 ||
+                membershipPlanRequest.getQuantity() < 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.toString(), "Fields cannot be blank and numeric fields must be > 0"));
             }
