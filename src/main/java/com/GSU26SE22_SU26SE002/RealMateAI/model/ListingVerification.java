@@ -25,6 +25,9 @@ public class ListingVerification {
     @JsonIgnore
     private Listing listing;
 
+    @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
+    private boolean isActive = true;
+
     // Người duyệt cuối cùng — NULL khi record được tự tạo ở trạng thái PENDING
     // lúc Seller tạo/tạo lại Listing (chưa có Staff/Admin nào duyệt).
     @ManyToOne(fetch = FetchType.LAZY)

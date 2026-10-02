@@ -460,6 +460,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
         ListingVerification verification = ListingVerification.builder()
                 .listing(listing)
                 .status(ListingStatusEnum.WAITING_PAYMENT)
+                .isActive(true)
                 .build();
         listingVerificationRepository.save(verification);
         listing.setListingVerification(verification);
@@ -479,6 +480,7 @@ public class ListingServiceImplement implements ListingServiceInterface {
             verification.setStatus(ListingStatusEnum.PENDING);
             verification.setReviewerNote(null);
             verification.setVerifiedAt(null);
+            verification.setActive(true);
             listingVerificationRepository.save(verification);
         }
     }
@@ -1047,6 +1049,15 @@ public class ListingServiceImplement implements ListingServiceInterface {
                     listing.setStatus(SellerListingStatusEnum.DELETED);
                     listing.setIsActive(false);
                     listing.setDeletedAt(LocalDateTime.now());
+                    listingVerificationRepository.findByListing_ListingIdAndStatus(listingId, ListingStatusEnum.PENDING)
+                            .ifPresent(verification -> {
+                                verification.setStatus(ListingStatusEnum.REJECTED); // Hoặc CANCELLED
+                                verification.setActive(false); // Ngắt active của Verification nếu bạn vừa thêm vào entity này
+                                verification.setReviewerNote("Bài đăng đã bị người bán xóa");
+                                listingVerificationRepository.save(verification);
+                            });
+
+                    msg = "Xoá bài đăng thành công (id=" + listingId + ")";
                     msg = "Xoá bài đăng thành công (id=" + listingId + ")";
                 }
                 default -> throw new IllegalStateException("Trạng thái không hợp lệ: " + targetStatus);
