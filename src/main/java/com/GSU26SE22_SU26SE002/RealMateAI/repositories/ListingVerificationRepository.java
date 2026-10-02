@@ -26,12 +26,14 @@ public interface ListingVerificationRepository extends JpaRepository<ListingVeri
      * (@BatchSize trên Listing#listingImages) khi service truy cập.
      */
     @Query("""
-            SELECT lv FROM ListingVerification lv
-            JOIN FETCH lv.listing l
-            JOIN FETCH l.property p
-            LEFT JOIN FETCH p.propertyType pt
-            WHERE lv.status = :status
-            ORDER BY lv.listingVerificationId ASC
-            """)
+        SELECT lv FROM ListingVerification lv
+        JOIN FETCH lv.listing l
+        JOIN FETCH l.property p
+        LEFT JOIN FETCH p.propertyType pt
+        WHERE lv.status = :status
+          AND l.isActive = true
+          AND l.deletedAt IS NULL
+        ORDER BY lv.listingVerificationId DESC
+        """)
     List<ListingVerification> findPendingQueue(@Param("status") ListingStatusEnum status);
 }
